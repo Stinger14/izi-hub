@@ -51,7 +51,25 @@ defmodule Core.MixProject do
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:plug_cowboy, "~> 2.5"},
+
+      # Authentication
+      {:guardian, "~> 2.3"},
+      {:bcrypt_elixir, "~> 3.0"},
+
+      # Background Jobs
+      {:oban, "~> 2.15"},
+
+      # HTTP Client
+      {:httpoison, "~> 2.0"},
+
+      # CORS
+      {:corsica, "~> 2.1"},
+
+      # Development
+      {:phoenix_live_reload, "~> 1.2", only: :dev}
     ]
   end
 
