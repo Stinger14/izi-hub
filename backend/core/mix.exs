@@ -69,7 +69,8 @@ defmodule Core.MixProject do
       {:corsica, "~> 2.1"},
 
       # Development
-      {:phoenix_live_reload, "~> 1.2", only: :dev}
+      {:phoenix_live_reload, "~> 1.2", only: :dev},
+      {:dotenv, "~> 3.1.0", only: [:dev, :test]}
     ]
   end
 
