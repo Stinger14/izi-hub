@@ -2,12 +2,7 @@ import Config
 
 # Configure your database
 config :core, Core.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost",
-  database: "core_dev",
-  stacktrace: true,
-  show_sensitive_data_on_connection_error: true,
+  url: System.get_env("DATABASE_URL"),
   pool_size: 10
 
 # For development, we disable any cache and enable
@@ -23,7 +18,7 @@ config :core, CoreWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "dlnIlQnZjWhDpFyzyUkuUMA1iqgaYVScNPNcMB50VAk+J/x1Eu2pkNTGlqg7nk4q",
+  secret_key_base: System.get_env("SECRET_KEY_BASE"),
   watchers: []
 
 # ## SSL Support
