@@ -18,7 +18,7 @@ defmodule Core.Accounts.UserToken do
 
     belongs_to :user, Core.Accounts.User
 
-    timestamps(type: :utc_datetime)
+    timestamps(updated_at: false)
   end
 
   @doc """
