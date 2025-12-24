@@ -56,7 +56,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/ - removed for Elixir compatibility (Python package lib/ pattern)
 lib64/
 parts/
 sdist/
