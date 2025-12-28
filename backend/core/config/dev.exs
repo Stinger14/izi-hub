@@ -1,9 +1,9 @@
 import Config
 
 # Configure your database
-config :core, Core.Repo,
-  url: System.get_env("DATABASE_URL"),
-  pool_size: 10
+# config :core, Core.Repo,
+#   url: System.get_env("DATABASE_URL"),
+#   pool_size: 10
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
