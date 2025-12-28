@@ -17,7 +17,7 @@ defmodule Core.Finance.Budget do
     belongs_to :user, Core.Accounts.User
     belongs_to :category, Core.Finance.Category
 
-    timestamps(type: :utc_datetime)
+    timestamps()
   end
 
   @periods ["daily", "weekly", "monthly", "quarterly", "yearly", "custom"]
