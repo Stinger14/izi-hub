@@ -20,12 +20,12 @@ defmodule Core.AccountsTest do
       assert user.hashed_password != nil
     end
 
-    test "Register a user with invalid attributes" do
+    test "Does not register a user with invalid attributes" do
       attrs = %{
-        email: nil,
-        password: nil,
-        username: nil,
-        full_name: nil
+        email: "",
+        password: "",
+        username: "",
+        full_name: ""
       }
 
       assert {:error, changeset} = Accounts.register_user(attrs)
