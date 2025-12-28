@@ -23,7 +23,6 @@ defmodule Core.Accounts.User do
     has_many :posts, Core.Blog.Post
     has_many :transactions, Core.Finances.Transaction
     has_many :categories, Core.Finances.Category
-    has_many :reports, Core.Analytics.Report
     has_many :notifications, Core.Notifications.Notification
 
     timestamps()
