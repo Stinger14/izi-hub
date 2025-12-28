@@ -7,9 +7,9 @@
 # General application configuration
 import Config
 
-config :core,
-  ecto_repos: [Core.Repo],
-  generators: [timestamp_type: :utc_datetime]
+# config :core,
+#   ecto_repos: [Core.Repo],
+#   generators: [timestamp_type: :utc_datetime]
 
 # Configure db
 config :core, Core.Repo,
