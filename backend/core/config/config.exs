@@ -7,25 +7,9 @@
 # General application configuration
 import Config
 
-config :core,
-  ecto_repos: [Core.Repo],
-  generators: [timestamp_type: :utc_datetime]
-
 # Configure db
-config :core, Core.Repo,
-  url: System.get_env("DATABASE_URL"),
-  pool_size: 10
-
-# Configure the endpoint
-config :core, CoreWeb.Endpoint,
-  url: [host: "localhost"],
-  adapter: Bandit.PhoenixAdapter,
-  render_errors: [
-    formats: [json: CoreWeb.ErrorJSON],
-    layout: false
-  ],
-  pubsub_server: Core.PubSub,
-  live_view: [signing_salt: "8MSjDaiT"]
+config :core,
+  ecto_repos: [Core.Repo]
 
 # Configure the mailer
 #
