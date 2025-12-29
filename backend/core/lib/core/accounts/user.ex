@@ -21,8 +21,8 @@ defmodule Core.Accounts.User do
     has_many :user_tokens, Core.Accounts.UserToken
     has_many :projects, Core.Portfolio.Project
     has_many :posts, Core.Blog.Post
-    has_many :transactions, Core.Finances.Transaction
-    has_many :categories, Core.Finances.Category
+    has_many :transactions, Core.Finance.Transaction
+    has_many :categories, Core.Finance.Category
     has_many :notifications, Core.Notifications.Notification
 
     timestamps()
