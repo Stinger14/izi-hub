@@ -21,5 +21,5 @@ if System.get_env("PHX_SERVER") do
 end
 
 config :core, Core.Repo,
-  pool_size: String.to_integer(Syste.get_env("POOL_SIZE") || "10"),
+  pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
   ssl: System.get_env("SSL") == "true"

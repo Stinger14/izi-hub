@@ -11,7 +11,7 @@ defmodule Core.Config do
   @envdoc "DB password"
   app_env(:db_password, :core, [Core.Repo, :password],
     os_env: "POSTGRES_PASSWORD",
-    default: "izihubpassword"
+    default: ""
   )
 
   @envdoc "DB hostname"
@@ -30,6 +30,12 @@ defmodule Core.Config do
   app_env(:db_name, :core, [Core.Repo, :database],
     os_env: "POSTGRES_DB",
     default: "izihub-db"
+  )
+
+  @envdoc "Secret key base"
+  app_env(:secret_key_base, :core, [Core.Repo, :secret],
+    os_env: "SECRET_KEY_BASE",
+    default: ""
   )
 
   @envdoc "DB URL (prod)"

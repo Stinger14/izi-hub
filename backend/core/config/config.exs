@@ -11,17 +11,6 @@ import Config
 config :core,
   ecto_repos: [Core.Repo]
 
-# Configure the endpoint
-config :core, CoreWeb.Endpoint,
-  url: [host: "localhost"],
-  adapter: Bandit.PhoenixAdapter,
-  render_errors: [
-    formats: [json: CoreWeb.ErrorJSON],
-    layout: false
-  ],
-  pubsub_server: Core.PubSub,
-  live_view: [signing_salt: "8MSjDaiT"]
-
 # Configure the mailer
 #
 # By default it uses the "Local" adapter which stores the emails
