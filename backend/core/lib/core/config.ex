@@ -5,7 +5,7 @@ defmodule Core.Config do
   @envdoc "DB username"
   app_env(:db_username, :core, [Core.Repo, :username],
     os_env: "POSTGRES_USER",
-    default: "postgres"
+    default: "izihub"
   )
 
   @envdoc "DB password"
@@ -29,7 +29,7 @@ defmodule Core.Config do
   @envdoc "DB name"
   app_env(:db_name, :core, [Core.Repo, :database],
     os_env: "POSTGRES_DB",
-    default: "izihub-db"
+    default: "izihub_db"
   )
 
   @envdoc "Secret key base"
