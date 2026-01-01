@@ -40,5 +40,6 @@ erl_crash.dump
 /installer/deps
 
 #.env
+.envrc
 
 # End of https://www.toptal.com/developers/gitignore/api/phoenix,elixir
