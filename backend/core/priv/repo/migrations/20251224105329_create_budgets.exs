@@ -9,7 +9,7 @@ defmodule Core.Repo.Migrations.CreateBudgets do
       add :period, :string, null: false
       add :start_date, :date, null: false
       add :end_date, :date
-      add :alert_threshold, :integer, default: 80
+      add :alert_thershold, :integer, default: 80
       add :is_active, :boolean, default: true
       add :user_id, references(:users, type: :binary_id, on_delete: :delete_all), null: false
       add :category_id, references(:categories, type: :binary_id, on_delete: :nilify_all)
