@@ -2,6 +2,7 @@ import Config
 
 # Configure your database
 config :core, Core.Repo,
+  database: "izihub_db",
   pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
   ssl: System.get_env("SSL") == "true"
 

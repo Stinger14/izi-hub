@@ -8,7 +8,14 @@ defmodule Core.AnalyticsTest do
 
     import Core.AnalyticsFixtures
 
-    @invalid_attrs %{page_path: nil, referrer: nil, user_agent: nil, country: nil, city: nil, devive_type: nil}
+    @invalid_attrs %{
+      page_path: nil,
+      referrer: nil,
+      user_agent: nil,
+      country: nil,
+      city: nil,
+      devive_type: nil
+    }
 
     test "list_page_views/0 returns all page_views" do
       page_view = page_view_fixture()
@@ -21,7 +28,14 @@ defmodule Core.AnalyticsTest do
     end
 
     test "create_page_view/1 with valid data creates a page_view" do
-      valid_attrs = %{page_path: "some page_path", referrer: "some referrer", user_agent: "some user_agent", country: "some country", city: "some city", devive_type: "some devive_type"}
+      valid_attrs = %{
+        page_path: "some page_path",
+        referrer: "some referrer",
+        user_agent: "some user_agent",
+        country: "some country",
+        city: "some city",
+        devive_type: "some devive_type"
+      }
 
       assert {:ok, %PageView{} = page_view} = Analytics.create_page_view(valid_attrs)
       assert page_view.page_path == "some page_path"
@@ -38,7 +52,15 @@ defmodule Core.AnalyticsTest do
 
     test "update_page_view/2 with valid data updates the page_view" do
       page_view = page_view_fixture()
-      update_attrs = %{page_path: "some updated page_path", referrer: "some updated referrer", user_agent: "some updated user_agent", country: "some updated country", city: "some updated city", devive_type: "some updated devive_type"}
+
+      update_attrs = %{
+        page_path: "some updated page_path",
+        referrer: "some updated referrer",
+        user_agent: "some updated user_agent",
+        country: "some updated country",
+        city: "some updated city",
+        devive_type: "some updated devive_type"
+      }
 
       assert {:ok, %PageView{} = page_view} = Analytics.update_page_view(page_view, update_attrs)
       assert page_view.page_path == "some updated page_path"
