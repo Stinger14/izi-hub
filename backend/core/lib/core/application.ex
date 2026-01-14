@@ -7,6 +7,10 @@ defmodule Core.Application do
 
   @impl true
   def start(_type, _args) do
+    # Load/Override config from env/config/defaults
+    Core.Config.preload()
+    Core.Config.validate()
+
     children = [
       CoreWeb.Telemetry,
       Core.Repo,
