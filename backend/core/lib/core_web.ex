@@ -55,6 +55,7 @@ defmodule CoreWeb do
       import Phoenix.HTML
       import Phoenix.LiveView.Helpers
       alias Phoenix.LiveView.JS
+      unquote(verified_routes())
     end
   end
 

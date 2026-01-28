@@ -12,6 +12,7 @@ config :core, CoreWeb.Endpoint,
   code_reloader: true,
   debug_errors: true,
   secret_key_base: "dlnIlQnZjWhDpFyzyUkuUMA1iqgaYVScNPNcMB50VAk+J/x1Eu2pkNTGlqg7nk4q",
+  live_view: [signing_salt: "GI71qW3j29IIGwNi"],
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]}
   ]

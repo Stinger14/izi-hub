@@ -1,5 +1,4 @@
 defmodule Core.MixProject do
-  alias Phoenix.HTML
   use Mix.Project
 
   def project do
