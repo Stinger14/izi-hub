@@ -23,9 +23,8 @@ defmodule CoreWeb.Endpoint do
   plug Plug.Static,
     at: "/",
     from: :core,
-    gzip: not code_reloading?,
-    only: CoreWeb.static_paths(),
-    raise_on_missing_only: code_reloading?
+    gzip: false,
+    only: CoreWeb.static_paths()
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
