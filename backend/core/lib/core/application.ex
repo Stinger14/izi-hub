@@ -15,7 +15,7 @@ defmodule Core.Application do
       CoreWeb.Telemetry,
       Core.Repo,
       {DNSCluster, query: Application.get_env(:core, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: Core.PubSub},
+      {Phoenix.PubSub, name: Core.PubSub, adapter: Phoenix.PubSub.PG2},
       # Start a worker by calling: Core.Worker.start_link(arg)
       # {Core.Worker, arg},
       # Start to serve requests, typically the last entry
