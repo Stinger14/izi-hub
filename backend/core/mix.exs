@@ -75,13 +75,16 @@ defmodule Core.MixProject do
       {:corsica, "~> 2.1"},
 
       # Development
-      {:phoenix_live_reload, "~> 1.2", only: :dev},
+      {:phoenix_live_reload, "~> 1.5", only: :dev},
 
       # Assets bundling (no Node required)
       {:esbuild, "~> 0.9", runtime: Mix.env() == :dev},
 
       # Environment variables
-      {:skogsra, "~> 2.5"}
+      {:skogsra, "~> 2.5"},
+
+      # Tailwind
+      {:tailwind, "~> 0.3", runtime: Mix.env() == :dev}
     ]
   end
 
@@ -94,8 +97,8 @@ defmodule Core.MixProject do
   defp aliases do
     [
       setup: ["deps.get", "ecto.setup"],
-      "assets.build": ["esbuild default"],
-      "assets.deploy": ["esbuild default --minify", "phx.digest"],
+      "assets.build": ["esbuild default", "tailwind default"],
+      "assets.deploy": ["esbuild default --minify", "phx.digest", "tailwind default --minify"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
