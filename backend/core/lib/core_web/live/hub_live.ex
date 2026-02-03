@@ -12,10 +12,12 @@ defmodule CoreWeb.HubLive do
   def render(assigns) do
     ~H"""
     <main style="padding: 24px;">
-    <h1>IziHub LiveView</h1>
+    <h1 class="text-3xl font-bold underline">
+        IziHub LiveView
+    </h1>
     <p>Count: <%= @count %></p>
 
-    <button phx-click="Increase">+1</button>
+    <button phx-click="inc">+1</button>
     </main>
     """
   end
