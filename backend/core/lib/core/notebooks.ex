@@ -6,7 +6,7 @@ defmodule Core.Notebooks do
   @github_owner "Stinger14"
   @github_repo "izi-hub"
   @github_branch "main"
-  @github_path "priv/notebooks"
+  @github_path "backend/core/priv/notebooks"
 
   @base_api "https://api.github.com"
   @base_raw "https://raw.githubusercontent.com"
