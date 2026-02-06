@@ -10,7 +10,8 @@ defmodule Core.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      compilers: [:phoenix_live_view] ++ Mix.compilers()
     ]
   end
 
@@ -55,6 +56,11 @@ defmodule Core.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:plug_cowboy, "~> 2.5"},
 
+      # LiveView + HTML
+      {:phoenix_live_view, "~> 1.1"},
+      {:phoenix_html, "~> 4.1"},
+      {:lazy_html, ">= 0.0.0", only: :test},
+
       # Authentication
       {:guardian, "~> 2.3"},
       {:bcrypt_elixir, "~> 3.0"},
@@ -69,10 +75,19 @@ defmodule Core.MixProject do
       {:corsica, "~> 2.1"},
 
       # Development
-      {:phoenix_live_reload, "~> 1.2", only: :dev},
+      {:phoenix_live_reload, "~> 1.5", only: :dev},
+
+      # Assets bundling (no Node required)
+      {:esbuild, "~> 0.9", runtime: Mix.env() == :dev},
 
       # Environment variables
-      {:skogsra, "~> 2.5"}
+      {:skogsra, "~> 2.5"},
+
+      # Tailwind
+      {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
+
+      # Markdown
+      {:earmark, "~> 1.4"}
     ]
   end
 
@@ -85,6 +100,8 @@ defmodule Core.MixProject do
   defp aliases do
     [
       setup: ["deps.get", "ecto.setup"],
+      "assets.build": ["esbuild default", "tailwind default"],
+      "assets.deploy": ["esbuild default --minify", "phx.digest", "tailwind default --minify"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],

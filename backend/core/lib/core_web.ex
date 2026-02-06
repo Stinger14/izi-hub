@@ -17,11 +17,11 @@ defmodule CoreWeb do
   those modules here.
   """
 
-  def static_paths, do: ~w(assets fonts images favicon.ico robots.txt)
+  def static_paths, do: ~w(assets fonts images favicon.ico robots.txt maxly_garcia_cv.pdf)
 
   def router do
     quote do
-      use Phoenix.Router, helpers: false
+      use Phoenix.Router, helpers: true
 
       # Import common connection and controller functions to use in pipelines
       import Plug.Conn
@@ -37,13 +37,36 @@ defmodule CoreWeb do
 
   def controller do
     quote do
-      use Phoenix.Controller, formats: [:html, :json]
+      use Phoenix.Controller,
+        formats: [:html, :json],
+        layouts: [html: CoreWeb.Layouts]
 
       use Gettext, backend: CoreWeb.Gettext
 
       import Plug.Conn
 
       unquote(verified_routes())
+    end
+  end
+
+  def html do
+    quote do
+      use Phoenix.Component
+      import Phoenix.HTML
+      import Phoenix.LiveView.Helpers
+      import CoreWeb.CoreComponents
+      alias CoreWeb.Layouts
+      alias Phoenix.LiveView.JS
+      unquote(verified_routes())
+    end
+  end
+
+  def live_view do
+    quote do
+      use Phoenix.LiveView,
+        layouts: {CoreWeb.Layouts, :root}
+
+      unquote(html())
     end
   end
 

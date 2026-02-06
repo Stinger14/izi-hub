@@ -1,4 +1,5 @@
 defmodule CoreWeb.Router do
+  import Phoenix.LiveView.Router
   use CoreWeb, :router
 
   pipeline :api do
@@ -7,6 +8,25 @@ defmodule CoreWeb.Router do
 
   scope "/api", CoreWeb do
     pipe_through :api
+  end
+
+  pipeline :browser do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, html: {CoreWeb.Layouts, :root}
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+  end
+
+  scope "/", CoreWeb do
+    pipe_through :browser
+
+    live "/welcome", HubLandingLive, :index
+    live "/", HubLive, :index
+    live "/profile", ProfileLive, :index
+    live "/notebooks", NotebooksLive, :index
+    live "/notebooks/:slug", NotebooksLive, :show
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
@@ -19,7 +39,7 @@ defmodule CoreWeb.Router do
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
-      pipe_through [:fetch_session, :protect_from_forgery]
+      pipe_through [:browser]
 
       live_dashboard "/dashboard", metrics: CoreWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview

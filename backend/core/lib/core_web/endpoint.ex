@@ -7,7 +7,7 @@ defmodule CoreWeb.Endpoint do
   @session_options [
     store: :cookie,
     key: "_core_key",
-    signing_salt: "AfBWvQok",
+    signing_salt: "GI71qW3j29IIGwNi",
     same_site: "Lax"
   ]
 
@@ -23,15 +23,17 @@ defmodule CoreWeb.Endpoint do
   plug Plug.Static,
     at: "/",
     from: :core,
-    gzip: not code_reloading?,
-    only: CoreWeb.static_paths(),
-    raise_on_missing_only: code_reloading?
+    gzip: false,
+    only: CoreWeb.static_paths()
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
   if code_reloading? do
     plug Phoenix.CodeReloader
     plug Phoenix.Ecto.CheckRepoStatus, otp_app: :core
+    plug Phoenix.LiveReloader
+
+    socket "/phoenix/live_reload/socket", Phoenix.LiveReloader.Socket
   end
 
   plug Phoenix.LiveDashboard.RequestLogger,
