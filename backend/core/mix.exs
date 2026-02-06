@@ -84,7 +84,10 @@ defmodule Core.MixProject do
       {:skogsra, "~> 2.5"},
 
       # Tailwind
-      {:tailwind, "~> 0.3", runtime: Mix.env() == :dev}
+      {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
+
+      # Markdown
+      {:earmark, "~> 1.4"}
     ]
   end
 
