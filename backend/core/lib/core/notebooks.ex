@@ -3,10 +3,10 @@ defmodule Core.Notebooks do
   	Fetches and renders Livebooks notebooks (.livemd) in Github
   """
 
-  @github_owner "Sting14"
+  @github_owner "Stinger14"
   @github_repo "izi-hub"
-  @github_branch "feat/liveview-homepage"
-  @github_path "/priv/notebooks"
+  @github_branch "main"
+  @github_path "backend/core/priv/notebooks"
 
   @base_api "https://api.github.com"
   @base_raw "https://raw.githubusercontent.com"
@@ -56,7 +56,7 @@ defmodule Core.Notebooks do
   end
 
   defp raw_url(name) do
-    "#{@base_raw}/#{@github_owner}, #{@github_repo}, #{@github_branch}, #{@github_path}/#{name}"
+    "#{@base_raw}/#{@github_owner}/#{@github_repo}/#{@github_branch}/#{@github_path}/#{name}"
   end
 
   defp request(url) do
