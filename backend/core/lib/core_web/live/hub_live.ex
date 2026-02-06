@@ -35,46 +35,37 @@ defmodule CoreWeb.HubLive do
             <div>
               <p class="text-sm font-medium text-purple-600">Home</p>
               <h1 class="mt-3 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
-                Everything your team needs, in one calm workspace.
+                Hi, I’m Maxly García — software developer.
               </h1>
               <p class="mt-4 text-lg text-slate-600">
-                IziHub keeps updates, links, and resources in a single, focused home—so everyone stays
-                aligned.
+                I build practical, reliable systems and the tooling that keeps teams moving.
               </p>
               <div class="mt-8 flex flex-wrap items-center gap-4">
                 <a
-                  href="#open"
+                  href={~p"/profile"}
                   class="rounded-lg bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800"
                 >
-                  Open dashboard
-                </a>
-                <a
-                  href="#updates"
-                  class="rounded-lg border border-purple-100 bg-white/80 px-5 py-3 text-sm font-medium text-slate-700 hover:border-purple-200"
-                >
-                  View updates
+                  View profile
                 </a>
               </div>
             </div>
-            <div class="rounded-2xl border border-purple-100 bg-white/80 p-6 shadow-sm">
-              <div class="rounded-xl border border-purple-100 bg-white p-5">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Today</p>
-                <h2 class="mt-2 text-lg font-semibold text-slate-900">Team highlights</h2>
-                <p class="mt-2 text-sm text-slate-600">
-                  A quick snapshot of what’s moving this week.
-                </p>
-                <div class="mt-4 grid gap-3">
-                  <div class="rounded-lg border border-purple-100 bg-purple-50 px-3 py-2 text-xs text-slate-600">
-                    Roadmap review — Thu 10:00
-                  </div>
-                  <div class="rounded-lg border border-purple-100 bg-purple-50 px-3 py-2 text-xs text-slate-600">
-                    New onboarding checklist
-                  </div>
-                  <div class="rounded-lg border border-purple-100 bg-purple-50 px-3 py-2 text-xs text-slate-600">
-                    Support playbook refresh
-                  </div>
-                </div>
-              </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <a href="#" class="rounded-2xl border border-purple-100 bg-white/80 p-5 text-left">
+                <p class="text-sm font-semibold text-slate-900">Blog</p>
+                <p class="mt-1 text-xs text-slate-600">Writing and updates.</p>
+              </a>
+              <a href={~p"/notebooks"} class="rounded-2xl border border-purple-100 bg-white/80 p-5 text-left">
+                <p class="text-sm font-semibold text-slate-900">Notebooks</p>
+                <p class="mt-1 text-xs text-slate-600">Try API commands in Livebook.</p>
+              </a>
+              <a href="#" class="rounded-2xl border border-purple-100 bg-white/80 p-5 text-left">
+                <p class="text-sm font-semibold text-slate-900">News</p>
+                <p class="mt-1 text-xs text-slate-600">Latest notes and announcements.</p>
+              </a>
+              <a href="#" class="rounded-2xl border border-purple-100 bg-white/80 p-5 text-left">
+                <p class="text-sm font-semibold text-slate-900">Tools</p>
+                <p class="mt-1 text-xs text-slate-600">Utilities and internal helpers.</p>
+              </a>
             </div>
           </div>
         </section>

@@ -147,13 +147,13 @@ defmodule CoreWeb.HubLandingLive do
                   </div>
                 </div>
               </div>
-              <div class="aspect-[16/10] rounded-2xl border border-slate-200 bg-slate-50"></div>
+              <div class="aspect-16/10 rounded-2xl border border-slate-200 bg-slate-50"></div>
             </div>
           </section>
 
           <section class="mx-auto max-w-6xl px-6 pb-16">
             <div class="grid items-center gap-10 lg:grid-cols-2">
-              <div class="aspect-[16/10] rounded-2xl border border-slate-200 bg-slate-50"></div>
+              <div class="aspect-16/10 rounded-2xl border border-slate-200 bg-slate-50"></div>
               <div>
                 <h2 class="text-2xl font-semibold text-slate-900">
                   Keep links, tools, and docs in one tidy place.

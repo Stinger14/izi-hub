@@ -24,6 +24,8 @@ defmodule CoreWeb.Router do
 
     live "/welcome", HubLandingLive, :index
     live "/", HubLive, :index
+    live "/profile", ProfileLive, :index
+    live "/notebooks", NotebooksLive, :index
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
