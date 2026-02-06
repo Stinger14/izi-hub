@@ -21,6 +21,8 @@ defmodule CoreWeb.Router do
 
   scope "/", CoreWeb do
     pipe_through :browser
+
+    live "/welcome", HubLandingLive, :index
     live "/", HubLive, :index
   end
 

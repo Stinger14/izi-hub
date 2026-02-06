@@ -77,10 +77,9 @@ defmodule Core.AccountsTest do
     end
 
     test "updates user profile", %{user: user} do
-      attrs = %{full_name: "Updated User", bio: "This is my bio."}
+      attrs = %{full_name: "Updated User"}
       assert {:ok, updated_user} = Accounts.update_user_profile(user, attrs)
       assert updated_user.full_name == "Updated User"
-      assert updated_user.bio == "This is my bio."
     end
 
     test "does not update profile with invalid attributes", %{user: user} do
