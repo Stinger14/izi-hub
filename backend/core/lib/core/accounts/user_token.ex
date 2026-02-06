@@ -28,11 +28,16 @@ defmodule Core.Accounts.UserToken do
     token = :crypto.strong_rand_bytes(@rand_size)
     hashed_token = :crypto.hash(@hash_algorithm, token) |> Base.encode64()
 
+    expires_at =
+      NaiveDateTime.utc_now()
+      |> NaiveDateTime.add(expires_in_seconds, :second)
+      |> NaiveDateTime.truncate(:second)
+
     {Base.url_encode64(token, padding: false),
      %__MODULE__{
        token: hashed_token,
        token_type: token_type,
-       expires_at: DateTime.add(DateTime.utc_now(), expires_in_seconds, :second),
+       expires_at: expires_at,
        user_id: user.id
      }}
   end
@@ -41,17 +46,21 @@ defmodule Core.Accounts.UserToken do
     Checks if a token is valid
   """
   def verify_token_query(token, token_type) do
-    query =
-      from token in by_token_type_query(token, token_type),
-        join: user in assoc(token, :user),
-        where: token.expires_at > ^NaiveDateTime.utc_now(),
-        select: user
+    with {:ok, decoded_token} <- Base.url_decode64(token, padding: false) do
+      query =
+        from token in by_token_type_query(decoded_token, token_type),
+          join: user in assoc(token, :user),
+          where: token.expires_at > ^NaiveDateTime.utc_now(),
+          select: user
 
-    {:ok, query}
+      {:ok, query}
+    else
+      :error -> :error
+    end
   end
 
-  defp by_token_type_query(token, token_type) do
-    hashed_token = :crypto.hash(@hash_algorithm, token) |> Base.encode64()
+  defp by_token_type_query(decoded_token, token_type) do
+    hashed_token = :crypto.hash(@hash_algorithm, decoded_token) |> Base.encode64()
 
     from __MODULE__,
       where: [token: ^hashed_token, token_type: ^token_type]

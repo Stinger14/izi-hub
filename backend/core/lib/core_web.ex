@@ -17,7 +17,7 @@ defmodule CoreWeb do
   those modules here.
   """
 
-  def static_paths, do: ~w(assets fonts images favicon.ico robots.txt)
+  def static_paths, do: ~w(assets fonts images favicon.ico robots.txt maxly_garcia_cv.pdf)
 
   def router do
     quote do
@@ -54,6 +54,8 @@ defmodule CoreWeb do
       use Phoenix.Component
       import Phoenix.HTML
       import Phoenix.LiveView.Helpers
+      import CoreWeb.CoreComponents
+      alias CoreWeb.Layouts
       alias Phoenix.LiveView.JS
       unquote(verified_routes())
     end

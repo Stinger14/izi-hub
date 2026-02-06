@@ -11,6 +11,8 @@ import Config
 config :core,
   ecto_repos: [Core.Repo]
 
+config :core, CoreWeb.Endpoint, pubsub_server: Core.PubSub
+
 # Configure the mailer
 #
 # By default it uses the "Local" adapter which stores the emails
@@ -35,6 +37,17 @@ config :esbuild,
     args:
       ~w(js/app.js --bundle --target=es2017 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
     cd: Path.expand("../assets", __DIR__)
+  ]
+
+# Configure Tailwind
+config :tailwind,
+  version: "4.1.10",
+  default: [
+    args: ~w(
+      --input=assets/css/app.css
+      --output=priv/static/assets/app.css
+    ),
+    cd: Path.expand("..", __DIR__)
   ]
 
 # Import environment specific config. This must remain at the bottom

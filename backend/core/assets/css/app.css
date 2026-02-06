@@ -1,4 +1,5 @@
-/* Minimal styling (optional) */
+@import "tailwindcss";
+
 :root {
     font-family:
         system-ui,

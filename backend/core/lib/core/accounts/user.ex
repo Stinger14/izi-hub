@@ -34,7 +34,7 @@ defmodule Core.Accounts.User do
   def registration_changeset(user, attrs) do
     user
     |> cast(attrs, [:email, :password, :username, :full_name])
-    |> validate_required([:email, :password])
+    |> validate_required([:email, :password, :username])
     |> validate_email()
     |> validate_username()
     |> validate_password()
@@ -46,9 +46,9 @@ defmodule Core.Accounts.User do
   """
   def profile_changeset(user, attrs) do
     user
-    |> cast(attrs, [:username, :full_name, :bio, :avatar_url])
+    |> cast(attrs, [:username, :full_name, :avatar_url])
+    |> validate_required([:username])
     |> validate_username()
-    |> validate_length(:bio, max: 500)
     |> validate_format(:avatar_url, ~r/^https?:\/\//, message: "must be a valid URL")
   end
 

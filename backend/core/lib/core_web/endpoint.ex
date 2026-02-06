@@ -31,6 +31,9 @@ defmodule CoreWeb.Endpoint do
   if code_reloading? do
     plug Phoenix.CodeReloader
     plug Phoenix.Ecto.CheckRepoStatus, otp_app: :core
+    plug Phoenix.LiveReloader
+
+    socket "/phoenix/live_reload/socket", Phoenix.LiveReloader.Socket
   end
 
   plug Phoenix.LiveDashboard.RequestLogger,

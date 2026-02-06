@@ -7,14 +7,23 @@ config :core, Core.Repo,
   ssl: System.get_env("SSL") == "true"
 
 config :core, CoreWeb.Endpoint,
-  http: [ip: {127, 0, 0, 1}],
+  http: [ip: {127, 0, 0, 1}, port: 4000],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
   secret_key_base: "dlnIlQnZjWhDpFyzyUkuUMA1iqgaYVScNPNcMB50VAk+J/x1Eu2pkNTGlqg7nk4q",
   live_view: [signing_salt: "GI71qW3j29IIGwNi"],
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]}
+    esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}
+  ],
+  live_reload: [
+    patterns: [
+      ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
+      ~r"priv/gettext/.*(po)$",
+      ~r"lib/core_web/(controllers|live|components)/.*(ex|heex)$",
+      ~r"lib/core_web/templates/.*(eex)$"
+    ]
   ]
 
 # ## SSL Support
