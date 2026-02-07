@@ -56,7 +56,7 @@ defmodule CoreWeb.HubLive do
               </a>
               <a href={~p"/notebooks"} class="rounded-2xl border border-purple-100 bg-white/80 p-5 text-left">
                 <p class="text-sm font-semibold text-slate-900">Notebooks</p>
-                <p class="mt-1 text-xs text-slate-600">Try API commands in Livebook.</p>
+                <p class="mt-1 text-xs text-slate-600">Preview markdown and open Livebook.</p>
               </a>
               <a href="#" class="rounded-2xl border border-purple-100 bg-white/80 p-5 text-left">
                 <p class="text-sm font-semibold text-slate-900">News</p>

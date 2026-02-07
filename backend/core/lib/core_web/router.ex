@@ -27,6 +27,8 @@ defmodule CoreWeb.Router do
     live "/profile", ProfileLive, :index
     live "/notebooks", NotebooksLive, :index
     live "/notebooks/:slug", NotebooksLive, :show
+    post "/notebooks/livebook/access", LivebookAccessController, :create
+    delete "/notebooks/livebook/access", LivebookAccessController, :delete
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
