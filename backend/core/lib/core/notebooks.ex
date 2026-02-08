@@ -198,9 +198,9 @@ defmodule Core.Notebooks do
   defp github_headers do
     headers = [{"user-agent", "izi-hub"}]
 
-    case System.get_env("GITHUB_TOKEN") do
-      nil -> headers
-      token -> [{"authorization", "Bearer #{token}"} | headers]
+    case github_token() do
+      token when is_binary(token) and token != "" -> [{"authorization", "Bearer #{token}"} | headers]
+      _ -> headers
     end
   end
 
@@ -235,6 +235,13 @@ defmodule Core.Notebooks do
 
       _ ->
         :ok
+    end
+  end
+
+  defp github_token do
+    case Core.Config.github_token() do
+      {:ok, token} when is_binary(token) -> String.trim(token)
+      _ -> ""
     end
   end
 end

@@ -28,10 +28,12 @@ defmodule CoreWeb.LivebookAccessController do
   end
 
   defp token_matches?(token) when is_binary(token) do
-    case System.get_env("LIVEBOOK_ADMIN_TOKEN") do
-      nil -> false
-      "" -> false
-      expected -> Plug.Crypto.secure_compare(token, expected)
+    case Core.Config.livebook_admin_token() do
+      {:ok, expected} when is_binary(expected) and expected != "" ->
+        Plug.Crypto.secure_compare(token, expected)
+
+      _ ->
+        false
     end
   end
 

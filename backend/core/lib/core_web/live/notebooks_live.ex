@@ -13,7 +13,8 @@ defmodule CoreWeb.NotebooksLive do
        notebook: nil,
        error: nil,
        livebook_open: false,
-       livebook_admin: livebook_admin
+       livebook_admin: livebook_admin,
+       livebook_token_set: livebook_token_set?()
      )}
   end
 
@@ -74,13 +75,13 @@ defmodule CoreWeb.NotebooksLive do
               <button
                 type="button"
                 phx-click="toggle_livebook"
-                class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-purple-600 hover:bg-slate-800"
               >
                 <%= if @livebook_open, do: "Close Livebook", else: "Open Livebook" %>
               </button>
               <a
                 href={~p"/notebooks"}
-                class="rounded-lg border border-purple-100 bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 hover:border-purple-200"
+                class="rounded-lg border border-purple-100 bg-white/80 px-4 py-2 text-sm font-medium text-purple-600 hover:border-purple-200"
               >
                 Refresh list
               </a>
@@ -130,28 +131,37 @@ defmodule CoreWeb.NotebooksLive do
               <% else %>
                 <div class="mt-6 rounded-2xl border border-purple-100 bg-white p-5">
                   <p class="text-sm text-slate-600">
-                    Livebook access is restricted. Enter the admin token to enable it for this session.
+                    Livebook access is restricted.
+                    <%= if @livebook_token_set do %>
+                      Enter the admin token to enable it for this session.
+                    <% else %>
+                      An admin token has not been configured for this environment.
+                    <% end %>
                   </p>
-                  <.form
-                    for={to_form(%{}, as: :livebook)}
-                    action={~p"/notebooks/livebook/access"}
-                    method="post"
-                    class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"
-                  >
-                    <input
-                      type="password"
-                      name="token"
-                      autocomplete="current-password"
-                      placeholder="Livebook admin token"
-                      class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-purple-300 focus:outline-none"
-                    />
-                    <button
-                      type="submit"
-                      class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+
+                  <%= if @livebook_token_set do %>
+                    <.form
+                      for={to_form(%{}, as: :livebook)}
+                      action={~p"/notebooks/livebook/access"}
+                      method="post"
+                      class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"
                     >
-                      Enable access
-                    </button>
-                  </.form>
+                      <input
+                        type="password"
+                        name="token"
+                        autocomplete="current-password"
+                        placeholder="Livebook admin token"
+                        class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-purple-300 focus:outline-none"
+                      />
+                      <button
+                        type="submit"
+                        class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-purple-600 hover:bg-slate-800"
+                      >
+                        Enable access
+                      </button>
+                    </.form>
+                  <% end %>
+
                   <p class="mt-3 text-xs text-slate-500">
                     Set `LIVEBOOK_ADMIN_TOKEN` on the server to control access.
                   </p>
@@ -204,5 +214,12 @@ defmodule CoreWeb.NotebooksLive do
       </div>
     </Layouts.app>
     """
+  end
+
+  defp livebook_token_set? do
+    case Core.Config.livebook_admin_token() do
+      {:ok, token} when is_binary(token) -> String.trim(token) != ""
+      _ -> false
+    end
   end
 end
