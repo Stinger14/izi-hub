@@ -31,6 +31,28 @@ Hooks.ScrollHint = {
   },
 };
 
+Hooks.StatsFallback = {
+  mounted() {
+    this.content = this.el.querySelector("[data-stats-content]");
+    this.fallback = this.el.querySelector("[data-stats-fallback]");
+    this.img = this.el.querySelector("img");
+
+    if (!this.img || !this.content || !this.fallback) return;
+
+    this.showFallback = () => {
+      this.content.classList.add("hidden");
+      this.fallback.classList.remove("hidden");
+    };
+
+    this.img.addEventListener("error", this.showFallback, { once: true });
+  },
+  destroyed() {
+    if (this.img && this.showFallback) {
+      this.img.removeEventListener("error", this.showFallback);
+    }
+  },
+};
+
 let liveSocket = new LiveSocket("/live", Socket, {
   params: { _csrf_token: csrfToken },
   hooks: Hooks,

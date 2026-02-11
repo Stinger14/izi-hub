@@ -47,7 +47,12 @@ defmodule CoreWeb.NotebooksLive do
               <p class="text-xs font-semibold uppercase tracking-wide text-purple-500">Notebooks</p>
               <p class="text-lg font-semibold tracking-tight text-slate-900">Notebook Library</p>
             </div>
-            <a href={~p"/"} class="text-sm text-slate-600 hover:text-slate-900">Back home</a>
+            <a
+              href={~p"/"}
+              class="rounded-lg border border-purple-100 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-purple-300"
+            >
+              Back home
+            </a>
           </div>
         </header>
 
@@ -65,7 +70,7 @@ defmodule CoreWeb.NotebooksLive do
             <div class="flex flex-wrap items-center gap-3">
               <a
                 href={~p"/notebooks"}
-                class="rounded-lg border border-purple-100 bg-white/80 px-4 py-2 text-sm font-medium text-purple-600 hover:border-purple-200"
+                class="rounded-lg border border-purple-100 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-purple-300"
               >
                 Refresh list
               </a>
@@ -99,7 +104,7 @@ defmodule CoreWeb.NotebooksLive do
                   <span class="text-sm font-semibold text-slate-900"><%= @notebook.slug %></span>
                   <a
                     href={~p"/notebooks"}
-                    class="ml-auto text-sm font-medium text-purple-600 hover:text-purple-700"
+                    class="ml-auto rounded-lg border border-purple-100 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-purple-300"
                   >
                     Back to list
                   </a>

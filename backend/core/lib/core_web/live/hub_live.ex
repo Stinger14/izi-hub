@@ -2,18 +2,34 @@ defmodule CoreWeb.HubLive do
   use CoreWeb, :live_view
 
   alias Core.GitHub
+  alias Core.HackerNews
 
   def mount(_params, _session, socket) do
-    socket = assign(socket, current_scope: nil, github_accounts: [])
+    socket =
+      assign(socket,
+        current_scope: nil,
+        github_accounts: [],
+        news_items: [],
+        loading_data: false
+      )
 
     socket =
       if connected?(socket) do
-        assign(socket, github_accounts: GitHub.fetch_accounts())
+        send(self(), :load_hub_data)
+        assign(socket, :loading_data, true)
       else
         socket
       end
 
     {:ok, socket}
+  end
+
+  def handle_info(:load_hub_data, socket) do
+    github_accounts = GitHub.fetch_accounts()
+    news_items = HackerNews.fetch_best_stories(limit: 7)
+
+    {:noreply,
+     assign(socket, github_accounts: github_accounts, news_items: news_items, loading_data: false)}
   end
 
   def render(assigns) do
@@ -22,17 +38,17 @@ defmodule CoreWeb.HubLive do
     <div class="min-h-screen bg-purple-50 text-slate-900">
       <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <div class="text-lg font-semibold tracking-tight">IziHub</div>
+          <div class="text-lg font-semibold text-purple-600 tracking-tight">IziHub</div>
           <nav class="hidden items-center gap-6 text-sm text-slate-600 md:flex">
-            <a href="#links" class="hover:text-slate-900">Quick links</a>
-            <a href="#contributions" class="hover:text-slate-900">Contributions</a>
-            <a href="#resources" class="hover:text-slate-900">Resources</a>
-            <a href="#week" class="hover:text-slate-900">This week</a>
+            <a href="#links" class="hover:text-purple-600">Quick links</a>
+            <a href="#contributions" class="hover:text-purple-600">Contributions</a>
+            <a href="#resources" class="hover:text-purple-600">Resources</a>
+            <a href="#week" class="hover:text-purple-600">This week</a>
           </nav>
           <div class="flex items-center gap-3">
             <a
               href={~p"/liveapps"}
-              class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+              class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-purple-400"
             >
               Liveapps
             </a>
@@ -49,19 +65,17 @@ defmodule CoreWeb.HubLive do
                 Hi, I’m Maxly García — software developer.
               </h1>
               <p class="mt-4 text-lg text-slate-600">
-                I build practical, reliable systems and the tooling that keeps teams moving.
+                I build practical, reliable systems and tools to make things simple.
               </p>
               <div class="mt-8 flex flex-wrap items-center gap-4">
                 <a
                   href={~p"/profile"}
-                  class="rounded-lg bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800"
+                  class="rounded-lg bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-purple-400"
                 >
                   View profile
                 </a>
               </div>
-            </div>
-            <aside class="lg:sticky lg:top-24">
-              <div class="rounded-2xl border border-purple-100 bg-white/80 p-6 shadow-sm">
+              <div class="mt-10 rounded-2xl border border-purple-100 bg-white/80 p-6 shadow-sm">
                 <div class="flex items-center justify-between">
                   <div>
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">GitHub</p>
@@ -73,40 +87,101 @@ defmodule CoreWeb.HubLive do
                 </div>
 
                 <div class="mt-6 grid gap-6">
-                  <%= for account <- @github_accounts do %>
-                    <div class="rounded-xl border border-purple-100 bg-white p-4">
-                      <div class="flex items-center justify-between">
-                        <p class="text-sm font-semibold text-slate-900"><%= account.username %></p>
-                        <a
-                          href={account.repo_url}
-                          class="text-xs font-medium text-purple-600 hover:text-purple-700"
-                        >
-                          Profile
-                        </a>
-                      </div>
+                  <%= if @github_accounts == [] and @loading_data do %>
+                    <p class="text-xs text-slate-500">Loading recent activity...</p>
+                  <% else %>
+                    <%= for account <- @github_accounts do %>
+                      <div class="rounded-xl border border-purple-100 bg-white p-4">
+                        <div class="flex items-center justify-between">
+                          <p class="text-sm font-semibold text-slate-900"><%= account.username %></p>
+                          <a
+                            href={account.repo_url}
+                            class="text-xs font-medium text-purple-600 hover:text-purple-700"
+                          >
+                            Profile
+                          </a>
+                        </div>
 
-                      <div class="mt-4">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Recent events</p>
-                        <%= if account.events == [] do %>
-                          <p class="mt-2 text-xs text-slate-500">No recent events.</p>
-                        <% else %>
-                          <ul class="mt-2 space-y-2 text-xs text-slate-600">
-                            <%= for event <- account.events do %>
-                              <li class="flex items-center justify-between gap-2">
-                                <span>
-                                  <span class="font-semibold text-slate-700"><%= event.type %></span>
-                                  <span class="text-slate-400">·</span>
-                                  <a href={event.repo_url} class="text-purple-600 hover:text-purple-700">
-                                    <%= event.repo %>
-                                  </a>
-                                </span>
-                                <span class="text-slate-400"><%= event.created_at %></span>
-                              </li>
-                            <% end %>
-                          </ul>
-                        <% end %>
+                        <div class="mt-4">
+                          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Recent events</p>
+                          <%= if account.events == [] do %>
+                            <p class="mt-2 text-xs text-slate-500">No recent events.</p>
+                          <% else %>
+                            <ul class="mt-2 space-y-2 text-xs text-slate-600">
+                              <%= for event <- account.events do %>
+                                <li class="flex items-center justify-between gap-2">
+                                  <span>
+                                    <span class="font-semibold text-slate-700"><%= event.type %></span>
+                                    <span class="text-slate-400">·</span>
+                                    <a href={event.repo_url} class="text-purple-600 hover:text-purple-700">
+                                      <%= event.repo %>
+                                    </a>
+                                  </span>
+                                  <span class="text-slate-400"><%= event.created_at %></span>
+                                </li>
+                              <% end %>
+                            </ul>
+                          <% end %>
+                        </div>
                       </div>
-                    </div>
+                    <% end %>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+            <aside class="lg:sticky lg:top-24">
+              <div class="rounded-2xl border border-purple-100 bg-white/80 p-6 shadow-sm">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">News</p>
+                    <h3 class="mt-1 text-lg font-semibold text-slate-900">Best of the day</h3>
+                  </div>
+                  <a
+                    href="https://news.ycombinator.com"
+                    class="text-xs font-medium text-purple-600 hover:text-purple-700"
+                  >
+                    Hacker News
+                  </a>
+                </div>
+
+                <div class="mt-6">
+                  <%= if @loading_data do %>
+                    <p class="text-xs text-slate-500">Loading stories...</p>
+                  <% else %>
+                    <%= if @news_items == [] do %>
+                      <p class="text-xs text-slate-500">No recent stories available.</p>
+                    <% else %>
+                      <ul class="space-y-4 text-sm text-slate-600">
+                        <%= for story <- @news_items do %>
+                          <li class="space-y-1">
+                            <a
+                              href={story.url}
+                              class="font-semibold text-slate-800 hover:text-purple-600"
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <%= story.title %>
+                            </a>
+                            <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                              <span><%= story.score %> points</span>
+                              <span>·</span>
+                              <a
+                                href={story.hn_url}
+                                class="text-purple-600 hover:text-purple-700"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                <%= story.comments %> comments
+                              </a>
+                              <span>·</span>
+                              <span>by <%= story.author %></span>
+                              <span>·</span>
+                              <span><%= story.age %></span>
+                            </div>
+                          </li>
+                        <% end %>
+                      </ul>
+                    <% end %>
                   <% end %>
                 </div>
               </div>
@@ -116,23 +191,28 @@ defmodule CoreWeb.HubLive do
 
         <section id="links" class="mx-auto max-w-6xl px-6 pb-16">
           <div class="flex items-center justify-between">
-            <h2 class="text-2xl font-semibold text-slate-900">Quick links</h2>
+            <div class="flex items-center gap-3">
+              <h2 class="text-2xl font-semibold text-slate-900">Quick links</h2>
+              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                WIP
+              </span>
+            </div>
             <a href="#" class="text-sm font-medium text-purple-600 hover:text-purple-700">View all</a>
           </div>
           <div class="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <a href="#" class="rounded-2xl border border-purple-100 bg-white/80 p-6">
+            <a href="#" class="rounded-2xl border border-purple-100 bg-white/80 hover:border-purple-600 p-6">
               <h3 class="text-base font-semibold text-slate-900">Blog</h3>
               <p class="mt-2 text-sm text-slate-600">Writing and updates.</p>
             </a>
-            <a href={~p"/notebooks"} class="rounded-2xl border border-purple-100 bg-white/80 p-6">
+            <a href={~p"/notebooks"} class="rounded-2xl border border-purple-100 bg-white/80 hover:border-purple-600 p-6">
               <h3 class="text-base font-semibold text-slate-900">Notebooks</h3>
               <p class="mt-2 text-sm text-slate-600">Preview notebook markdown.</p>
             </a>
-            <a href="#" class="rounded-2xl border border-purple-100 bg-white/80 p-6">
+            <a href="#" class="rounded-2xl border border-purple-100 bg-white/80 hover:border-purple-600 p-6">
               <h3 class="text-base font-semibold text-slate-900">News</h3>
               <p class="mt-2 text-sm text-slate-600">Latest notes and announcements.</p>
             </a>
-            <a href="#" class="rounded-2xl border border-purple-100 bg-white/80 p-6">
+            <a href="#" class="rounded-2xl border border-purple-100 bg-white/80 hover:border-purple-600 p-6">
               <h3 class="text-base font-semibold text-slate-900">Tools</h3>
               <p class="mt-2 text-sm text-slate-600">Utilities and internal helpers.</p>
             </a>
@@ -167,8 +247,20 @@ defmodule CoreWeb.HubLive do
                       loading="lazy"
                     />
                   </div>
-                  <div class="overflow-x-auto rounded-xl border border-purple-100 bg-white p-3">
-                    <%= Phoenix.HTML.raw(render_markdown(stats_markdown(account.username))) %>
+                  <div
+                    id={"stats-#{String.downcase(account.username)}"}
+                    phx-hook="StatsFallback"
+                    class="overflow-x-auto rounded-xl border border-purple-100 bg-white p-3"
+                  >
+                    <div data-stats-fallback class="hidden text-xs text-amber-700">
+                      <div class="flex items-center gap-2">
+                        <.icon name="hero-exclamation-triangle" class="h-4 w-4 text-amber-500" />
+                        <span>Origin server unavailable. Try again later.</span>
+                      </div>
+                    </div>
+                    <div data-stats-content>
+                      <%= Phoenix.HTML.raw(render_markdown(stats_markdown(account.username))) %>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -177,7 +269,12 @@ defmodule CoreWeb.HubLive do
         </section>
 
         <section id="resources" class="mx-auto max-w-6xl px-6 pb-16">
-          <h2 class="text-2xl font-semibold text-slate-900">Resources</h2>
+          <div class="flex items-center gap-3">
+            <h2 class="text-2xl font-semibold text-slate-900">Resources</h2>
+            <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+              WIP
+            </span>
+          </div>
           <div class="mt-8 grid gap-6 md:grid-cols-2">
             <div class="rounded-2xl border border-purple-100 bg-white/80 p-6">
               <h3 class="text-base font-semibold text-slate-900">Playbooks</h3>
@@ -192,10 +289,15 @@ defmodule CoreWeb.HubLive do
 
         <section id="week" class="mx-auto max-w-6xl px-6 pb-16">
           <div class="rounded-2xl border border-purple-100 bg-white/80 p-8">
-            <h2 class="text-2xl font-semibold text-slate-900">This week</h2>
+            <div class="flex items-center gap-3">
+              <h2 class="text-2xl font-semibold text-slate-900">This week</h2>
+              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                WIP
+              </span>
+            </div>
             <div class="mt-6 grid gap-6 md:grid-cols-3">
               <div>
-                <p class="text-2xl font-semibold text-slate-900">12</p>
+                <p class="text-2xl font-semibold text-slate-900">10</p>
                 <p class="text-sm text-slate-600">Open tasks</p>
               </div>
               <div>
@@ -203,48 +305,29 @@ defmodule CoreWeb.HubLive do
                 <p class="text-sm text-slate-600">Key releases</p>
               </div>
               <div>
-                <p class="text-2xl font-semibold text-slate-900">5</p>
-                <p class="text-sm text-slate-600">Team updates</p>
+                <p class="text-2xl font-semibold text-slate-900">4</p>
+                <p class="text-sm text-slate-600">Contributions</p>
               </div>
             </div>
           </div>
         </section>
 
-        <section id="open" class="border-t border-purple-100 bg-white/70 backdrop-blur">
-          <div class="mx-auto max-w-6xl px-6 py-14">
-            <div class="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-              <div>
-                <h2 class="text-2xl font-semibold text-slate-900">Keep your team focused. Keep work moving.</h2>
-                <p class="mt-2 text-sm text-slate-600">Bring everything into one calm home.</p>
-              </div>
-              <div class="flex flex-wrap items-center gap-4">
-                <a
-                  href="#open"
-                  class="rounded-lg bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800"
-                >
-                  Open dashboard
-                </a>
-                <a
-                  href="#contributions"
-                  class="rounded-lg border border-purple-100 bg-white/80 px-5 py-3 text-sm font-medium text-slate-700 hover:border-purple-200"
-                >
-                  View contributions
-                </a>
-              </div>
-            </div>
-          </div>
-        </section>
       </main>
 
       <footer class="border-t border-purple-100 bg-white/70 backdrop-blur">
         <div class="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
           <div class="flex flex-wrap gap-4">
             <a href="#links" class="hover:text-slate-900">Quick links</a>
-            <a href="#updates" class="hover:text-slate-900">Updates</a>
+            <a href="#contributions" class="hover:text-slate-900">Contributions</a>
             <a href="#resources" class="hover:text-slate-900">Resources</a>
             <a href="#week" class="hover:text-slate-900">This week</a>
           </div>
-          <p>© IziHub</p>
+          <!-- <div class="flex items-center gap-2">
+            <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+              WIP
+            </span>
+            <p>© IziHub</p>
+          </div> -->
         </div>
       </footer>
     </div>
@@ -253,10 +336,7 @@ defmodule CoreWeb.HubLive do
   end
 
   defp stats_markdown(username) do
-    """
-      [![#{username}'s GitHub stats](https://github-readme-stats.vercel.app/api?username=#{username}
-      &show_icons=true&hide_title=true)](https://github.com/anuraghazra/github-readme-stats)
-    """
+    "[![#{username}'s GitHub stats](https://github-readme-stats.vercel.app/api?username=#{username}&show_icons=true&hide_title=true)](https://github.com/anuraghazra/github-readme-stats)"
   end
 
   defp render_markdown(md) do
