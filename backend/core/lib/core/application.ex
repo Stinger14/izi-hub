@@ -19,6 +19,7 @@ defmodule Core.Application do
       # Start a worker by calling: Core.Worker.start_link(arg)
       # {Core.Worker, arg},
       # Start to serve requests, typically the last entry
+      Core.GitHub.Cache,
       CoreWeb.Endpoint
     ]
 
