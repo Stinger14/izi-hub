@@ -86,6 +86,11 @@ defmodule CoreWeb.HubLandingLive do
 
           <section class="border-y border-slate-100 bg-slate-50">
             <div class="mx-auto max-w-6xl px-6 py-10 text-center">
+              <div class="mb-4 flex justify-end">
+                <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                  WIP
+                </span>
+              </div>
               <p class="text-sm font-medium text-slate-500">
                 Trusted by product, ops, and support teams that value clarity.
               </p>
@@ -100,6 +105,11 @@ defmodule CoreWeb.HubLandingLive do
           </section>
 
           <section id="product" class="mx-auto max-w-6xl px-6 py-16">
+            <div class="mb-4 flex justify-end">
+              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                WIP
+              </span>
+            </div>
             <div class="grid gap-8 md:grid-cols-3">
               <div class="rounded-2xl border border-slate-100 p-6">
                 <h3 class="text-lg font-semibold text-slate-900">One home for every team</h3>
@@ -123,6 +133,11 @@ defmodule CoreWeb.HubLandingLive do
           </section>
 
           <section class="mx-auto max-w-6xl px-6 pb-16">
+            <div class="mb-4 flex justify-end">
+              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                WIP
+              </span>
+            </div>
             <div class="grid items-center gap-10 lg:grid-cols-2">
               <div>
                 <h2 class="text-2xl font-semibold text-slate-900">
@@ -152,6 +167,11 @@ defmodule CoreWeb.HubLandingLive do
           </section>
 
           <section class="mx-auto max-w-6xl px-6 pb-16">
+            <div class="mb-4 flex justify-end">
+              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                WIP
+              </span>
+            </div>
             <div class="grid items-center gap-10 lg:grid-cols-2">
               <div class="aspect-16/10 rounded-2xl border border-slate-200 bg-slate-50"></div>
               <div>
@@ -181,6 +201,11 @@ defmodule CoreWeb.HubLandingLive do
 
           <section class="border-y border-slate-100 bg-slate-50">
             <div class="mx-auto max-w-6xl px-6 py-16">
+              <div class="mb-4 flex justify-end">
+                <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                  WIP
+                </span>
+              </div>
               <div class="grid gap-8 md:grid-cols-3">
                 <div>
                   <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Step 1</p>
@@ -202,7 +227,12 @@ defmodule CoreWeb.HubLandingLive do
           </section>
 
           <section id="use-cases" class="mx-auto max-w-6xl px-6 py-16">
-            <h2 class="text-2xl font-semibold text-slate-900">Built for everyday use cases</h2>
+            <div class="flex items-center gap-3">
+              <h2 class="text-2xl font-semibold text-slate-900">Built for everyday use cases</h2>
+              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                WIP
+              </span>
+            </div>
             <div class="mt-8 grid gap-6 md:grid-cols-3">
               <div class="rounded-2xl border border-slate-100 p-6">
                 <h3 class="text-base font-semibold text-slate-900">New hire onboarding</h3>
@@ -220,6 +250,11 @@ defmodule CoreWeb.HubLandingLive do
           </section>
 
           <section class="mx-auto max-w-6xl px-6 pb-16">
+            <div class="mb-4 flex justify-end">
+              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                WIP
+              </span>
+            </div>
             <div class="grid gap-6 rounded-2xl border border-slate-100 bg-white p-8 md:grid-cols-3">
               <div>
                 <p class="text-2xl font-semibold text-slate-900">2×</p>
@@ -237,6 +272,11 @@ defmodule CoreWeb.HubLandingLive do
           </section>
 
           <section class="mx-auto max-w-6xl px-6 pb-16">
+            <div class="mb-4 flex justify-end">
+              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                WIP
+              </span>
+            </div>
             <div class="rounded-2xl border border-slate-100 bg-slate-50 p-8">
               <blockquote class="text-lg text-slate-700">
                 “IziHub is the first page we open every morning. Everything we need is right there.”
@@ -246,7 +286,12 @@ defmodule CoreWeb.HubLandingLive do
           </section>
 
           <section class="mx-auto max-w-6xl px-6 pb-16">
-            <h2 class="text-2xl font-semibold text-slate-900">FAQ</h2>
+            <div class="flex items-center gap-3">
+              <h2 class="text-2xl font-semibold text-slate-900">FAQ</h2>
+              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                WIP
+              </span>
+            </div>
             <div class="mt-8 grid gap-6 md:grid-cols-2">
               <div class="rounded-2xl border border-slate-100 p-6">
                 <h3 class="text-base font-semibold text-slate-900">Does this work for multiple teams?</h3>
@@ -304,7 +349,12 @@ defmodule CoreWeb.HubLandingLive do
               <a href="#" class="hover:text-slate-900">Privacy</a>
               <a href="#" class="hover:text-slate-900">Terms</a>
             </div>
-            <p>© IziHub</p>
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                WIP
+              </span>
+              <p>© IziHub</p>
+            </div>
           </div>
         </footer>
       </div>

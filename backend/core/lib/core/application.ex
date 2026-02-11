@@ -20,6 +20,7 @@ defmodule Core.Application do
       # {Core.Worker, arg},
       # Start to serve requests, typically the last entry
       Core.GitHub.Cache,
+      Core.HackerNews.Cache,
       CoreWeb.Endpoint
     ]
 

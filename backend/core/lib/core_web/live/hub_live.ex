@@ -2,16 +2,15 @@ defmodule CoreWeb.HubLive do
   use CoreWeb, :live_view
 
   alias Core.GitHub
+  alias Core.HackerNews
 
   def mount(_params, _session, socket) do
-    socket = assign(socket, current_scope: nil, github_accounts: [])
-
     socket =
-      if connected?(socket) do
-        assign(socket, github_accounts: GitHub.fetch_accounts())
-      else
-        socket
-      end
+      assign(socket,
+        current_scope: nil,
+        github_accounts: GitHub.fetch_accounts(),
+        news_items: HackerNews.fetch_best_stories(limit: 7)
+      )
 
     {:ok, socket}
   end
@@ -59,9 +58,7 @@ defmodule CoreWeb.HubLive do
                   View profile
                 </a>
               </div>
-            </div>
-            <aside class="lg:sticky lg:top-24">
-              <div class="rounded-2xl border border-purple-100 bg-white/80 p-6 shadow-sm">
+              <div class="mt-10 rounded-2xl border border-purple-100 bg-white/80 p-6 shadow-sm">
                 <div class="flex items-center justify-between">
                   <div>
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">GitHub</p>
@@ -110,13 +107,71 @@ defmodule CoreWeb.HubLive do
                   <% end %>
                 </div>
               </div>
+            </div>
+            <aside class="lg:sticky lg:top-24">
+              <div class="rounded-2xl border border-purple-100 bg-white/80 p-6 shadow-sm">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">News</p>
+                    <h3 class="mt-1 text-lg font-semibold text-slate-900">Best of the day</h3>
+                  </div>
+                  <a
+                    href="https://news.ycombinator.com"
+                    class="text-xs font-medium text-purple-600 hover:text-purple-700"
+                  >
+                    Hacker News
+                  </a>
+                </div>
+
+                <div class="mt-6">
+                  <%= if @news_items == [] do %>
+                    <p class="text-xs text-slate-500">No recent stories available.</p>
+                  <% else %>
+                    <ul class="space-y-4 text-sm text-slate-600">
+                      <%= for story <- @news_items do %>
+                        <li class="space-y-1">
+                          <a
+                            href={story.url}
+                            class="font-semibold text-slate-800 hover:text-purple-600"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <%= story.title %>
+                          </a>
+                          <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                            <span><%= story.score %> points</span>
+                            <span>·</span>
+                            <a
+                              href={story.hn_url}
+                              class="text-purple-600 hover:text-purple-700"
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <%= story.comments %> comments
+                            </a>
+                            <span>·</span>
+                            <span>by <%= story.author %></span>
+                            <span>·</span>
+                            <span><%= story.age %></span>
+                          </div>
+                        </li>
+                      <% end %>
+                    </ul>
+                  <% end %>
+                </div>
+              </div>
             </aside>
           </div>
         </section>
 
         <section id="links" class="mx-auto max-w-6xl px-6 pb-16">
           <div class="flex items-center justify-between">
-            <h2 class="text-2xl font-semibold text-slate-900">Quick links</h2>
+            <div class="flex items-center gap-3">
+              <h2 class="text-2xl font-semibold text-slate-900">Quick links</h2>
+              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                WIP
+              </span>
+            </div>
             <a href="#" class="text-sm font-medium text-purple-600 hover:text-purple-700">View all</a>
           </div>
           <div class="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -167,8 +222,20 @@ defmodule CoreWeb.HubLive do
                       loading="lazy"
                     />
                   </div>
-                  <div class="overflow-x-auto rounded-xl border border-purple-100 bg-white p-3">
-                    <%= Phoenix.HTML.raw(render_markdown(stats_markdown(account.username))) %>
+                  <div
+                    id={"stats-#{String.downcase(account.username)}"}
+                    phx-hook="StatsFallback"
+                    class="overflow-x-auto rounded-xl border border-purple-100 bg-white p-3"
+                  >
+                    <div data-stats-fallback class="hidden text-xs text-amber-700">
+                      <div class="flex items-center gap-2">
+                        <.icon name="hero-exclamation-triangle" class="h-4 w-4 text-amber-500" />
+                        <span>Origin server unavailable. Try again later.</span>
+                      </div>
+                    </div>
+                    <div data-stats-content>
+                      <%= Phoenix.HTML.raw(render_markdown(stats_markdown(account.username))) %>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -177,7 +244,12 @@ defmodule CoreWeb.HubLive do
         </section>
 
         <section id="resources" class="mx-auto max-w-6xl px-6 pb-16">
-          <h2 class="text-2xl font-semibold text-slate-900">Resources</h2>
+          <div class="flex items-center gap-3">
+            <h2 class="text-2xl font-semibold text-slate-900">Resources</h2>
+            <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+              WIP
+            </span>
+          </div>
           <div class="mt-8 grid gap-6 md:grid-cols-2">
             <div class="rounded-2xl border border-purple-100 bg-white/80 p-6">
               <h3 class="text-base font-semibold text-slate-900">Playbooks</h3>
@@ -192,10 +264,15 @@ defmodule CoreWeb.HubLive do
 
         <section id="week" class="mx-auto max-w-6xl px-6 pb-16">
           <div class="rounded-2xl border border-purple-100 bg-white/80 p-8">
-            <h2 class="text-2xl font-semibold text-slate-900">This week</h2>
+            <div class="flex items-center gap-3">
+              <h2 class="text-2xl font-semibold text-slate-900">This week</h2>
+              <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                WIP
+              </span>
+            </div>
             <div class="mt-6 grid gap-6 md:grid-cols-3">
               <div>
-                <p class="text-2xl font-semibold text-slate-900">12</p>
+                <p class="text-2xl font-semibold text-slate-900">10</p>
                 <p class="text-sm text-slate-600">Open tasks</p>
               </div>
               <div>
@@ -203,8 +280,8 @@ defmodule CoreWeb.HubLive do
                 <p class="text-sm text-slate-600">Key releases</p>
               </div>
               <div>
-                <p class="text-2xl font-semibold text-slate-900">5</p>
-                <p class="text-sm text-slate-600">Team updates</p>
+                <p class="text-2xl font-semibold text-slate-900">4</p>
+                <p class="text-sm text-slate-600">Contributions</p>
               </div>
             </div>
           </div>
@@ -214,8 +291,8 @@ defmodule CoreWeb.HubLive do
           <div class="mx-auto max-w-6xl px-6 py-14">
             <div class="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
               <div>
-                <h2 class="text-2xl font-semibold text-slate-900">Keep your team focused. Keep work moving.</h2>
-                <p class="mt-2 text-sm text-slate-600">Bring everything into one calm home.</p>
+                <h2 class="text-2xl font-semibold text-slate-900">The idea of this Hub is to have an isolated space for everything regarding me, and of course, for people to reach me.</h2>
+                <p class="mt-2 text-sm text-slate-600">Bring everything into one Hub.</p>
               </div>
               <div class="flex flex-wrap items-center gap-4">
                 <a
@@ -244,7 +321,12 @@ defmodule CoreWeb.HubLive do
             <a href="#resources" class="hover:text-slate-900">Resources</a>
             <a href="#week" class="hover:text-slate-900">This week</a>
           </div>
-          <p>© IziHub</p>
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+              WIP
+            </span>
+            <p>© IziHub</p>
+          </div>
         </div>
       </footer>
     </div>
@@ -253,10 +335,7 @@ defmodule CoreWeb.HubLive do
   end
 
   defp stats_markdown(username) do
-    """
-      [![#{username}'s GitHub stats](https://github-readme-stats.vercel.app/api?username=#{username}
-      &show_icons=true&hide_title=true)](https://github.com/anuraghazra/github-readme-stats)
-    """
+    "[![#{username}'s GitHub stats](https://github-readme-stats.vercel.app/api?username=#{username}&show_icons=true&hide_title=true)](https://github.com/anuraghazra/github-readme-stats)"
   end
 
   defp render_markdown(md) do
