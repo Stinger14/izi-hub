@@ -60,6 +60,7 @@ defmodule Core.MixProject do
       {:phoenix_live_view, "~> 1.1"},
       {:phoenix_html, "~> 4.1"},
       {:lazy_html, ">= 0.0.0", only: :test},
+      {:floki, ">= 0.36.0"},
 
       # Authentication
       {:guardian, "~> 2.3"},
@@ -87,7 +88,10 @@ defmodule Core.MixProject do
       {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
 
       # Markdown
-      {:earmark, "~> 1.4"}
+      {:earmark, "~> 1.4"},
+
+      # Reverse-proxy
+      {:reverse_proxy_plug, "~> 2.4"}
     ]
   end
 
