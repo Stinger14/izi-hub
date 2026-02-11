@@ -1,0 +1,8 @@
+http://localhost:4000 {
+    reverse_proxy /livebook/* localhost:8080 {
+        transport http {
+            versions 1.1
+        }
+    }
+    reverse_proxy localhost:4001
+}

@@ -1,17 +1,7 @@
 # Izi Hub Playground
 
-```elixir
-# Pre Setup
-Mix.install([
-  {:kino, "~> 0.18.0"}
-])
-
-```
-
-## Section
-
-Izi Hub Playground
-
+A quick preview of the Livebook notebook content. Use the Livebook card to run the real
+notebook on the same host.
 
 ## Setup
 
@@ -24,9 +14,7 @@ Mix.install([
 
 support_path = Path.expand("notebooks/_support/http.ex", File.cwd!())
 Code.require_file(support_path)
-```
 
-```elixir
 base_url = System.get_env("IZI_HUB_BASE_URL", "http://localhost:4000")
 client = Core.Notebooks.HTTP.client(base_url: base_url)
 ```

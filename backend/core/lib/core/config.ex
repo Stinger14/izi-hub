@@ -45,4 +45,10 @@ defmodule Core.Config do
       prod: [required: true]
     ]
   )
+
+  @envdoc "GitHub token for notebooks fetch"
+  app_env(:github_token, :core, :github_token,
+    os_env: "GITHUB_TOKEN",
+    default: ""
+  )
 end

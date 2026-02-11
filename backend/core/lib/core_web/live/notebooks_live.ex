@@ -4,7 +4,13 @@ defmodule CoreWeb.NotebooksLive do
   alias Core.Notebooks
 
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, current_scope: nil, notebooks: [], notebook: nil, error: nil)}
+    {:ok,
+     assign(socket,
+       current_scope: nil,
+       notebooks: [],
+       notebook: nil,
+       error: nil
+     )}
   end
 
   def handle_params(params, _uri, socket) do
@@ -34,63 +40,85 @@ defmodule CoreWeb.NotebooksLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-    <div class="min-h-screen bg-slate-900/40 px-6 py-16">
-    <div class="mx-auto flex min-h-[calc(100vh-8rem)] items-start justify-center">
-    <div class="w-full max-w-4xl rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-xl">
-    <div class="flex items-center justify-between">
-    <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-
-    amber-700">
-    <span>Notebooks</span>
-    <span class="text-amber-600">Library</span>
-    </div>
-    <a href={~p"/"} class="text-xs text-amber-700 hover:text-amber-800">Back home</a>
-    </div>
+      <div class="min-h-screen bg-purple-50 text-slate-900">
+        <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
+          <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-purple-500">Notebooks</p>
+              <p class="text-lg font-semibold tracking-tight text-slate-900">Notebook Library</p>
+            </div>
+            <a href={~p"/"} class="text-sm text-slate-600 hover:text-slate-900">Back home</a>
+          </div>
+        </header>
 
-    <%= if @error do %>
-    <div class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-
-    700">
-    <%= @error %>
-    </div>
-    <% end %>
+        <main class="mx-auto max-w-6xl px-6 pb-16 pt-12">
+          <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p class="text-sm font-medium text-purple-600">Preview markdown</p>
+              <h1 class="mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+                Explore API notebooks
+              </h1>
+              <p class="mt-3 text-sm text-slate-600">
+                Browse markdown previews and keep a lightweight view of the notebook library.
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <a
+                href={~p"/notebooks"}
+                class="rounded-lg border border-purple-100 bg-white/80 px-4 py-2 text-sm font-medium text-purple-600 hover:border-purple-200"
+              >
+                Refresh list
+              </a>
+            </div>
+          </div>
 
-    <%= if @live_action == :index do %>
-    <div class="mt-6 grid gap-4 sm:grid-cols-2">
-    <%= for notebook <- @notebooks do %>
-    <a
-    href={~p"/notebooks/#{notebook.slug}"}
-    class="rounded-xl border border-amber-200 bg-white p-4 text-left shadow-sm
-    hover:border-amber-300"
-    ><p class="text-sm font-semibold text-slate-900"><%= notebook.slug %></p>
-                    <p class="mt-1 text-xs text-slate-600">Open notebook</p>
-                  </a>
-                <% end %>
-              </div>
-            <% else %>
-              <div class="mt-6 rounded-xl border border-amber-200 bg-white shadow-inner">
-                <div class="flex items-center gap-3 border-b border-amber-200 bg-amber-100 px-4 py-2">
-                  <div class="flex items-center gap-1">
-                    <span class="h-4 w-2 rounded-sm bg-amber-300"></span>
-                    <span class="h-4 w-2 rounded-sm bg-rose-300"></span>
-                    <span class="h-4 w-2 rounded-sm bg-indigo-300"></span>
-                    <span class="h-4 w-2 rounded-sm bg-emerald-300"></span>
-                  </div>
-                  <span class="text-xs font-mono text-amber-900"><%= @notebook.slug %></span>
-                  <a href={~p"/notebooks"} class="ml-auto text-xs text-amber-700 hover:text-amber-800">
+          <%= if @error do %>
+            <div class="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <%= @error %>
+            </div>
+          <% end %>
+
+          <%= if @live_action == :index do %>
+            <div class="mt-10 grid gap-6 md:grid-cols-2">
+              <%= for notebook <- @notebooks do %>
+                <a
+                  href={~p"/notebooks/#{notebook.slug}"}
+                  class="rounded-2xl border border-purple-100 bg-white/80 p-6 text-left shadow-sm hover:border-purple-200"
+                >
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Notebook</p>
+                  <p class="mt-2 text-lg font-semibold text-slate-900"><%= notebook.slug %></p>
+                  <p class="mt-2 text-sm text-slate-600">Open preview markdown</p>
+                </a>
+              <% end %>
+            </div>
+          <% else %>
+            <%= if @notebook do %>
+              <div class="mt-10 rounded-2xl border border-purple-100 bg-white/80 shadow-sm">
+                <div class="flex flex-wrap items-center gap-3 border-b border-purple-100 bg-white/70 px-6 py-4">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Preview</p>
+                  <span class="text-sm font-semibold text-slate-900"><%= @notebook.slug %></span>
+                  <a
+                    href={~p"/notebooks"}
+                    class="ml-auto text-sm font-medium text-purple-600 hover:text-purple-700"
+                  >
                     Back to list
                   </a>
                 </div>
-
-                <div class="prose max-w-none px-6 py-6">
+                <div class="prose prose-slate max-w-none px-6 py-8">
                   <%= raw(@notebook.html) %>
                 </div>
               </div>
+            <% else %>
+              <div class="mt-10 rounded-2xl border border-purple-100 bg-white/80 px-6 py-8 text-sm text-slate-600">
+                Notebook preview not available.
+              </div>
             <% end %>
+          <% end %>
 
-            <div class="mt-4 text-xs text-amber-700">
-              Source: GitHub <span class="font-semibold text-amber-800">priv/notebooks</span>
-            </div>
+          <div class="mt-6 text-xs text-slate-500">
+            Source: GitHub <span class="font-semibold text-slate-700">priv/notebooks</span>
           </div>
-        </div>
+        </main>
       </div>
     </Layouts.app>
     """
