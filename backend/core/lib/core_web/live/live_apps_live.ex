@@ -17,7 +17,12 @@ defmodule CoreWeb.LiveAppsLive do
               <p class="text-xs font-semibold uppercase tracking-wide text-purple-500">Apps</p>
               <p class="text-lg font-semibold tracking-tight text-slate-900">Livebook Apps</p>
             </div>
-            <a href={~p"/"} class="text-sm text-slate-600 hover:text-slate-900">Back home</a>
+            <a
+              href={~p"/"}
+              class="rounded-lg border border-purple-100 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-purple-300"
+            >
+              Back home
+            </a>
           </div>
         </header>
 
@@ -35,7 +40,7 @@ defmodule CoreWeb.LiveAppsLive do
             <div class="flex flex-wrap items-center gap-3">
               <a
                 href={~p"/liveapps"}
-                class="rounded-lg border border-purple-100 bg-white/80 px-4 py-2 text-sm font-medium text-purple-600 hover:border-purple-200"
+                class="rounded-lg border border-purple-100 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-purple-300"
               >
                 Refresh apps
               </a>
@@ -52,7 +57,7 @@ defmodule CoreWeb.LiveAppsLive do
               <div class="mt-4">
                 <a
                   href={@livebook_url}
-                  class="inline-flex items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                  class="inline-flex items-center rounded-lg border border-purple-100 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-purple-300"
                 >
                   Open app
                 </a>

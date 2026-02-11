@@ -17,16 +17,43 @@ defmodule CoreWeb.ProfileLive do
           <div class="w-full max-w-3xl rounded-2xl border border-purple-100 bg-white/90 p-8 shadow-xl backdrop-blur">
             <div class="flex items-center justify-between">
               <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Profile</p>
-              <a href={~p"/"} class="text-xs text-purple-600 hover:text-purple-700">Back home</a>
+              <a
+                href={~p"/"}
+                class="rounded-lg border border-purple-100 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-purple-300"
+              >
+                Back home
+              </a>
             </div>
 
-            <h1 class="mt-4 text-3xl font-semibold text-slate-900">Maxly García</h1>
-            <div class="mt-2">
+            <div class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div class="relative mx-auto sm:mx-0">
+                <div class="h-28 w-28 rounded-full bg-gradient-to-br from-purple-500 via-fuchsia-500 to-indigo-500 p-[3px] shadow-lg shadow-purple-200/70">
+                  <img
+                    src={~p"/images/pp3.jpeg"}
+                    alt="Profile picture of Maxly Garcia"
+                    class="h-full w-full rounded-full object-cover ring-4 ring-white"
+                  />
+                </div>
+              </div>
+              <div class="text-center sm:text-left">
+                <h1 class="text-3xl font-semibold text-slate-900">Maxly García</h1>
+                <p class="mt-1 text-sm text-slate-500">Software Engineer</p>
+              </div>
+            </div>
+
+            <div class="mt-4">
               <p class="text-sm text-slate-600">
                 <%= if @show_full_intro do %>
                   Software engineer with over 10 years of experience, formed in OOP with C++/Python transitioned to
                   functional programming leveraging Elixir. Really into microservices, having adeptly developed and
-                  implemented critical business unit services and APIs.
+                  implemented critical business unit services and APIs.<br>
+
+                  <br>I'm interested in anything regarding tech and love to try new frameworks. If I'd have to choose my
+                  top 3 hobbies they would be: Max | Basketball | Elixir.<br>
+
+                  <br>I am dad to Max and I am very proud of him, he is the best boy I could have ever asked for. I do believe
+                    Jesus is Lord and he has taught me to serve and give back, that would be my life's philosophy.
+
                 <% else %>
                   Software engineer with 10+ years building backend systems, APIs, and distributed services.
                 <% end %>
@@ -34,7 +61,7 @@ defmodule CoreWeb.ProfileLive do
               <button
                 type="button"
                 phx-click="toggle_intro"
-                class="mt-2 text-xs font-semibold text-purple-600 hover:text-purple-700"
+                class="mt-2 rounded-lg px-3 py-1 text-xs font-semibold text-purple-600 transition-colors hover:bg-purple-300"
               >
                 <%= if @show_full_intro, do: "Show less", else: "Read more" %>
               </button>
@@ -221,13 +248,13 @@ defmodule CoreWeb.ProfileLive do
               <a
                 href={~p"/maxly_garcia_cv.pdf"}
                 download
-                class="rounded-lg bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-slate-800"
+                class="rounded-lg border border-purple-600 bg-white px-5 py-3 text-sm font-semibold text-purple-600 transition-colors hover:bg-purple-300"
               >
                 Download CV
               </a>
               <a
                 href={~p"/"}
-                class="rounded-lg border border-purple-100 bg-white px-5 py-3 text-sm font-medium text-slate-700 hover:border-purple-200"
+                class="rounded-lg border border-purple-100 bg-white px-5 py-3 text-sm font-medium text-slate-700 hover:bg-purple-300"
               >
                 Back to home
               </a>
