@@ -49,6 +49,11 @@ defmodule Core.Notebooks do
     end
   end
 
+  def livebook_app_path do
+    Application.get_env(:core, __MODULE__, [])
+    |> Keyword.get(:livebook_app_path, "/livebook/apps/playground")
+  end
+
   defp list_remote_notebooks do
     with {:ok, entries} <- fetch_dir_listing() do
       notebooks =
@@ -199,8 +204,11 @@ defmodule Core.Notebooks do
     headers = [{"user-agent", "izi-hub"}]
 
     case github_token() do
-      token when is_binary(token) and token != "" -> [{"authorization", "Bearer #{token}"} | headers]
-      _ -> headers
+      token when is_binary(token) and token != "" ->
+        [{"authorization", "Bearer #{token}"} | headers]
+
+      _ ->
+        headers
     end
   end
 

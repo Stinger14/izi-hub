@@ -3,18 +3,13 @@ defmodule CoreWeb.NotebooksLive do
 
   alias Core.Notebooks
 
-  def mount(_params, session, socket) do
-    livebook_admin = session["livebook_admin"] in [true, "true"]
-
+  def mount(_params, _session, socket) do
     {:ok,
      assign(socket,
        current_scope: nil,
        notebooks: [],
        notebook: nil,
-       error: nil,
-       livebook_open: false,
-       livebook_admin: livebook_admin,
-       livebook_token_set: livebook_token_set?()
+       error: nil
      )}
   end
 
@@ -42,10 +37,6 @@ defmodule CoreWeb.NotebooksLive do
     end
   end
 
-  def handle_event("toggle_livebook", _params, socket) do
-    {:noreply, update(socket, :livebook_open, &(!&1))}
-  end
-
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
@@ -63,22 +54,15 @@ defmodule CoreWeb.NotebooksLive do
         <main class="mx-auto max-w-6xl px-6 pb-16 pt-12">
           <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p class="text-sm font-medium text-purple-600">Preview markdown, run Livebook</p>
+              <p class="text-sm font-medium text-purple-600">Preview markdown</p>
               <h1 class="mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-                Explore and run API notebooks
+                Explore API notebooks
               </h1>
               <p class="mt-3 text-sm text-slate-600">
-                Browse markdown previews, then open Livebook inline without leaving the page.
+                Browse markdown previews and keep a lightweight view of the notebook library.
               </p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                phx-click="toggle_livebook"
-                class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-purple-600 hover:bg-slate-800"
-              >
-                <%= if @livebook_open, do: "Close Livebook", else: "Open Livebook" %>
-              </button>
               <a
                 href={~p"/notebooks"}
                 class="rounded-lg border border-purple-100 bg-white/80 px-4 py-2 text-sm font-medium text-purple-600 hover:border-purple-200"
@@ -91,82 +75,6 @@ defmodule CoreWeb.NotebooksLive do
           <%= if @error do %>
             <div class="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               <%= @error %>
-            </div>
-          <% end %>
-
-          <%= if @livebook_open do %>
-            <div class="mt-8 rounded-2xl border border-purple-100 bg-white/80 p-6 shadow-sm">
-              <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Livebook</p>
-                  <p class="mt-1 text-sm text-slate-600">
-                    Run notebooks on the same host with an authenticated session.
-                  </p>
-                </div>
-                <%= if @livebook_admin do %>
-                  <.form
-                    for={to_form(%{}, as: :livebook)}
-                    action={~p"/notebooks/livebook/access"}
-                    method="delete"
-                  >
-                    <button
-                      type="submit"
-                      class="rounded-lg border border-purple-100 bg-white px-4 py-2 text-xs font-semibold text-slate-600 hover:border-purple-200"
-                    >
-                      Remove access
-                    </button>
-                  </.form>
-                <% end %>
-              </div>
-
-              <%= if @livebook_admin do %>
-                <div class="mt-6 overflow-hidden rounded-2xl border border-purple-100 bg-white">
-                  <iframe
-                    src="/livebook"
-                    class="h-[620px] w-full"
-                    title="Livebook"
-                    loading="lazy"
-                  ></iframe>
-                </div>
-              <% else %>
-                <div class="mt-6 rounded-2xl border border-purple-100 bg-white p-5">
-                  <p class="text-sm text-slate-600">
-                    Livebook access is restricted.
-                    <%= if @livebook_token_set do %>
-                      Enter the admin token to enable it for this session.
-                    <% else %>
-                      An admin token has not been configured for this environment.
-                    <% end %>
-                  </p>
-
-                  <%= if @livebook_token_set do %>
-                    <.form
-                      for={to_form(%{}, as: :livebook)}
-                      action={~p"/notebooks/livebook/access"}
-                      method="post"
-                      class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"
-                    >
-                      <input
-                        type="password"
-                        name="token"
-                        autocomplete="current-password"
-                        placeholder="Livebook admin token"
-                        class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-purple-300 focus:outline-none"
-                      />
-                      <button
-                        type="submit"
-                        class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-purple-600 hover:bg-slate-800"
-                      >
-                        Enable access
-                      </button>
-                    </.form>
-                  <% end %>
-
-                  <p class="mt-3 text-xs text-slate-500">
-                    Set `LIVEBOOK_ADMIN_TOKEN` on the server to control access.
-                  </p>
-                </div>
-              <% end %>
             </div>
           <% end %>
 
@@ -214,12 +122,5 @@ defmodule CoreWeb.NotebooksLive do
       </div>
     </Layouts.app>
     """
-  end
-
-  defp livebook_token_set? do
-    case Core.Config.livebook_admin_token() do
-      {:ok, token} when is_binary(token) -> String.trim(token) != ""
-      _ -> false
-    end
   end
 end

@@ -46,14 +46,6 @@ defmodule Core.Config do
     ]
   )
 
-  @envdoc "Livebook admin token (required in prod)"
-  app_env(:livebook_admin_token, :core, :livebook_admin_token,
-    os_env: "LIVEBOOK_ADMIN_TOKEN",
-    env_overrides: [
-      prod: [required: true]
-    ]
-  )
-
   @envdoc "GitHub token for notebooks fetch"
   app_env(:github_token, :core, :github_token,
     os_env: "GITHUB_TOKEN",
