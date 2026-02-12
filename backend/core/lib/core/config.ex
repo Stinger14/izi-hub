@@ -33,9 +33,12 @@ defmodule Core.Config do
   )
 
   @envdoc "Secret key base"
-  app_env(:secret_key_base, :core, [Core.Repo, :secret],
+  app_env(:secret_key_base, :core, [CoreWeb.Endpoint, :secret_key_base],
     os_env: "SECRET_KEY_BASE",
-    default: ""
+    default: "",
+    env_overrides: [
+      prod: [required: true]
+    ]
   )
 
   @envdoc "DB URL (prod)"
