@@ -11,7 +11,12 @@ import Config
 config :core,
   ecto_repos: [Core.Repo]
 
-config :core, CoreWeb.Endpoint, pubsub_server: Core.PubSub
+config :core, CoreWeb.Endpoint,
+  pubsub_server: Core.PubSub,
+  render_errors: [
+    formats: [html: CoreWeb.ErrorHTML, json: CoreWeb.ErrorJSON],
+    layout: false
+  ]
 
 # Configure the mailer
 #

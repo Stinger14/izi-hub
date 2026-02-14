@@ -1,0 +1,22 @@
+FROM elixir:1.15
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential git nodejs npm && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV MIX_ENV=dev
+WORKDIR /app
+
+RUN mix local.hex --force && mix local.rebar --force
+
+COPY mix.exs mix.lock ./
+COPY config config
+RUN mix deps.get
+
+COPY assets/package.json assets/package-lock.json ./assets/
+RUN npm ci --prefix ./assets
+
+COPY . .
+
+EXPOSE 4000
+CMD ["mix", "phx.server"]

@@ -1,0 +1,12 @@
+.git
+.gitignore
+_build
+deps
+tmp
+erl_crash.dump
+*.log
+.env
+.env.*
+assets/node_modules
+node_modules
+test

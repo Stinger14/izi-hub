@@ -1,3 +1,8 @@
+---
+title: Izi Hub Playground
+description: Try the core API workflows through the deployed Livebook app.
+---
+
 # Izi Hub Playground
 
 ```elixir
