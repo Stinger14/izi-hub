@@ -88,10 +88,7 @@ defmodule Core.MixProject do
       {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
 
       # Markdown
-      {:earmark, "~> 1.4"},
-
-      # Reverse-proxy
-      {:reverse_proxy_plug, "~> 2.4"}
+      {:earmark, "~> 1.4"}
     ]
   end
 

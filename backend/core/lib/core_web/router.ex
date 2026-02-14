@@ -19,15 +19,6 @@ defmodule CoreWeb.Router do
     plug :put_secure_browser_headers
   end
 
-  scope "/" do
-    pipe_through [:livebook_proxy]
-
-    forward "/livebook",
-            ReverseProxyPlug,
-            upstream: "http://localhost:8080",
-            websocket: true
-  end
-
   scope "/", CoreWeb do
     pipe_through :browser
 
@@ -37,11 +28,6 @@ defmodule CoreWeb.Router do
     live "/notebooks", NotebooksLive, :index
     live "/notebooks/:slug", NotebooksLive, :show
     live "/liveapps", LiveAppsLive, :index
-  end
-
-  pipeline :livebook_proxy do
-    plug :accepts, ["html"]
-    plug CoreWeb.LivebookProxyBody
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

@@ -14,7 +14,7 @@ defmodule Core.Notebooks do
   @cache_table __MODULE__.Cache
   @cache_ttl_seconds 300
   @preview_extension ".md"
-  @livebook_extension ".livemd"
+  @app_extension ".livemd"
   @local_dir Path.join(to_string(:code.priv_dir(:core)), "notebooks")
 
   def list_notebooks do
@@ -49,9 +49,17 @@ defmodule Core.Notebooks do
     end
   end
 
-  def livebook_app_path do
-    Application.get_env(:core, __MODULE__, [])
-    |> Keyword.get(:livebook_app_path, "/livebook/apps/playground")
+  def list_livebook_apps do
+    with {:ok, entries} <- File.ls(@local_dir) do
+      apps =
+        entries
+        |> Enum.filter(&String.ends_with?(&1, @app_extension))
+        |> Enum.map(&build_livebook_app/1)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.sort_by(& &1.slug)
+
+      {:ok, apps}
+    end
   end
 
   defp list_remote_notebooks do
@@ -67,8 +75,7 @@ defmodule Core.Notebooks do
             name: name,
             slug: slug,
             api_url: entry["url"],
-            raw_url: raw_url(name),
-            livebook_name: "#{slug}#{@livebook_extension}"
+            raw_url: raw_url(name)
           }
         end)
         |> Enum.sort_by(& &1.slug)
@@ -85,8 +92,7 @@ defmodule Core.Notebooks do
        %{
          slug: slug,
          content: content,
-         html: render_markdown(content),
-         livebook_name: "#{slug}#{@livebook_extension}"
+         html: render_markdown(content)
        }}
     end
   end
@@ -103,8 +109,7 @@ defmodule Core.Notebooks do
             name: name,
             slug: slug,
             api_url: nil,
-            raw_url: nil,
-            livebook_name: "#{slug}#{@livebook_extension}"
+            raw_url: nil
           }
         end)
         |> Enum.sort_by(& &1.slug)
@@ -122,9 +127,87 @@ defmodule Core.Notebooks do
        %{
          slug: slug,
          content: content,
-         html: render_markdown(content),
-         livebook_name: "#{slug}#{@livebook_extension}"
+         html: render_markdown(content)
        }}
+    end
+  end
+
+  defp build_livebook_app(name) do
+    slug = String.replace_suffix(name, @app_extension, "")
+    path = Path.join(@local_dir, name)
+
+    with {:ok, content} <- File.read(path) do
+      {meta, _body} = parse_frontmatter(content)
+      url = Map.get(meta, "url") || app_url_from_env(slug)
+
+      %{
+        name: name,
+        slug: slug,
+        title: Map.get(meta, "title") || slug,
+        description: Map.get(meta, "description") || "Live app from Livebook.",
+        url: url
+      }
+    else
+      _ -> nil
+    end
+  end
+
+  defp parse_frontmatter(content) do
+    lines = String.split(content, ~r/\r?\n/)
+
+    case lines do
+      ["---" | rest] ->
+        {front_lines, remainder} = Enum.split_while(rest, &(&1 != "---"))
+
+        case remainder do
+          ["---" | body_lines] ->
+            {parse_frontmatter_lines(front_lines), Enum.join(body_lines, "\n")}
+
+          _ ->
+            {%{}, content}
+        end
+
+      _ ->
+        {%{}, content}
+    end
+  end
+
+  defp parse_frontmatter_lines(lines) do
+    Enum.reduce(lines, %{}, fn line, acc ->
+      case String.split(line, ":", parts: 2) do
+        [key, value] ->
+          Map.put(acc, String.trim(key), value |> String.trim() |> trim_quotes())
+
+        _ ->
+          acc
+      end
+    end)
+  end
+
+  defp trim_quotes(value) do
+    trimmed = String.trim(value)
+
+    cond do
+      String.starts_with?(trimmed, "\"") and String.ends_with?(trimmed, "\"") ->
+        trimmed |> String.trim_leading("\"") |> String.trim_trailing("\"")
+
+      String.starts_with?(trimmed, "'") and String.ends_with?(trimmed, "'") ->
+        trimmed |> String.trim_leading("'") |> String.trim_trailing("'")
+
+      true ->
+        trimmed
+    end
+  end
+
+  defp app_url_from_env(slug) do
+    base =
+      System.get_env("LIVEBOOK_APPS_BASE_URL") ||
+        Application.get_env(:core, __MODULE__, [])
+        |> Keyword.get(:livebook_apps_base_url)
+
+    if is_binary(base) and base != "" do
+      base = String.trim_trailing(base, "/")
+      "#{base}/#{URI.encode(slug)}"
     end
   end
 
