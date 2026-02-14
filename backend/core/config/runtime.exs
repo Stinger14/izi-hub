@@ -35,13 +35,15 @@ if config_env() == :prod do
   host = System.get_env("PHX_HOST") || "example.com"
   scheme = System.get_env("PHX_SCHEME") || "https"
   port = String.to_integer(System.get_env("PORT") || "4000")
+  signing_salt = System.get_env("LIVE_VIEW_SIGNING_SALT") || "GI71qW3j29IIGwNi"
 
   config :core, Core.Repo, url: database_url
 
   config :core, CoreWeb.Endpoint,
     url: [host: host, scheme: scheme, port: port],
     http: [ip: {0, 0, 0, 0}, port: port],
-    check_origin: ["http://#{host}", "https://#{host}"]
+    check_origin: ["http://#{host}", "https://#{host}"],
+    live_view: [signing_salt: signing_salt]
 end
 
 if System.get_env("SMTP_HOST") do

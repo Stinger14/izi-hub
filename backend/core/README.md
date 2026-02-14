@@ -27,6 +27,7 @@ The app is available at:
 * `PHX_HOST`
 * `PHX_SERVER=true`
 * `PORT`
+* `LIVE_VIEW_SIGNING_SALT`
 * `GITHUB_TOKEN`
 * `LIVEBOOK_APPS_BASE_URL`
 
