@@ -2,12 +2,23 @@ import Config
 
 # Configure your database
 config :core, Core.Repo,
-  database: "izihub_db",
+  username: System.get_env("POSTGRES_USER") || "izihub",
+  password: System.get_env("POSTGRES_PASSWORD") || "izihub",
+  hostname: System.get_env("POSTGRES_HOST") || "localhost",
+  port: String.to_integer(System.get_env("POSTGRES_PORT") || "5432"),
+  database: System.get_env("POSTGRES_DB") || "izihub_db",
   pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
   ssl: System.get_env("SSL") == "true"
 
+ip =
+  if System.get_env("PHX_DOCKER") == "true" do
+    {0, 0, 0, 0}
+  else
+    {127, 0, 0, 0}
+  end
+
 config :core, CoreWeb.Endpoint,
-  http: [ip: {127, 0, 0, 1}, port: 4000],
+  http: [ip: ip, port: 4000],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,

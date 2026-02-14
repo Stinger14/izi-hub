@@ -6,5 +6,8 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19"
+  },
+  "scripts": {
+    "deploy": "cd .. && mix assets.deploy && rm -f _build/esbuild"
   }
 }

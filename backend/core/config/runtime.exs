@@ -25,11 +25,32 @@ config :core, Core.Repo,
   ssl: System.get_env("SSL") == "true"
 
 if config_env() == :prod do
+  database_url =
+    System.get_env("DATABASE_URL") ||
+      raise """
+      environment variable DATABASE_URL is missing.
+      For example: ecto://USER:PASS@HOST:5432/DB_NAME
+      """
+
   host = System.get_env("PHX_HOST") || "example.com"
+  scheme = System.get_env("PHX_SCHEME") || "https"
   port = String.to_integer(System.get_env("PORT") || "4000")
 
+  config :core, Core.Repo, url: database_url
+
   config :core, CoreWeb.Endpoint,
-    url: [host: host, scheme: "https", port: 443],
+    url: [host: host, scheme: scheme, port: port],
     http: [ip: {0, 0, 0, 0}, port: port],
-    check_origin: ["https://#{host}"]
+    check_origin: ["http://#{host}", "https://#{host}"]
+end
+
+if System.get_env("SMTP_HOST") do
+  config :core, Core.Mailer,
+    adapter: Swoosh.Adapters.SMTP,
+    relay: System.get_env("SMTP_HOST"),
+    username: System.get_env("SMTP_USERNAME"),
+    password: System.get_env("SMTP_PASSWORD"),
+    port: String.to_integer(System.get_env("SMTP_PORT") || "587"),
+    tls: :always,
+    auth: :always
 end

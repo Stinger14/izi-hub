@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-izihub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      POSTGRES_DB: ${POSTGRES_DB:-izihub_db}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-izihub} -d ${POSTGRES_DB:-izihub_db}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PHX_SERVER: "true"
+      PHX_HOST: ${PHX_HOST:-localhost}
+      PHX_SCHEME: ${PHX_SCHEME:-http}
+      PORT: ${PORT:-4000}
+      POOL_SIZE: ${POOL_SIZE:-10}
+      DATABASE_URL: ${DATABASE_URL:-ecto://izihub:izihub@db:5432/izihub_db}
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-izihub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      POSTGRES_DB: ${POSTGRES_DB:-izihub_db}
+      SSL: ${SSL:-false}
+      NOTEBOOKS_SOURCE: ${NOTEBOOKS_SOURCE:-local}
+      LIVEBOOK_APPS_BASE_URL: ${LIVEBOOK_APPS_BASE_URL:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
+    expose:
+      - "4000"
+    ports:
+      - "4000:4000"
+
+volumes:
+  postgres_data:

@@ -46,6 +46,9 @@ defmodule CoreWeb.HubLive do
             <a href="#week" class="hover:text-purple-600">This week</a>
           </nav>
           <div class="flex items-center gap-3">
+            <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                WIP
+            </span>
             <a
               href={~p"/liveapps"}
               class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-purple-400"
