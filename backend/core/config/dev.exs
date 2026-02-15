@@ -8,13 +8,14 @@ config :core, Core.Repo,
   port: String.to_integer(System.get_env("POSTGRES_PORT") || "5432"),
   database: System.get_env("POSTGRES_DB") || "izihub_db",
   pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-  ssl: System.get_env("SSL") == "true"
+  ssl: System.get_env("SSL") == "true",
+  show_sensitive_data_on_connection_error: true
 
 ip =
   if System.get_env("PHX_DOCKER") == "true" do
     {0, 0, 0, 0}
   else
-    {127, 0, 0, 0}
+    {127, 0, 0, 1}
   end
 
 config :core, CoreWeb.Endpoint,
