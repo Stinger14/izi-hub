@@ -33,7 +33,7 @@ defmodule CoreWeb.LiveAppsLive do
               <p class="text-lg font-semibold tracking-tight text-slate-900">Live Apps</p>
             </div>
             <a
-              href={~p"/"}
+              href={~p"/hub"}
               class="rounded-lg border border-purple-100 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-purple-300"
             >
               Back home

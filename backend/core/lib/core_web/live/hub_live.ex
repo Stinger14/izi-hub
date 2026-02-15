@@ -165,22 +165,25 @@ defmodule CoreWeb.HubLive do
                             >
                               <%= story.title %>
                             </a>
-                            <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                              <span><%= story.score %> points</span>
-                              <span>·</span>
-                              <a
-                                href={story.hn_url}
-                                class="text-purple-600 hover:text-purple-700"
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                <%= story.comments %> comments
-                              </a>
-                              <span>·</span>
-                              <span>by <%= story.author %></span>
-                              <span>·</span>
-                              <span><%= story.age %></span>
-                            </div>
+                            <li class="relative rounded-xl border border-purple-100 bg-white/85 p-4 pr-16">
+                                <span class="absolute right-3 top-3 inline-flex -rotate-3 items-center rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[10px]
+                              font-extrabold uppercase tracking-[0.12em] text-amber-800 shadow-sm">
+                                  <%= story.age %>
+                                </span>
+
+                                <a href={story.url} class="font-semibold text-slate-800 hover:text-purple-600" target="_blank" rel="noreferrer">
+                                  <%= story.title %>
+                                </a>
+                                <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                  <span><%= story.score %> points</span>
+                                  <span>·</span>
+                                  <a href={story.hn_url} class="text-purple-600 hover:text-purple-700" target="_blank" rel="noreferrer">
+                                    <%= story.comments %> comments
+                                  </a>
+                                  <span>·</span>
+                                  <span>by <%= story.author %></span>
+                                </div>
+                              </li>
                           </li>
                         <% end %>
                       </ul>

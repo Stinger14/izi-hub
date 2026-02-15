@@ -18,7 +18,7 @@ defmodule CoreWeb.ProfileLive do
             <div class="flex items-center justify-between">
               <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Profile</p>
               <a
-                href={~p"/"}
+                href={~p"/hub"}
                 class="rounded-lg border border-purple-100 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-purple-300"
               >
                 Back home
@@ -253,7 +253,7 @@ defmodule CoreWeb.ProfileLive do
                 Download CV
               </a>
               <a
-                href={~p"/"}
+                href={~p"/hub"}
                 class="rounded-lg border border-purple-100 bg-white px-5 py-3 text-sm font-medium text-slate-700 hover:bg-purple-300"
               >
                 Back to home
