@@ -3,6 +3,9 @@ defmodule CoreWeb.HubLive do
 
   alias Core.GitHub
   alias Core.HackerNews
+  alias CoreWeb.Presence
+
+  @presence_topic "site:presence"
 
   def mount(_params, _session, socket) do
     socket =
@@ -10,13 +13,19 @@ defmodule CoreWeb.HubLive do
         current_scope: nil,
         github_accounts: [],
         news_items: [],
-        loading_data: false
+        loading_data: false,
+        online_count: 0
       )
 
     socket =
       if connected?(socket) do
+        Phoenix.PubSub.subscribe(Core.PubSub, @presence_topic)
+        _ = Presence.track(self(), @presence_topic, presence_key(), %{joined_at: now_unix()})
+        online_count = online_count()
+
         send(self(), :load_hub_data)
-        assign(socket, :loading_data, true)
+
+        assign(socket, loading_data: true, online_count: online_count)
       else
         socket
       end
@@ -30,6 +39,10 @@ defmodule CoreWeb.HubLive do
 
     {:noreply,
      assign(socket, github_accounts: github_accounts, news_items: news_items, loading_data: false)}
+  end
+
+  def handle_info(%{event: "presence_diff"}, socket) do
+    {:noreply, assign(socket, online_count: online_count())}
   end
 
   def render(assigns) do
@@ -46,6 +59,10 @@ defmodule CoreWeb.HubLive do
             <a href="#week" class="hover:text-purple-600">This week</a>
           </nav>
           <div class="flex items-center gap-3">
+            <div class="hidden items-center gap-2 rounded-full border border-purple-100 bg-white/80 px-3 py-1 text-xs font-medium text-slate-500 md:flex">
+              <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+              <span><%= @online_count %> online</span>
+            </div>
             <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
                 WIP
             </span>
@@ -347,5 +364,19 @@ defmodule CoreWeb.HubLive do
       {:ok, html, _} -> html
       {:error, html, _} -> html
     end
+  end
+
+  defp online_count do
+    @presence_topic
+    |> Presence.list()
+    |> map_size()
+  end
+
+  defp presence_key do
+    "anon-" <> Integer.to_string(System.unique_integer([:positive]))
+  end
+
+  defp now_unix do
+    System.system_time(:second)
   end
 end
