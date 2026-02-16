@@ -23,11 +23,12 @@ defmodule CoreWeb.Router do
     pipe_through :browser
 
     live "/welcome", HubLandingLive, :index
-    live "/", HubLive, :index
+    live "/hub", HubLive, :index
     live "/profile", ProfileLive, :index
     live "/notebooks", NotebooksLive, :index
     live "/notebooks/:slug", NotebooksLive, :show
     live "/liveapps", LiveAppsLive, :index
+    get "/", RedirectController, :to_welcome
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
