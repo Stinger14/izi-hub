@@ -24,6 +24,8 @@ defmodule CoreWeb.Router do
 
     live "/welcome", HubLandingLive, :index
     live "/hub", HubLive, :index
+    live "/contributions", ContributionsLive, :index
+    live "/resources", ResourcesLive, :index
     live "/profile", ProfileLive, :index
     live "/notebooks", NotebooksLive, :index
     live "/notebooks/:slug", NotebooksLive, :show

@@ -53,6 +53,116 @@ Hooks.StatsFallback = {
   },
 };
 
+Hooks.StackPreview = {
+  mounted() {
+    this.setup();
+  },
+  updated() {
+    this.setup();
+  },
+  destroyed() {
+    this.teardown();
+  },
+  setup() {
+    this.teardown();
+
+    this.badges = Array.from(this.el.querySelectorAll("[data-stack-slug]"));
+    this.preview = this.el.querySelector("[data-stack-preview]");
+    this.titleEl = this.el.querySelector("[data-stack-preview-title]");
+    this.contextEl = this.el.querySelector("[data-stack-preview-context]");
+    this.hintEl = this.el.querySelector("[data-stack-preview-hint]");
+    this.hoverCapable = window.matchMedia("(hover: hover)").matches;
+
+    if (
+      !this.badges.length ||
+      !this.preview ||
+      !this.titleEl ||
+      !this.contextEl ||
+      !this.hintEl
+    ) {
+      return;
+    }
+
+    this.activate = (badge) => {
+      this.badges.forEach((node) => {
+        node.classList.toggle("fx-stack-badge-active", node === badge);
+      });
+
+      this.el.classList.add("fx-stack-card-expanded");
+      this.preview.classList.add("fx-stack-shared-preview-open");
+      this.titleEl.textContent = badge.dataset.stackTitle || "";
+      this.contextEl.textContent = badge.dataset.stackContext || "";
+      this.titleEl.classList.remove("hidden");
+      this.contextEl.classList.remove("hidden");
+      this.hintEl.classList.add("hidden");
+    };
+
+    this.clear = () => {
+      this.badges.forEach((node) => {
+        node.classList.remove("fx-stack-badge-active");
+      });
+
+      this.el.classList.remove("fx-stack-card-expanded");
+      this.preview.classList.remove("fx-stack-shared-preview-open");
+      this.titleEl.textContent = "";
+      this.contextEl.textContent = "";
+      this.titleEl.classList.add("hidden");
+      this.contextEl.classList.add("hidden");
+      this.hintEl.classList.remove("hidden");
+    };
+
+    this.badgeRemovers = this.badges.map((badge) => {
+      const onEnter = () => this.activate(badge);
+      const onFocus = () => this.activate(badge);
+      const onClick = (event) => {
+        event.preventDefault();
+        this.activate(badge);
+      };
+
+      badge.addEventListener("mouseenter", onEnter);
+      badge.addEventListener("focus", onFocus);
+      badge.addEventListener("click", onClick);
+
+      return () => {
+        badge.removeEventListener("mouseenter", onEnter);
+        badge.removeEventListener("focus", onFocus);
+        badge.removeEventListener("click", onClick);
+      };
+    });
+
+    this.onMouseLeave = () => {
+      if (this.hoverCapable) {
+        this.clear();
+      }
+    };
+
+    this.onDocumentClick = (event) => {
+      if (!this.el.contains(event.target)) {
+        this.clear();
+      }
+    };
+
+    this.el.addEventListener("mouseleave", this.onMouseLeave);
+    document.addEventListener("click", this.onDocumentClick);
+  },
+  teardown() {
+    if (this.badgeRemovers) {
+      this.badgeRemovers.forEach((remove) => remove());
+      this.badgeRemovers = null;
+    }
+
+    if (this.onMouseLeave) {
+      this.el.removeEventListener("mouseleave", this.onMouseLeave);
+      this.onMouseLeave = null;
+    }
+
+    if (this.onDocumentClick) {
+      document.removeEventListener("click", this.onDocumentClick);
+      this.onDocumentClick = null;
+    }
+  },
+};
+
 let liveSocket = new LiveSocket("/live", Socket, {
   params: { _csrf_token: csrfToken },
   hooks: Hooks,

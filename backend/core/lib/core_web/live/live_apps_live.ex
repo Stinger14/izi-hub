@@ -29,12 +29,11 @@ defmodule CoreWeb.LiveAppsLive do
         <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
           <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-purple-500">Apps</p>
-              <p class="text-lg font-semibold tracking-tight text-slate-900">Live Apps</p>
+              <p class="text-lg font-semibold tracking-tight text-purple-500">Live Apps</p>
             </div>
             <a
               href={~p"/hub"}
-              class="rounded-lg border border-purple-100 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-purple-300"
+              class="btn btn-secondary btn-sm"
             >
               Back home
             </a>
@@ -44,18 +43,14 @@ defmodule CoreWeb.LiveAppsLive do
         <main class="mx-auto max-w-6xl px-6 pb-16 pt-12">
           <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p class="text-sm font-medium text-purple-600">Live apps</p>
               <h1 class="mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-                Open your deployed apps
+                Deployed LiveBook apps
               </h1>
-              <p class="mt-3 text-sm text-slate-600">
-                Apps are discovered from local <code>.livemd</code> files and link to your hosted Livebook service.
-              </p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
               <a
                 href={~p"/liveapps"}
-                class="rounded-lg border border-purple-100 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-purple-300"
+                class="btn btn-secondary btn-sm"
               >
                 Refresh apps
               </a>
@@ -76,16 +71,18 @@ defmodule CoreWeb.LiveAppsLive do
             <div class="mt-10 grid gap-6 md:grid-cols-2">
               <%= for app <- @apps do %>
                 <%= if app.url do %>
-                  <a
-                    href={app.url}
-                    class="rounded-2xl border border-purple-100 bg-white/80 p-6 text-left shadow-sm hover:border-purple-200"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Live app</p>
-                    <p class="mt-2 text-lg font-semibold text-slate-900"><%= app.title %></p>
-                    <p class="mt-2 text-sm text-slate-600"><%= app.description %></p>
-                  </a>
+                  <div class="fx-item rounded-2xl border border-transparent p-1 transition-colors hover:border-purple-100">
+                    <a
+                      href={app.url}
+                      class="fx-trigger rounded-2xl p-6"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Live app</p>
+                      <p class="mt-2 text-lg font-semibold text-slate-900"><%= app.title %></p>
+                      <p class="mt-2 text-sm text-slate-600"><%= app.description %></p>
+                    </a>
+                  </div>
                 <% else %>
                   <div class="rounded-2xl border border-dashed border-purple-100 bg-white/80 p-6 text-left text-slate-600">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Live app</p>
