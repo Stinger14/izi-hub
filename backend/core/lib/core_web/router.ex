@@ -22,6 +22,8 @@ defmodule CoreWeb.Router do
   scope "/", CoreWeb do
     pipe_through :browser
 
+    get "/cv", CVController, :download
+    live "/admin", Admin.DashboardLive, :index
     live "/welcome", HubLandingLive, :index
     live "/hub", HubLive, :index
     live "/contributions", ContributionsLive, :index
