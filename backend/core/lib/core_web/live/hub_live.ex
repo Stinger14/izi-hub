@@ -13,19 +13,16 @@ defmodule CoreWeb.HubLive do
         current_scope: nil,
         github_accounts: [],
         news_items: [],
-        loading_data: false,
-        online_count: 0
+        loading_data: false
       )
 
     socket =
       if connected?(socket) do
-        Phoenix.PubSub.subscribe(Core.PubSub, @presence_topic)
         _ = Presence.track(self(), @presence_topic, presence_key(), %{joined_at: now_unix()})
-        online_count = online_count()
 
         send(self(), :load_hub_data)
 
-        assign(socket, loading_data: true, online_count: online_count)
+        assign(socket, loading_data: true)
       else
         socket
       end
@@ -39,10 +36,6 @@ defmodule CoreWeb.HubLive do
 
     {:noreply,
      assign(socket, github_accounts: github_accounts, news_items: news_items, loading_data: false)}
-  end
-
-  def handle_info(%{event: "presence_diff"}, socket) do
-    {:noreply, assign(socket, online_count: online_count())}
   end
 
   def render(assigns) do
@@ -60,10 +53,6 @@ defmodule CoreWeb.HubLive do
               <a href="#week" class="fx-nav-link">This week</a>
             </nav>
             <div class="flex items-center gap-3">
-            <div class="hidden items-center gap-2 rounded-full border border-purple-100 bg-white/80 px-3 py-1 text-xs font-medium text-slate-500 md:flex">
-              <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
-              <span><%= @online_count %> online</span>
-            </div>
               <span class="badge-status badge-wip">
                 WIP
               </span>
@@ -484,12 +473,6 @@ defmodule CoreWeb.HubLive do
   end
 
   defp mtime_to_date(_), do: :error
-
-  defp online_count do
-    @presence_topic
-    |> Presence.list()
-    |> map_size()
-  end
 
   defp presence_key do
     "anon-" <> Integer.to_string(System.unique_integer([:positive]))
