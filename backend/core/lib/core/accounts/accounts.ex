@@ -54,6 +54,32 @@ defmodule Core.Accounts do
   end
 
   @doc """
+  Returns total users count.
+  """
+  def count_users do
+    Repo.aggregate(User, :count)
+  end
+
+  @doc """
+  Returns active users count.
+  """
+  def count_active_users do
+    User
+    |> where([u], u.is_active == true)
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
+  Returns the most recent users.
+  """
+  def list_recent_users(limit \\ 5) do
+    User
+    |> order_by([u], desc: u.inserted_at)
+    |> limit(^limit)
+    |> Repo.all()
+  end
+
+  @doc """
   Gets a single user.
 
   Raises `Ecto.NoResultsError` if the User does not exist.
