@@ -259,8 +259,7 @@ defmodule CoreWeb.ProfileLive do
 
             <div class="mt-8 flex flex-wrap items-center gap-4">
               <a
-                href={~p"/maxly_garcia_cv.pdf"}
-                download
+                href={~p"/cv"}
                 class="btn btn-primary btn-glow"
               >
                 Download CV
