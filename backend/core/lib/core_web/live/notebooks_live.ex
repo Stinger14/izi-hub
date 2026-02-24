@@ -5,8 +5,9 @@ defmodule CoreWeb.NotebooksLive do
 
   def mount(_params, _session, socket) do
     {:ok,
-     assign(socket,
-       current_scope: nil,
+     socket
+     |> assign_new(:current_scope, fn -> nil end)
+     |> assign(
        notebooks: [],
        notebook: nil,
        error: nil
@@ -44,12 +45,11 @@ defmodule CoreWeb.NotebooksLive do
         <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
           <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-purple-500">Notebooks</p>
-              <p class="text-lg font-semibold tracking-tight text-slate-900">Notebook Library</p>
+              <p class="text-lg font-semibold tracking-tight text-purple-500">Notebooks</p>
             </div>
             <a
-              href={~p"/"}
-              class="rounded-lg border border-purple-100 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-purple-300"
+              href={~p"/hub"}
+              class="btn btn-secondary btn-sm"
             >
               Back home
             </a>
@@ -70,7 +70,7 @@ defmodule CoreWeb.NotebooksLive do
             <div class="flex flex-wrap items-center gap-3">
               <a
                 href={~p"/notebooks"}
-                class="rounded-lg border border-purple-100 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-purple-300"
+                class="btn btn-secondary btn-sm"
               >
                 Refresh list
               </a>
@@ -86,14 +86,16 @@ defmodule CoreWeb.NotebooksLive do
           <%= if @live_action == :index do %>
             <div class="mt-10 grid gap-6 md:grid-cols-2">
               <%= for notebook <- @notebooks do %>
-                <a
-                  href={~p"/notebooks/#{notebook.slug}"}
-                  class="rounded-2xl border border-purple-100 bg-white/80 p-6 text-left shadow-sm hover:border-purple-200"
-                >
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Notebook</p>
-                  <p class="mt-2 text-lg font-semibold text-slate-900"><%= notebook.slug %></p>
-                  <p class="mt-2 text-sm text-slate-600">Open preview markdown</p>
-                </a>
+                <div class="fx-item rounded-2xl border border-transparent p-1 transition-colors hover:border-purple-100">
+                  <a
+                    href={~p"/notebooks/#{notebook.slug}"}
+                    class="fx-trigger rounded-2xl p-6"
+                  >
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Notebook</p>
+                    <p class="mt-2 text-lg font-semibold text-slate-900"><%= notebook.slug %></p>
+                    <p class="mt-2 text-sm text-slate-600">Open preview markdown</p>
+                  </a>
+                </div>
               <% end %>
             </div>
           <% else %>
@@ -104,7 +106,7 @@ defmodule CoreWeb.NotebooksLive do
                   <span class="text-sm font-semibold text-slate-900"><%= @notebook.slug %></span>
                   <a
                     href={~p"/notebooks"}
-                    class="ml-auto rounded-lg border border-purple-100 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-purple-300"
+                    class="btn btn-secondary btn-sm ml-auto"
                   >
                     Back to list
                   </a>

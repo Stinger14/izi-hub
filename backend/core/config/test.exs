@@ -19,6 +19,9 @@ config :core, Core.Repo,
 #   http: [ip: {127, 0, 0, 1}, port: 4002],
 #   secret_key_base: "bvt4UNyGIifF5/518CfY2YuTULJkzoGRZ8nrxDu7DIxTX+YgjBreV+XJtCkz77IY",
 #   server: false
+config :core, CoreWeb.Endpoint,
+  secret_key_base: String.duplicate("a", 64),
+  live_view: [signing_salt: "testsigningsalt"]
 
 # In test we don't send emails
 config :core, Core.Mailer, adapter: Swoosh.Adapters.Test

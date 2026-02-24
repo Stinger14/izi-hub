@@ -131,4 +131,29 @@ defmodule Core.AccountsTest do
       assert_raise Ecto.NoResultsError, fn -> Accounts.get_user!(user.id) end
     end
   end
+
+  describe "Email-only Registration" do
+    test "registers with generated username and setup token" do
+      email = "email_only_#{System.unique_integer([:positive])}@example.com"
+
+      assert {:ok, %User{} = user, token} = Accounts.register_email_only_user(email)
+      assert user.email == email
+      assert user.username =~ ~r/^[a-z]+-[a-z]+-[a-z]+$/
+      assert is_binary(token)
+      assert {:ok, setup_user} = Accounts.get_user_by_token(token, "setup_password")
+      assert setup_user.id == user.id
+    end
+
+    test "sets password from setup token" do
+      email = "setup_token_#{System.unique_integer([:positive])}@example.com"
+      assert {:ok, %User{} = user, token} = Accounts.register_email_only_user(email)
+
+      assert {:ok, updated_user} =
+               Accounts.set_password_from_setup_token(token, "Password123!")
+
+      assert updated_user.id == user.id
+      assert :error == Accounts.get_user_by_token(token, "setup_password")
+      assert Accounts.get_user_by_email_password(email, "Password123!")
+    end
+  end
 end
