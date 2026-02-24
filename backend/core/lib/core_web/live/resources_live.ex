@@ -2,7 +2,7 @@ defmodule CoreWeb.ResourcesLive do
   use CoreWeb, :live_view
 
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, current_scope: nil)}
+    {:ok, assign_new(socket, :current_scope, fn -> nil end)}
   end
 
   def render(assigns) do
@@ -12,8 +12,7 @@ defmodule CoreWeb.ResourcesLive do
         <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
           <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-purple-500">Library</p>
-              <p class="text-lg font-semibold tracking-tight text-slate-900">Resources</p>
+              <p class="text-lg font-semibold tracking-tight text-purple-500">Resources</p>
             </div>
             <a href={~p"/hub"} class="btn btn-secondary btn-sm">Back to hub</a>
           </div>

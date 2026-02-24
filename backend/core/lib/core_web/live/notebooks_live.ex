@@ -5,8 +5,9 @@ defmodule CoreWeb.NotebooksLive do
 
   def mount(_params, _session, socket) do
     {:ok,
-     assign(socket,
-       current_scope: nil,
+     socket
+     |> assign_new(:current_scope, fn -> nil end)
+     |> assign(
        notebooks: [],
        notebook: nil,
        error: nil
@@ -44,8 +45,7 @@ defmodule CoreWeb.NotebooksLive do
         <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
           <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-purple-500">Notebooks</p>
-              <p class="text-lg font-semibold tracking-tight text-slate-900">Notebook Library</p>
+              <p class="text-lg font-semibold tracking-tight text-purple-500">Notebooks</p>
             </div>
             <a
               href={~p"/hub"}

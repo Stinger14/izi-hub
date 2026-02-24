@@ -5,8 +5,9 @@ defmodule CoreWeb.ContributionsLive do
 
   def mount(_params, _session, socket) do
     socket =
-      assign(socket,
-        current_scope: nil,
+      socket
+      |> assign_new(:current_scope, fn -> nil end)
+      |> assign(
         github_accounts: [],
         loading_data: false
       )
@@ -35,8 +36,7 @@ defmodule CoreWeb.ContributionsLive do
         <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
           <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-purple-500">GitHub</p>
-              <p class="text-lg font-semibold tracking-tight text-slate-900">Contributions</p>
+              <p class="text-lg font-semibold tracking-tight text-purple-500">Contributions</p>
             </div>
             <a href={~p"/hub"} class="btn btn-secondary btn-sm">Back to hub</a>
           </div>
