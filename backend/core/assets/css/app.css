@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@plugin "@tailwindcss/typography";
 
 @layer base {
     :root {
@@ -246,6 +245,12 @@
         text-transform: uppercase;
     }
 
+    .badge-compact-64 {
+        padding: 4px 6px;
+        font-size: 9px;
+        letter-spacing: 0.06em;
+    }
+
     .badge-status::before {
         content: "";
         position: absolute;
@@ -352,6 +357,11 @@
     .fx-nav-link:focus-visible {
         outline: 2px solid #a855f7;
         outline-offset: 2px;
+    }
+
+    .fx-nav-link-with-badge {
+        overflow: visible;
+        padding-right: 18px;
     }
 
     .fx-tech-chip {
@@ -628,7 +638,7 @@
     .fx-stack-badge-grid {
         max-height: 204px;
         overflow-y: auto;
-        padding: 2px 2px 2px 0;
+        padding: 2px;
     }
 
     @media (min-width: 768px) {
@@ -645,58 +655,59 @@
         justify-content: center;
         width: 100%;
         min-height: 36px;
-        border: 1px solid var(--fx-accent-150);
+        border: 1px solid #ddd6fe;
         border-radius: 9999px;
         overflow: hidden;
         background-clip: padding-box;
-        background: transparent;
-        color: #475569;
-        padding: 7px 14px;
+        background: rgba(255, 255, 255, 0.92);
+        color: #334155;
+        padding: 7px 12px;
         font-family: inherit;
         font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
+        font-weight: 600;
+        letter-spacing: 0.01em;
         line-height: 1;
         white-space: nowrap;
-        text-transform: lowercase;
+        text-transform: none;
         transition:
             border-color 180ms ease,
             background-color 180ms ease,
             color 180ms ease,
-            box-shadow 180ms ease,
-            transform 180ms ease;
+            box-shadow 180ms ease;
         box-shadow: none;
     }
 
     .fx-stack-badge:hover {
-        border-color: rgba(56, 189, 248, 0.8);
+        border-color: rgba(56, 189, 248, 0.56);
         background: radial-gradient(
             140% 180% at 50% 50%,
-            rgba(56, 189, 248, 0.98) 0%,
-            rgba(56, 189, 248, 0.84) 56%,
-            rgba(56, 189, 248, 0.52) 100%
+            rgba(56, 189, 248, 0.5) 0%,
+            rgba(56, 189, 248, 0.38) 56%,
+            rgba(56, 189, 248, 0.22) 100%
         );
         color: #0f172a;
-        transform: translateY(-1px);
         box-shadow:
-            inset 0 0 0 1px rgba(56, 189, 248, 0.75),
-            inset 0 0 14px rgba(56, 189, 248, 0.35);
+            0 0 0 1px rgba(56, 189, 248, 0.56),
+            0 0 0 2px rgba(56, 189, 248, 0.2),
+            0 0 8px rgba(56, 189, 248, 0.34),
+            0 0 14px rgba(56, 189, 248, 0.2);
     }
 
     .fx-stack-badge.fx-stack-badge-active,
     .fx-stack-badge.fx-stack-badge-active:hover {
-        border-color: rgba(56, 189, 248, 0.8);
+        border-color: rgba(56, 189, 248, 0.62);
         background: radial-gradient(
             140% 180% at 50% 50%,
-            rgba(56, 189, 248, 0.98) 0%,
-            rgba(56, 189, 248, 0.84) 56%,
-            rgba(56, 189, 248, 0.52) 100%
+            rgba(56, 189, 248, 0.62) 0%,
+            rgba(56, 189, 248, 0.46) 56%,
+            rgba(56, 189, 248, 0.28) 100%
         );
         color: #0f172a;
-        transform: translateY(-1px);
         box-shadow:
-            inset 0 0 0 1px rgba(56, 189, 248, 0.75),
-            inset 0 0 14px rgba(56, 189, 248, 0.35);
+            0 0 0 1px rgba(56, 189, 248, 0.62),
+            0 0 0 2px rgba(56, 189, 248, 0.24),
+            0 0 9px rgba(56, 189, 248, 0.4),
+            0 0 16px rgba(56, 189, 248, 0.24);
     }
 
     .fx-stack-badge:focus-visible {

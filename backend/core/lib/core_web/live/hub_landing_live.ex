@@ -2,7 +2,7 @@ defmodule CoreWeb.HubLandingLive do
   use CoreWeb, :live_view
 
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, current_scope: nil)}
+    {:ok, assign_new(socket, :current_scope, fn -> nil end)}
   end
 
   # def handle_event("inc", _params, socket) do
@@ -14,9 +14,6 @@ defmodule CoreWeb.HubLandingLive do
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="min-h-screen bg-purple-50 text-slate-900">
         <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
-          <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-            <div class="text-lg font-semibold text-purple-600 tracking-tight">IziHub</div>
-          </div>
         </header>
         <main>
           <section class="mx-auto max-w-5xl px-6 pb-16 pt-20">
@@ -80,19 +77,6 @@ defmodule CoreWeb.HubLandingLive do
             </div>
           </section>
         </main>
-
-        <footer class="border-t border-purple-100 bg-white/70 backdrop-blur">
-          <div class="mx-auto max-w-5xl px-6 py-10 text-sm text-slate-500">
-            <div class="space-y-2">
-              <p class="text-sm font-semibold text-slate-800">
-                IziHub <span class="align-super text-[10px] font-semibold text-slate-400">™</span>
-              </p>
-              <p class="text-xs text-slate-500">
-                A calm home for work, notes, and tools.
-              </p>
-            </div>
-          </div>
-        </footer>
       </div>
     </Layouts.app>
     """

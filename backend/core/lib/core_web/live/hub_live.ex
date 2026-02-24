@@ -3,23 +3,21 @@ defmodule CoreWeb.HubLive do
 
   alias Core.GitHub
   alias Core.HackerNews
-  alias CoreWeb.Presence
-
-  @presence_topic "site:presence"
 
   def mount(_params, _session, socket) do
     socket =
-      assign(socket,
-        current_scope: nil,
+      socket
+      |> assign_new(:current_scope, fn -> nil end)
+      |> assign(
         github_accounts: [],
         news_items: [],
-        loading_data: false
+        loading_data: false,
+        selected_roadmap_era: roadmap_default_era(),
+        show_roadmap_evidence: false
       )
 
     socket =
       if connected?(socket) do
-        _ = Presence.track(self(), @presence_topic, presence_key(), %{joined_at: now_unix()})
-
         send(self(), :load_hub_data)
 
         assign(socket, loading_data: true)
@@ -38,31 +36,152 @@ defmodule CoreWeb.HubLive do
      assign(socket, github_accounts: github_accounts, news_items: news_items, loading_data: false)}
   end
 
+  def handle_event("select_roadmap_chapter", %{"era" => era}, socket) do
+    {:noreply, assign(socket, selected_roadmap_era: era, show_roadmap_evidence: false)}
+  end
+
+  def handle_event("toggle_roadmap_evidence", _params, socket) do
+    {:noreply, update(socket, :show_roadmap_evidence, &(!&1))}
+  end
+
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-    <div class="min-h-screen bg-purple-50 text-slate-900">
-      <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
+    <div class="relative min-h-screen bg-purple-50 text-slate-900">
+      <%= if is_nil(@current_scope) do %>
+        <button
+          type="button"
+          class="hidden fixed inset-0 z-60 bg-purple-200/35 backdrop-blur-[2px]"
+          data-auth-backdrop
+          data-auth-close
+          aria-label="Close authentication panel"
+        >
+        </button>
+      <% end %>
+      <header class="relative z-70 border-b border-purple-100 bg-white/70 backdrop-blur">
         <div class="mx-auto max-w-6xl px-6 py-5">
-          <div class="flex items-center justify-between gap-6">
-            <div class="text-lg font-semibold tracking-tight text-purple-600">IziHub</div>
-            <nav class="hidden items-center gap-4 text-sm text-slate-600 md:flex">
+          <div class="flex items-center justify-between gap-4">
+            <nav class="hidden items-center gap-4 text-sm text-slate-600 md:ml-12 md:flex">
               <a href="#links" class="fx-nav-link">Quick links</a>
               <a href={~p"/contributions"} class="fx-nav-link">Contributions</a>
-              <a href={~p"/resources"} class="fx-nav-link">Resources</a>
-              <a href="#week" class="fx-nav-link">This week</a>
-            </nav>
-            <div class="flex items-center gap-3">
-              <span class="badge-status badge-wip">
-                WIP
-              </span>
               <a
-                href={~p"/liveapps"}
-                class="btn btn-primary btn-sm"
+                href={~p"/resources"}
+                class="fx-nav-link fx-nav-link-with-badge relative inline-flex items-center"
               >
-                Liveapps
+                <span>Resources</span>
+                <span
+                  class="pointer-events-none absolute -right-4 -top-2 badge-status badge-wip badge-compact-64"
+                  aria-hidden="true"
+                >
+                  WIP
+                </span>
               </a>
-            </div>
+              <a href="#roadmap" class="fx-nav-link">Roadmap</a>
+              <a href={~p"/liveapps"} class="fx-nav-link fx-nav-link-with-badge relative inline-flex items-center">
+                <span>Liveapps</span>
+                <span
+                  class="pointer-events-none absolute -right-4 -top-2 badge-status badge-wip badge-compact-64"
+                  aria-hidden="true"
+                >
+                  WIP
+                </span>
+              </a>
+            </nav>
+            <%= if is_nil(@current_scope) do %>
+              <div class="relative flex items-center gap-2" data-auth-inline>
+                <button
+                  type="button"
+                  class="fx-nav-link inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold"
+                  data-auth-toggle="login"
+                >
+                  Login
+                </button>
+                <button
+                  type="button"
+                  class="fx-nav-link inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold"
+                  data-auth-toggle="signup"
+                >
+                  Signup
+                </button>
+
+                <div class="hidden absolute right-0 top-full z-80 mt-3 w-[min(24rem,calc(100vw-2rem))]" data-auth-shell>
+                  <div class="rounded-2xl border border-purple-100 bg-white p-4 shadow-xl ring-1 ring-purple-200/80">
+                    <div>
+                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Account access</p>
+                      <p class="mt-1 text-sm font-semibold text-slate-900">
+                        Sign in or create an account
+                      </p>
+                    </div>
+
+                    <div class="hidden mt-4 border-t border-purple-100/80 pt-4" data-auth-panel="login">
+                      <div class="mb-3 flex items-center justify-between">
+                        <p class="text-sm font-semibold text-slate-900">Sign in</p>
+                        <button type="button" class="btn btn-ghost btn-xs" data-auth-close>
+                          <.icon name="hero-x-mark" class="h-4 w-4" />
+                        </button>
+                      </div>
+                      <.form for={%{}} as={:user} action={~p"/login"} method="post" class="space-y-3">
+                        <div>
+                          <label for="hub-login-email" class="mb-1 block text-xs font-medium text-slate-700">
+                            Email
+                          </label>
+                          <input
+                            id="hub-login-email"
+                            name="user[email]"
+                            type="email"
+                            required
+                            autocomplete="email"
+                            class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label for="hub-login-password" class="mb-1 block text-xs font-medium text-slate-700">
+                            Password
+                          </label>
+                          <input
+                            id="hub-login-password"
+                            name="user[password]"
+                            type="password"
+                            required
+                            autocomplete="current-password"
+                            class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
+                          />
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-xs w-full">Sign in</button>
+                      </.form>
+                    </div>
+
+                    <div class="hidden mt-4 border-t border-purple-100/80 pt-4" data-auth-panel="signup">
+                      <div class="mb-3 flex items-center justify-between">
+                        <p class="text-sm font-semibold text-slate-900">Create account</p>
+                        <button type="button" class="btn btn-ghost btn-xs" data-auth-close>
+                          <.icon name="hero-x-mark" class="h-4 w-4" />
+                        </button>
+                      </div>
+                      <.form for={%{}} as={:user} action={~p"/signup"} method="post" class="space-y-3">
+                        <div>
+                          <label for="hub-signup-email" class="mb-1 block text-xs font-medium text-slate-700">
+                            Email
+                          </label>
+                          <input
+                            id="hub-signup-email"
+                            name="user[email]"
+                            type="email"
+                            required
+                            autocomplete="email"
+                            class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
+                          />
+                        </div>
+                        <p class="text-[11px] text-slate-500">
+                          We'll generate a username and send you to password setup.
+                        </p>
+                        <button type="submit" class="btn btn-primary btn-xs w-full">Continue</button>
+                      </.form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% end %>
           </div>
 
         </div>
@@ -174,7 +293,7 @@ defmodule CoreWeb.HubLive do
                               target="_blank"
                               rel="noreferrer"
                             >
-                              <span class="line-clamp-2 text-left font-semibold"><%= story.title %></span>
+                              <span class="line-clamp-2 text-left font-semibold text-slate-900"><%= story.title %></span>
                             </a>
 
                             <div class="fx-preview">
@@ -231,9 +350,6 @@ defmodule CoreWeb.HubLive do
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
               <h2 class="text-2xl font-semibold text-slate-900">Quick links</h2>
-              <span class="badge-status badge-wip">
-                WIP
-              </span>
             </div>
           </div>
           <div class="mt-8 grid gap-3 md:grid-cols-2">
@@ -256,68 +372,110 @@ defmodule CoreWeb.HubLive do
           </div>
         </section>
 
-        <section id="week" class="mx-auto max-w-6xl px-6 pb-16">
+        <section id="roadmap" class="mx-auto max-w-6xl px-6 pb-16">
           <div class="rounded-2xl border border-purple-100 bg-white/80 p-8">
+          <div class="flex items-center gap-3">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Roadmap
+            </p>
+          </div>
             <div class="flex items-center gap-3">
-              <h2 class="text-2xl font-semibold text-slate-900">This week</h2>
-              <span class="badge-status badge-wip">
-                WIP
-              </span>
+              <h2 class="text-2xl font-semibold text-slate-900">IziHub evolution</h2>
             </div>
             <div class="mt-6">
               <div class="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
                 <div class="lg:pr-8">
-                  <div class="flex items-center gap-3">
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                      Development changelog
-                    </p>
-                    <span class="badge-status badge-new">
-                      New
-                    </span>
-                  </div>
-                  <ul class="mt-4 space-y-3 text-sm text-slate-700">
-                    <%= for {label, entries} <- grouped_dev_changelog_items() do %>
-                      <li class="fx-item rounded-xl border border-transparent p-1 transition-colors hover:border-purple-100">
-                        <button type="button" class="fx-trigger">
-                          <span class="text-left font-semibold text-slate-900"><%= label %></span>
-                        </button>
-
-                        <div class="fx-preview">
-                          <div class="fx-preview-content">
-                            <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-purple-500">
-                              <%= label %>
-                            </p>
-                            <ul class="mt-3 space-y-3 text-xs text-slate-600">
-                              <%= for entry <- entries do %>
-                                <li>
-                                  <p class="font-semibold text-slate-900"><%= entry.title %></p>
-                                  <p class="mt-1"><%= entry.detail %></p>
-                                </li>
-                              <% end %>
-                            </ul>
+                  <p class="mt-2 text-xs text-slate-500">
+                    History
+                  </p>
+                  <ul class="mt-4 space-y-2 text-sm text-slate-600">
+                    <%= for chapter <- roadmap_chapters() do %>
+                      <li>
+                        <button
+                          type="button"
+                          phx-click="select_roadmap_chapter"
+                          phx-value-era={chapter.era}
+                          class={
+                            "w-full rounded-lg border px-3.5 py-2.5 text-left transition-colors " <>
+                              if(@selected_roadmap_era == chapter.era,
+                                do:
+                                  "border-purple-300 bg-purple-50/80 shadow-[0_10px_20px_-18px_rgba(109,40,217,0.55)]",
+                                else: "border-purple-100 bg-white/80 hover:bg-purple-50/60"
+                              )
+                          }
+                        >
+                          <div class="flex flex-wrap items-center justify-between gap-2">
+                            <p class="text-[13px] font-semibold text-slate-900"><%= chapter.era %></p>
+                            <span class="text-[10px] font-medium text-purple-600"><%= chapter.range %></span>
                           </div>
-                        </div>
+                          <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            <span class={roadmap_lane_class(chapter.lane)}><%= chapter.lane %></span>
+                            <span class="text-[11px] text-slate-600"><%= chapter.story %></span>
+                          </div>
+                        </button>
                       </li>
                     <% end %>
                   </ul>
                 </div>
 
+                <% selected_chapter = selected_roadmap_chapter(@selected_roadmap_era) %>
                 <div class="lg:border-l lg:border-purple-100/80 lg:pl-8">
-                <div class="flex items-center gap-3">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Week stats
-                  </p>
-                  <span class="badge-status badge-wip">
-                    WIP
-                  </span>
-                  </div>
-                  <div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <%= for item <- week_items() do %>
-                      <div class="rounded-xl border border-purple-100 bg-white/70 px-4 py-3">
-                        <p class="text-2xl font-semibold text-slate-900"><%= item.value %></p>
-                        <p class="text-sm text-slate-600"><%= item.title %></p>
+                  <div class="rounded-xl border border-purple-100 bg-white/85 p-4 shadow-sm">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <p class="text-sm font-semibold text-slate-900"><%= selected_chapter.era %></p>
+                        <span class={roadmap_lane_class(selected_chapter.lane)}>
+                          <%= selected_chapter.lane %>
+                        </span>
+                      </div>
+                      <span class="text-[11px] font-medium text-purple-600"><%= selected_chapter.range %></span>
+                    </div>
+                    <p class="mt-2 text-xs text-slate-600"><%= selected_chapter.story %></p>
+                    <ul class="mt-3 space-y-1.5 text-xs text-slate-600">
+                      <%= for highlight <- selected_chapter.highlights do %>
+                        <li><span class="text-purple-500">•</span> <%= highlight %></li>
+                      <% end %>
+                    </ul>
+                    <div class="mt-4 flex items-center justify-between gap-2">
+                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-500">Commits</p>
+                      <button
+                        type="button"
+                        phx-click="toggle_roadmap_evidence"
+                        class="btn btn-ghost btn-xs"
+                      >
+                        <%= if @show_roadmap_evidence do %>
+                          Hide commits
+                        <% else %>
+                          Commits (<%= length(selected_chapter.commits) %>)
+                        <% end %>
+                      </button>
+                    </div>
+                    <%= if @show_roadmap_evidence do %>
+                      <div class="mt-2 flex flex-wrap gap-1.5">
+                        <%= for commit <- selected_chapter.commits do %>
+                          <span class="rounded-full border border-purple-100 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            <%= commit %>
+                          </span>
+                        <% end %>
                       </div>
                     <% end %>
+                  </div>
+
+                  <div class="mt-4 rounded-xl border border-purple-100 bg-white/85 p-4 shadow-sm">
+                    <div class="flex items-center justify-between gap-2">
+                      <p class="text-sm font-semibold text-slate-900">Upcoming features</p>
+                      <span class={roadmap_lane_class("Current")}>Planned</span>
+                    </div>
+                    <ul class="mt-3 space-y-2">
+                      <%= for {feature, index} <- Enum.with_index(upcoming_feature_items(), 1) do %>
+                        <li class="rounded-lg border border-purple-100 bg-white/80 px-3 py-2">
+                          <p class="text-[13px] font-semibold text-slate-900">
+                            <%= "#{index}. #{feature.title}" %>
+                          </p>
+                          <p class="mt-1 text-[11px] text-slate-600"><%= feature.detail %></p>
+                        </li>
+                      <% end %>
+                    </ul>
                   </div>
                 </div>
               </div>
@@ -327,22 +485,6 @@ defmodule CoreWeb.HubLive do
 
       </main>
 
-      <footer class="border-t border-purple-100 bg-white/70 backdrop-blur">
-        <div class="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-5 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-          <div class="flex flex-wrap gap-3">
-            <a href="#links" class="fx-nav-link">Quick links</a>
-            <a href={~p"/contributions"} class="fx-nav-link">Contributions</a>
-            <a href={~p"/resources"} class="fx-nav-link">Resources</a>
-            <a href="#week" class="fx-nav-link">This week</a>
-          </div>
-          <!-- <div class="flex items-center gap-2">
-            <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-              WIP
-            </span>
-            <p>© IziHub</p>
-          </div> -->
-        </div>
-      </footer>
     </div>
     </Layouts.app>
     """
@@ -365,120 +507,146 @@ defmodule CoreWeb.HubLive do
     ]
   end
 
-  defp dev_changelog_items do
-    updates =
-      site_update_items() ++
-        cv_update_item()
-
-    updates
-    |> Enum.reject(&is_nil/1)
-    |> Enum.take(5)
-  end
-
-  defp grouped_dev_changelog_items do
-    {order, grouped} =
-      Enum.reduce(dev_changelog_items(), {[], %{}}, fn item, {order, grouped} ->
-        label = item.label
-
-        order =
-          if Map.has_key?(grouped, label) do
-            order
-          else
-            [label | order]
-          end
-
-        grouped = Map.update(grouped, label, [item], &[item | &1])
-        {order, grouped}
-      end)
-
-    order
-    |> Enum.reverse()
-    |> Enum.map(fn label -> {label, grouped |> Map.fetch!(label) |> Enum.reverse()} end)
-  end
-
-  defp week_items do
+  defp roadmap_chapters do
     [
       %{
-        slug: "tasks",
-        title: "Open tasks",
-        value: "10",
-        detail: "Active tasks currently tracked."
+        era: "Genesis",
+        lane: "Core",
+        range: "2025-12-03 to 2025-12-12",
+        story: "Core platform bootstrapped with first auth and account primitives.",
+        highlights: [
+          "Phoenix app initialized and base project structure created.",
+          "Accounts context introduced with users and token models.",
+          "Registration and early account management flow enabled."
+        ],
+        commits: ["d2a4527", "701ed61", "f9989c2", "6bd86fd", "2ad0959"]
       },
       %{
-        slug: "releases",
-        title: "Key releases",
-        value: "3",
-        detail: "Milestones shipped this week."
+        era: "Domain Expansion",
+        lane: "Product",
+        range: "2025-12-18 to 2026-01-01",
+        story: "IziHub expanded into multiple product domains and analytics.",
+        highlights: [
+          "Portfolio, blog, notifications, and finance contexts were added.",
+          "Configuration setup was hardened for multi-environment use.",
+          "Analytics context was created as the observability foundation."
+        ],
+        commits: ["13aec00", "841e4b6", "02c0ebc", "4ffe6f7", "083126a"]
       },
       %{
-        slug: "contribs",
-        title: "Contributions",
-        value: "4",
-        detail: "Notable contributions across active repos."
+        era: "LiveView Platform Shift",
+        lane: "Platform",
+        range: "2026-01-28 to 2026-02-02",
+        story: "The product shifted to a LiveView-first web architecture.",
+        highlights: [
+          "Assets, layouts, and root template workflow were established.",
+          "Browser pipeline and verified routes integration were completed.",
+          "Tailwind and PubSub were enabled for interactive UI behavior."
+        ],
+        commits: ["cfb7a3f", "ba7f9fb", "1613142", "76fa576", "14eaedd"]
+      },
+      %{
+        era: "User Surfaces v1",
+        lane: "UX",
+        range: "2026-02-05 to 2026-02-10",
+        story: "The first complete user-facing IziHub surfaces came online.",
+        highlights: [
+          "Profile experience and CV download flow were launched.",
+          "Notebook markdown rendering and local preview support were added.",
+          "LiveApps module and Hub integrations were introduced."
+        ],
+        commits: ["8eb324e", "3ca2abd", "dc52900", "58611ea", "db941d3"]
+      },
+      %{
+        era: "UX System & Navigation",
+        lane: "UX",
+        range: "2026-02-11 to 2026-02-17",
+        story: "Visual language and routing were unified across the hub.",
+        highlights: [
+          "Hub UI was refined with shared interaction components and tokens.",
+          "Information architecture moved to /hub and /welcome routing.",
+          "Contributions and Resources pages were split into dedicated views."
+        ],
+        commits: ["f80b432", "5720414", "b73d988", "3c39dd3", "95310eb"]
+      },
+      %{
+        era: "Operations & Metrics",
+        lane: "Ops",
+        range: "2026-02-14 to 2026-02-20",
+        story: "Deployment readiness and admin observability matured.",
+        highlights: [
+          "Docker and deployment workflows were standardized.",
+          "Presence and online activity tracking were integrated.",
+          "Admin dashboard and CV download analytics were added."
+        ],
+        commits: ["aceaa43", "0ef0d47", "f5d5e9c", "9efbc0e"]
+      },
+      %{
+        era: "Current Branch (Unreleased)",
+        lane: "Current",
+        range: "2026-02-20 to 2026-02-23",
+        story: "Auth UX and consistency were tightened across the product.",
+        highlights: [
+          "Inline Hub login/signup flow replaced separate auth pages.",
+          "Email-only signup and password setup onboarding were implemented.",
+          "Presence scope and header styling were normalized across pages."
+        ],
+        commits: ["working-tree"]
       }
     ]
   end
 
-  defp site_update_items do
+  defp upcoming_feature_items do
     [
       %{
-        label: "UI Improvements",
-        title: "UI components upgrade: hover-preview interactions",
-        detail: "News and profile cards now share one preview-at-a-time interactions."
+        title: "Personal finance liveapp",
+        detail: "Track income, expenses, and category summaries."
       },
       %{
-        label: "UI Improvements",
-        title: "Unified interaction styling",
-        detail: "Cards and CTAs now share the same glow and state tokens across the hub."
-      }
+        title: "Resources content",
+        detail: "Add practical playbooks, templates, and curated notes."
+      },
+      %{title: "IziTools", detail: "Ship focused utility tools directly in the hub."}
     ]
   end
 
-  defp cv_update_item do
-    case cv_updated_on() do
-      {:ok, date} ->
-        [
-          %{
-            label: "Asset",
-            title: "CV udate",
-            detail: "Last Updated on #{Date.to_iso8601(date)}."
-          }
-        ]
-
-      :error ->
-        []
-    end
+  defp roadmap_default_era do
+    roadmap_chapters()
+    |> List.first()
+    |> Map.fetch!(:era)
   end
 
-  defp cv_updated_on do
-    path = Path.join(:code.priv_dir(:core), "static/maxly_garcia_cv.pdf")
+  defp selected_roadmap_chapter(era) do
+    chapters = roadmap_chapters()
 
-    with {:ok, stat} <- File.stat(path),
-         {:ok, date} <- mtime_to_date(stat.mtime) do
-      {:ok, date}
-    else
-      _ -> :error
-    end
+    Enum.find(chapters, fn chapter -> chapter.era == era end) || List.first(chapters)
   end
 
-  defp mtime_to_date({{year, month, day}, _time}) do
-    Date.new(year, month, day)
+  defp roadmap_lane_class("Core") do
+    "inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-600"
   end
 
-  defp mtime_to_date(seconds) when is_integer(seconds) do
-    case DateTime.from_unix(seconds) do
-      {:ok, datetime} -> {:ok, DateTime.to_date(datetime)}
-      _ -> :error
-    end
+  defp roadmap_lane_class("Product") do
+    "inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-600"
   end
 
-  defp mtime_to_date(_), do: :error
-
-  defp presence_key do
-    "anon-" <> Integer.to_string(System.unique_integer([:positive]))
+  defp roadmap_lane_class("Platform") do
+    "inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-600"
   end
 
-  defp now_unix do
-    System.system_time(:second)
+  defp roadmap_lane_class("UX") do
+    "inline-flex items-center rounded-full border border-fuchsia-200 bg-fuchsia-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fuchsia-600"
+  end
+
+  defp roadmap_lane_class("Ops") do
+    "inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600"
+  end
+
+  defp roadmap_lane_class("Current") do
+    "inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600"
+  end
+
+  defp roadmap_lane_class(_lane) do
+    "inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600"
   end
 end

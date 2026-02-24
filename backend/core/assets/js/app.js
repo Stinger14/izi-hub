@@ -163,6 +163,116 @@ Hooks.StackPreview = {
   },
 };
 
+let inlineAuthBound = false;
+const AUTH_PANEL_SCROLL_CLOSE_Y = 220;
+
+const hasOpenAuthPanel = () =>
+  document.querySelector("[data-auth-panel]:not(.hidden)") !== null;
+
+const closeAllAuthPanels = () => {
+  document
+    .querySelectorAll("[data-auth-panel]")
+    .forEach((panel) => panel.classList.add("hidden"));
+
+  document
+    .querySelectorAll("[data-auth-backdrop]")
+    .forEach((backdrop) => backdrop.classList.add("hidden"));
+
+  document
+    .querySelectorAll("[data-auth-shell]")
+    .forEach((shell) => shell.classList.add("hidden"));
+};
+
+const openAuthPanel = (root, panelName) => {
+  let hasVisiblePanel = false;
+
+  root.querySelectorAll("[data-auth-panel]").forEach((panel) => {
+    const isVisible = panel.dataset.authPanel === panelName;
+    panel.classList.toggle("hidden", !isVisible);
+    hasVisiblePanel = hasVisiblePanel || isVisible;
+  });
+
+  document.querySelectorAll("[data-auth-backdrop]").forEach((backdrop) => {
+    backdrop.classList.toggle("hidden", !hasVisiblePanel);
+  });
+
+  root.querySelectorAll("[data-auth-shell]").forEach((shell) => {
+    shell.classList.toggle("hidden", !hasVisiblePanel);
+  });
+};
+
+const setupInlineAuth = () => {
+  if (!inlineAuthBound) {
+    inlineAuthBound = true;
+
+    document.addEventListener("click", (event) => {
+      const toggle = event.target.closest("[data-auth-toggle]");
+      if (toggle) {
+        event.preventDefault();
+
+        const root = toggle.closest("[data-auth-inline]");
+        if (!root) return;
+
+        const panelName = toggle.dataset.authToggle;
+        const panel = root.querySelector(`[data-auth-panel="${panelName}"]`);
+        if (!panel) return;
+
+        if (panel.classList.contains("hidden")) {
+          closeAllAuthPanels();
+          openAuthPanel(root, panelName);
+        } else {
+          closeAllAuthPanels();
+        }
+
+        return;
+      }
+
+      const closeButton = event.target.closest("[data-auth-close]");
+      if (closeButton) {
+        event.preventDefault();
+        closeAllAuthPanels();
+        return;
+      }
+
+      if (!event.target.closest("[data-auth-inline]")) {
+        closeAllAuthPanels();
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeAllAuthPanels();
+      }
+    });
+
+    window.addEventListener(
+      "scroll",
+      () => {
+        if (window.scrollY > AUTH_PANEL_SCROLL_CLOSE_Y && hasOpenAuthPanel()) {
+          closeAllAuthPanels();
+        }
+      },
+      { passive: true },
+    );
+  }
+
+  const authParam = new URLSearchParams(window.location.search).get("auth");
+  if (authParam === "login" || authParam === "signup") {
+    document.querySelectorAll("[data-auth-inline]").forEach((root) => {
+      openAuthPanel(root, authParam);
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    params.delete("auth");
+    const search = params.toString();
+    const nextUrl = `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", nextUrl);
+  }
+};
+
+window.addEventListener("DOMContentLoaded", setupInlineAuth);
+window.addEventListener("phx:page-loading-stop", setupInlineAuth);
+
 let liveSocket = new LiveSocket("/live", Socket, {
   params: { _csrf_token: csrfToken },
   hooks: Hooks,
