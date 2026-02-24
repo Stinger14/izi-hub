@@ -6,7 +6,10 @@ defmodule Core.Accounts do
   import Ecto.Query, warn: false
   alias Core.Repo
 
-  alias Core.Accounts.{User, UserToken}
+  alias Core.Accounts.{User, UserToken, UsernameGenerator}
+
+  @setup_password_token_ttl_seconds 86_400
+  @username_generation_attempts 20
 
   @doc """
   Register new user
@@ -15,6 +18,30 @@ defmodule Core.Accounts do
     %User{}
     |> User.registration_changeset(attrs)
     |> Repo.insert()
+  end
+
+  @doc """
+  Registers a user using email only and returns a setup password token.
+  """
+  def register_email_only_user(email) when is_binary(email) do
+    email
+    |> String.trim()
+    |> do_register_email_only_user(@username_generation_attempts)
+  end
+
+  @doc """
+  Completes onboarding by setting a password from a setup token.
+  """
+  def set_password_from_setup_token(token, password)
+      when is_binary(token) and is_binary(password) do
+    with {:ok, user} <- get_user_by_token(token, "setup_password"),
+         {:ok, user} <- update_user_password(user, password),
+         :ok <- delete_user_token(token, "setup_password") do
+      {:ok, user}
+    else
+      :error -> {:error, :invalid_or_expired_token}
+      {:error, %Ecto.Changeset{} = changeset} -> {:error, changeset}
+    end
   end
 
   @doc """
@@ -81,19 +108,10 @@ defmodule Core.Accounts do
 
   @doc """
   Gets a single user.
-
-  Raises `Ecto.NoResultsError` if the User does not exist.
-
-  ## Examples
-
-      iex> get_user!(123)
-      %User{}
-
-      iex> get_user!(456)
-      ** (Ecto.NoResultsError)
-
   """
   def get_user!(id), do: Repo.get!(User, id)
+
+  def get_user(id), do: Repo.get(User, id)
 
   @doc """
   Updates user profile
@@ -126,8 +144,10 @@ defmodule Core.Accounts do
   Updates last login timestamp
   """
   def update_last_login(%User{} = user) do
+    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+
     user
-    |> Ecto.Changeset.change(%{last_login_at: NaiveDateTime.utc_now()})
+    |> Ecto.Changeset.change(%{last_login_at: now})
     |> Repo.update()
   end
 
@@ -135,10 +155,12 @@ defmodule Core.Accounts do
   Verifies user email
   """
   def verify_user_email(user) do
+    now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+
     user
     |> Ecto.Changeset.change(%{
       email_verified: true,
-      email_verified_at: NaiveDateTime.utc_now()
+      email_verified_at: now
     })
     |> Repo.update()
   end
@@ -215,6 +237,22 @@ defmodule Core.Accounts do
   end
 
   @doc """
+  Generates a setup password token.
+  """
+  def generate_setup_password_token(user) do
+    from(t in UserToken,
+      where: t.user_id == ^user.id and t.token_type == "setup_password"
+    )
+    |> Repo.delete_all()
+
+    {token, user_token} =
+      UserToken.create_token(user, "setup_password", @setup_password_token_ttl_seconds)
+
+    Repo.insert!(user_token)
+    token
+  end
+
+  @doc """
   Gets user by token
   """
   def get_user_by_token(token, token_type) do
@@ -230,7 +268,17 @@ defmodule Core.Accounts do
   Deletes user token
   """
   def delete_user_token(token, token_type) do
-    from(t in UserToken, where: t.token == ^token and t.token_type == ^token_type)
+    token_query =
+      case Base.url_decode64(token, padding: false) do
+        {:ok, decoded_token} ->
+          hashed_token = :crypto.hash(:sha256, decoded_token) |> Base.encode64()
+          from(t in UserToken, where: t.token == ^hashed_token and t.token_type == ^token_type)
+
+        :error ->
+          from(t in UserToken, where: t.token == ^token and t.token_type == ^token_type)
+      end
+
+    token_query
     |> Repo.delete_all()
 
     :ok
@@ -249,5 +297,38 @@ defmodule Core.Accounts do
   def delete_expired_tokens do
     from(t in UserToken, where: t.expires_at < ^NaiveDateTime.utc_now())
     |> Repo.delete_all()
+  end
+
+  defp do_register_email_only_user(_email, 0), do: {:error, :username_generation_failed}
+
+  defp do_register_email_only_user(email, attempts_left) do
+    attrs = %{
+      "email" => email,
+      "username" => UsernameGenerator.generate(),
+      "password" => generate_bootstrap_password()
+    }
+
+    case register_user(attrs) do
+      {:ok, user} ->
+        {:ok, user, generate_setup_password_token(user)}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        if username_collision?(changeset) do
+          do_register_email_only_user(email, attempts_left - 1)
+        else
+          {:error, changeset}
+        end
+    end
+  end
+
+  defp username_collision?(changeset) do
+    Enum.any?(changeset.errors, fn
+      {:username, {"has already been taken", _opts}} -> true
+      _ -> false
+    end)
+  end
+
+  defp generate_bootstrap_password do
+    "TmpA1a-" <> Base.url_encode64(:crypto.strong_rand_bytes(12), padding: false)
   end
 end

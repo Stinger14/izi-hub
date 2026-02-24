@@ -6,7 +6,7 @@ defmodule Core.Accounts.UserToken do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @token_types ["access", "refresh", "reset_password", "verify_email"]
+  @token_types ["access", "refresh", "reset_password", "verify_email", "setup_password"]
 
   @hash_algorithm :sha256
   @rand_size 32

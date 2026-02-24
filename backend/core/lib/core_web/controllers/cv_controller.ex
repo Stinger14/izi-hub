@@ -16,7 +16,10 @@ defmodule CoreWeb.CVController do
     cv_path = Path.join(:code.priv_dir(:core), "static/maxly_garcia_cv.pdf")
 
     if File.exists?(cv_path) do
-      send_download(conn, {:file, cv_path}, filename: "maxly_garcia_cv.pdf")
+      send_download(conn, {:file, cv_path},
+        filename: "maxly_garcia_cv.pdf",
+        disposition: :attachment
+      )
     else
       conn
       |> put_status(:not_found)
