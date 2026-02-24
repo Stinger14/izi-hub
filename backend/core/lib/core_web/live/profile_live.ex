@@ -2,7 +2,7 @@ defmodule CoreWeb.ProfileLive do
   use CoreWeb, :live_view
 
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, current_scope: nil, show_full_intro: false)}
+    {:ok, socket |> assign_new(:current_scope, fn -> nil end) |> assign(show_full_intro: false)}
   end
 
   def handle_event("toggle_intro", _params, socket) do
@@ -27,7 +27,7 @@ defmodule CoreWeb.ProfileLive do
 
             <div class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">
               <div class="relative mx-auto sm:mx-0">
-                <div class="h-28 w-28 rounded-full bg-gradient-to-br from-purple-500 via-fuchsia-500 to-indigo-500 p-[3px] shadow-lg shadow-purple-200/70">
+                <div class="h-28 w-28 rounded-full bg-linear-to-br from-purple-500 via-fuchsia-500 to-indigo-500 p-[3px] shadow-lg shadow-purple-200/70">
                   <img
                     src={~p"/images/pp3.jpeg"}
                     alt="Profile picture of Maxly Garcia"
@@ -95,7 +95,7 @@ defmodule CoreWeb.ProfileLive do
                             data-stack-title={item.title}
                             data-stack-context={item.context}
                           >
-                            <%= item.slug %>
+                            <%= item.title %>
                           </button>
                         <% end %>
                       </div>
@@ -235,7 +235,7 @@ defmodule CoreWeb.ProfileLive do
                 <div data-scroll-hint
                 class="pointer-events-none absolute right-2 top-2 rounded-full bg-slate-900/70 px-2 py-1 text-[10px] uppercase tracking-wide text-white
                   opacity-0 transition">Scroll</div>
-                  <div class="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-white/95 to-transparent"></div>
+                  <div class="pointer-events-none absolute inset-y-0 right-0 w-12 bg-linear-to-l from-white/95 to-transparent"></div>
                   </div>
               <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                 <span class="inline-flex items-center gap-2">
@@ -259,13 +259,22 @@ defmodule CoreWeb.ProfileLive do
 
             <div class="mt-8 flex flex-wrap items-center gap-4">
               <a
-                href={~p"/maxly_garcia_cv.pdf"}
-                download
+                href={~p"/cv"}
+                target="cv_download_frame"
                 class="btn btn-primary btn-glow"
               >
                 Download CV
               </a>
             </div>
+            <%= if is_nil(@current_scope) do %>
+              <p class="mt-2 text-xs text-slate-500">
+                Want updates on new projects and CV revisions?
+                <a href={~p"/hub?auth=signup"} class="font-medium text-purple-600 hover:text-purple-700">
+                  Sign up
+                </a>
+              </p>
+            <% end %>
+            <iframe name="cv_download_frame" class="hidden" aria-hidden="true"></iframe>
           </div>
         </div>
       </div>

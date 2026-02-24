@@ -1,0 +1,53 @@
+<div class="min-h-screen bg-purple-100/40 text-slate-900">
+  <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+      <div>
+        <p class="text-lg font-semibold tracking-tight text-purple-500">Sign in</p>
+      </div>
+      <a href={~p"/hub"} class="btn btn-secondary btn-sm">Back to hub</a>
+    </div>
+  </header>
+
+  <main class="mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-md items-center px-6 py-12">
+    <div class="w-full rounded-2xl border border-purple-100 bg-white/85 p-6 shadow-xl backdrop-blur">
+      <div class="mb-6">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Authentication</p>
+        <h2 class="mt-2 text-2xl font-semibold text-slate-900">Welcome back</h2>
+        <p class="mt-1 text-sm text-slate-600">Sign in to access your admin tools and metrics.</p>
+      </div>
+
+      <.form for={%{}} as={:user} action={~p"/login"} method="post" class="space-y-4">
+        <div>
+          <label for="user_email" class="mb-1 block text-sm font-medium text-slate-700">Email</label>
+          <input
+            id="user_email"
+            name="user[email]"
+            type="email"
+            required
+            autocomplete="email"
+            class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label for="user_password" class="mb-1 block text-sm font-medium text-slate-700">Password</label>
+          <input
+            id="user_password"
+            name="user[password]"
+            type="password"
+            required
+            autocomplete="current-password"
+            class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
+          />
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-glow w-full">Sign in</button>
+      </.form>
+
+      <p class="mt-4 text-xs text-slate-500">
+        New to IziHub?
+        <a href={~p"/signup"} class="font-semibold text-purple-600">Create account</a>
+      </p>
+    </div>
+  </main>
+</div>

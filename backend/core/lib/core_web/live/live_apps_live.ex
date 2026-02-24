@@ -5,8 +5,9 @@ defmodule CoreWeb.LiveAppsLive do
 
   def mount(_params, _session, socket) do
     {:ok,
-     assign(socket,
-       current_scope: nil,
+     socket
+     |> assign_new(:current_scope, fn -> nil end)
+     |> assign(
        apps: [],
        error: nil
      )}

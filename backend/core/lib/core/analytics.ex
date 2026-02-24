@@ -81,6 +81,46 @@ defmodule Core.Analytics do
   end
 
   @doc """
+  Counts unique sessions for a specific page path.
+  """
+  def count_unique_page_sessions(page_path, start_date \\ nil, end_date \\ nil) do
+    query =
+      PageView
+      |> where([pv], pv.page_path == ^page_path)
+      |> where([pv], not is_nil(pv.session_id))
+
+    query =
+      if start_date do
+        where(query, [pv], pv.inserted_at >= ^start_date)
+      else
+        query
+      end
+
+    query =
+      if end_date do
+        where(query, [pv], pv.inserted_at <= ^end_date)
+      else
+        query
+      end
+
+    query
+    |> select([pv], count(fragment("DISTINCT ?", pv.session_id)))
+    |> Repo.one()
+  end
+
+  @doc """
+  Returns the timestamp of the most recent page view for a given path.
+  """
+  def last_page_viewed_at(page_path) do
+    PageView
+    |> where([pv], pv.page_path == ^page_path)
+    |> order_by([pv], desc: pv.inserted_at)
+    |> limit(1)
+    |> select([pv], pv.inserted_at)
+    |> Repo.one()
+  end
+
+  @doc """
   Returns most viewed pages
   """
   def get_top_pages(limit \\ 10, start_date \\ nil, end_date \\ nil) do

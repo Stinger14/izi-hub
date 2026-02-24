@@ -1,13 +1,9 @@
 defmodule CoreWeb.Router do
-  import Phoenix.LiveView.Router
   use CoreWeb, :router
+  import Phoenix.LiveView.Router
 
   pipeline :api do
     plug :accepts, ["json"]
-  end
-
-  scope "/api", CoreWeb do
-    pipe_through :api
   end
 
   pipeline :browser do
@@ -17,29 +13,62 @@ defmodule CoreWeb.Router do
     plug :put_root_layout, html: {CoreWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug CoreWeb.UserAuth, :fetch_current_scope
+  end
+
+  pipeline :require_admin do
+    plug CoreWeb.UserAuth, :require_admin_user
+  end
+
+  scope "/api", CoreWeb do
+    pipe_through :api
   end
 
   scope "/", CoreWeb do
     pipe_through :browser
 
-    live "/welcome", HubLandingLive, :index
-    live "/hub", HubLive, :index
-    live "/contributions", ContributionsLive, :index
-    live "/resources", ResourcesLive, :index
-    live "/profile", ProfileLive, :index
-    live "/notebooks", NotebooksLive, :index
-    live "/notebooks/:slug", NotebooksLive, :show
-    live "/liveapps", LiveAppsLive, :index
+    get "/signup", RegistrationController, :new
+    post "/signup", RegistrationController, :create
+    get "/set-password", PasswordSetupController, :new
+    post "/set-password", PasswordSetupController, :create
+    get "/login", SessionController, :new
+    post "/login", SessionController, :create
+    delete "/logout", SessionController, :delete
+
+    get "/cv", CVController, :download
     get "/", RedirectController, :to_welcome
+
+    live_session :default,
+      on_mount: [
+        {CoreWeb.UserAuth, :mount_current_scope},
+        {CoreWeb.UserAuth, :track_site_presence}
+      ] do
+      live "/welcome", HubLandingLive, :index
+      live "/hub", HubLive, :index
+      live "/contributions", ContributionsLive, :index
+      live "/resources", UnderDevelopmentLive, :resources
+      live "/profile", ProfileLive, :index
+      live "/notebooks", NotebooksLive, :index
+      live "/notebooks/:slug", NotebooksLive, :show
+      live "/liveapps", UnderDevelopmentLive, :liveapps
+    end
+  end
+
+  scope "/admin", CoreWeb.Admin do
+    pipe_through [:browser, :require_admin]
+
+    live_session :admin,
+      on_mount: [
+        {CoreWeb.UserAuth, :mount_current_scope},
+        {CoreWeb.UserAuth, :ensure_admin},
+        {CoreWeb.UserAuth, :track_site_presence}
+      ] do
+      live "/", DashboardLive, :index
+    end
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:core, :dev_routes) do
-    # If you want to use the LiveDashboard in production, you should put
-    # it behind authentication and allow only admins to access it.
-    # If your application does not have an admins-only section yet,
-    # you can use Plug.BasicAuth to set up some basic authentication
-    # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
