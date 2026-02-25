@@ -31,10 +31,16 @@ erl_crash.dump
 # Since we are building assets from web/static,
 # we ignore priv/static. You may want to comment
 # this depending on your deployment strategy.
-/priv/static/
+/priv/static/*
+
+# but track these
+!/priv/static/favicon.ico
+!/priv/static/robots.txt
 !/priv/static/images/
-!/priv/static/images/*.jpeg
+!/priv/static/images/**
 !/priv/static/profile-avatar.svg
+!/priv/static/images/pp3.jpeg
+!/priv/static/maxly_garcia_cv.pdf
 
 # Installer-related files
 /installer/_build
