@@ -464,7 +464,7 @@ defmodule CoreWeb.HubLive do
                   <div class="mt-4 rounded-xl border border-purple-100 bg-white/85 p-4 shadow-sm">
                     <div class="flex items-center justify-between gap-2">
                       <p class="text-sm font-semibold text-slate-900">Upcoming features</p>
-                      <span class={roadmap_lane_class("Current")}>Planned</span>
+                      <span class={roadmap_lane_class("Planned")}>Planned</span>
                     </div>
                     <ul class="mt-3 space-y-2">
                       <%= for {feature, index} <- Enum.with_index(upcoming_feature_items(), 1) do %>
@@ -582,16 +582,17 @@ defmodule CoreWeb.HubLive do
         commits: ["aceaa43", "0ef0d47", "f5d5e9c", "9efbc0e"]
       },
       %{
-        era: "Current Branch (Unreleased)",
+        era: "Rebirth",
         lane: "Current",
-        range: "2026-02-20 to 2026-02-23",
-        story: "Auth UX and consistency were tightened across the product.",
+        range: "2026-02-20 to 2026-02-24",
+        story:
+          "Improve UI components focused on better UX, auth, admin visibility, and fallback coverage across the hub.",
         highlights: [
-          "Inline Hub login/signup flow replaced separate auth pages.",
-          "Email-only signup and password setup onboarding were implemented.",
-          "Presence scope and header styling were normalized across pages."
+          "Implemented session auth with email-only signup and setup-password onboarding.",
+          "Added inline Hub login/signup UX and roadmap timeline refresh.",
+          "Introduced under-development fallback pages and aligned LiveView scope wiring."
         ],
-        commits: ["working-tree"]
+        commits: ["9486eff", "d38b1c4", "fbfc4b1"]
       }
     ]
   end
@@ -644,6 +645,10 @@ defmodule CoreWeb.HubLive do
 
   defp roadmap_lane_class("Current") do
     "inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600"
+  end
+
+  defp roadmap_lane_class("Planned") do
+    "inline-flex items-center rounded-full border border-purple-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-600"
   end
 
   defp roadmap_lane_class(_lane) do
