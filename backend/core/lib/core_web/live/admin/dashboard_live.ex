@@ -41,8 +41,9 @@ defmodule CoreWeb.Admin.DashboardLive do
               <p class="mt-1 text-xs text-slate-500">Last refresh: <%= format_datetime(@last_refreshed_at) %></p>
             </div>
             <div class="flex items-center gap-3">
-              <button phx-click="refresh" class="btn btn-secondary btn-sm">Refresh</button>
-              <a href={~p"/hub"} class="btn btn-secondary btn-sm">Back to hub</a>
+                <a href={~p"/admin/ops"} class="btn btn-secondary btn-sm">Admin ops</a>
+                <button phx-click="refresh" class="btn btn-secondary btn-sm">Refresh</button>
+                <a href={~p"/hub"} class="btn btn-secondary btn-sm">Back to hub</a>
             </div>
           </div>
         </header>
