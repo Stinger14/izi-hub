@@ -93,6 +93,17 @@ defmodule CoreWeb.UserAuth do
     {:cont, socket}
   end
 
+  def on_mount(:ensure_authenticated, _params, _session, socket) do
+    if is_nil(socket.assigns.current_scope) do
+      {:halt,
+       socket
+       |> Phoenix.LiveView.put_flash(:error, "Please sign in to continue")
+       |> Phoenix.LiveView.redirect(to: ~p"/hub?auth=login")}
+    else
+      {:cont, socket}
+    end
+  end
+
   def on_mount(:ensure_admin, _params, _session, socket) do
     cond do
       Scope.admin?(socket.assigns.current_scope) ->

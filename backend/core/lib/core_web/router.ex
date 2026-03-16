@@ -52,6 +52,16 @@ defmodule CoreWeb.Router do
       live "/notebooks/:slug", NotebooksLive, :show
       live "/liveapps", UnderDevelopmentLive, :liveapps
     end
+
+    live_session :authenticated,
+      on_mount: [
+        {CoreWeb.UserAuth, :mount_current_scope},
+        {CoreWeb.UserAuth, :ensure_authenticated},
+        {CoreWeb.UserAuth, :track_site_presence}
+      ] do
+      live "/office", OfficeLive, :index
+      live "/office/:slug", OfficeLive, :show
+    end
   end
 
   scope "/admin", CoreWeb.Admin do
