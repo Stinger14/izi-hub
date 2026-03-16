@@ -24,6 +24,9 @@ defmodule Core.Accounts.User do
     has_many :transactions, Core.Finance.Transaction
     has_many :categories, Core.Finance.Category
     has_many :notifications, Core.Notifications.Notification
+    has_many :office_projects, Core.Office.Project
+    has_many :office_work_items, Core.Office.WorkItem
+    has_many :office_timeline_entries, Core.Office.TimelineEntry
 
     timestamps()
   end
