@@ -4,6 +4,7 @@ defmodule CoreWeb.OfficeLiveTest do
   import Phoenix.LiveViewTest
 
   alias Core.Accounts
+  alias Core.Office
 
   test "redirects unauthenticated users to login", %{conn: conn} do
     assert {:error, {:redirect, %{to: "/hub?auth=login"}}} = live(conn, ~p"/office")
@@ -17,7 +18,7 @@ defmodule CoreWeb.OfficeLiveTest do
 
     assert html =~ "IziOffice"
     assert html =~ "Personal roadmap"
-    assert html =~ "Project roadmap"
+    assert html =~ "Roadmap"
     assert html =~ "Queue"
     assert html =~ "WIP"
     assert html =~ "QA"
@@ -108,6 +109,162 @@ defmodule CoreWeb.OfficeLiveTest do
 
     assert html =~ "Project title"
     assert html =~ "Add entry"
+  end
+
+  test "calendar filters roadmap rows by selected date and shows daily counts", %{conn: conn} do
+    user = user_fixture()
+    project = Office.default_project_for_user(user)
+    selected_date = Date.utc_today() |> Date.add(2)
+    other_date = Date.add(selected_date, 1)
+
+    assert {:ok, work_item} =
+             Office.create_work_item(user, project, %{
+               "title" => "Plan sprint board",
+               "description" => "Sync the stage board from the calendar sidebar",
+               "scheduled_for" => Date.to_iso8601(selected_date)
+             })
+
+    assert {:ok, _entry} =
+             Office.create_timeline_entry(user, project, %{
+               "title" => "Planning review",
+               "kind" => "milestone",
+               "starts_at" => Date.to_iso8601(selected_date) <> "T10:00"
+             })
+
+    assert {:ok, _entry} =
+             Office.create_timeline_entry(user, project, %{
+               "title" => "Other day checkpoint",
+               "kind" => "milestone",
+               "starts_at" => Date.to_iso8601(other_date) <> "T11:00"
+             })
+
+    conn = init_test_session(conn, user_id: user.id)
+    {:ok, view, html} = live(conn, ~p"/office")
+
+    assert html =~ "Calendar"
+
+    assert has_element?(
+             view,
+             "button[phx-click=\"select_calendar_date\"][phx-value-date=\"#{Date.to_iso8601(selected_date)}\"]"
+           )
+
+    html =
+      view
+      |> element(
+        "button[phx-click=\"select_calendar_date\"][phx-value-date=\"#{Date.to_iso8601(selected_date)}\"]"
+      )
+      |> render_click()
+
+    assert html =~ Calendar.strftime(selected_date, "%b %d, %Y")
+    assert html =~ "Planning review"
+    assert html =~ "Tasks for the day"
+    assert html =~ "Plan sprint board"
+    assert has_element?(view, "[data-roadmap-date=\"#{Date.to_iso8601(selected_date)}\"]")
+    refute has_element?(view, "[data-roadmap-date=\"#{Date.to_iso8601(other_date)}\"]")
+
+    html =
+      view
+      |> element(
+        "button[phx-click=\"focus_day_task\"][phx-value-id=\"work-item:#{work_item.id}\"]"
+      )
+      |> render_click()
+
+    assert html =~ "Sync the stage board from the calendar sidebar"
+  end
+
+  test "edits an existing roadmap event inline from the timeline popover", %{conn: conn} do
+    user = user_fixture()
+    project = Office.default_project_for_user(user)
+    selected_date = Date.utc_today() |> Date.add(3)
+
+    {:ok, entry} =
+      Office.create_timeline_entry(user, project, %{
+        "title" => "Design review",
+        "description" => "Initial agenda",
+        "kind" => "milestone",
+        "starts_at" => Date.to_iso8601(selected_date) <> "T09:00"
+      })
+
+    conn = init_test_session(conn, user_id: user.id)
+    {:ok, view, _html} = live(conn, ~p"/office")
+
+    view
+    |> element(
+      "button[phx-click=\"select_calendar_date\"][phx-value-date=\"#{Date.to_iso8601(selected_date)}\"]"
+    )
+    |> render_click()
+
+    view
+    |> element("button[aria-label=\"Toggle #{entry.title}\"]")
+    |> render_click()
+
+    html =
+      view
+      |> element("button[phx-click=\"edit_timeline_entry\"][phx-value-id=\"#{entry.id}\"]")
+      |> render_click()
+
+    assert html =~ "Save changes"
+    assert html =~ "Initial agenda"
+
+    html =
+      view
+      |> form("form[phx-submit=\"save_timeline_entry\"]",
+        entry: %{
+          "title" => "Updated design review",
+          "description" => "Refined agenda",
+          "kind" => "deadline",
+          "starts_at" => Date.to_iso8601(selected_date) <> "T10:30",
+          "ends_at" => ""
+        }
+      )
+      |> render_submit()
+
+    assert html =~ "Updated design review"
+    assert html =~ "Refined agenda"
+    assert html =~ "Deadline"
+    refute html =~ "Save changes"
+  end
+
+  test "closes a roadmap popover when clicking away", %{conn: conn} do
+    user = user_fixture()
+    project = Office.default_project_for_user(user)
+    selected_date = Date.utc_today() |> Date.add(4)
+
+    {:ok, entry} =
+      Office.create_timeline_entry(user, project, %{
+        "title" => "Team sync",
+        "description" => "Review blockers and action items",
+        "kind" => "milestone",
+        "starts_at" => Date.to_iso8601(selected_date) <> "T11:00"
+      })
+
+    conn = init_test_session(conn, user_id: user.id)
+    {:ok, view, _html} = live(conn, ~p"/office")
+
+    view
+    |> element(
+      "button[phx-click=\"select_calendar_date\"][phx-value-date=\"#{Date.to_iso8601(selected_date)}\"]"
+    )
+    |> render_click()
+
+    html =
+      view
+      |> element("button[aria-label=\"Toggle #{entry.title}\"]")
+      |> render_click()
+
+    assert html =~ "Review blockers and action items"
+
+    assert has_element?(
+             view,
+             "button[phx-click=\"edit_timeline_entry\"][phx-value-id=\"#{entry.id}\"]"
+           )
+
+    _html = render_click(view, "close_roadmap_items", %{})
+
+    refute has_element?(
+             view,
+             "button[phx-click=\"edit_timeline_entry\"][phx-value-id=\"#{entry.id}\"]"
+           )
   end
 
   defp user_fixture do

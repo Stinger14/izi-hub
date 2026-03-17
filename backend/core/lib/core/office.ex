@@ -85,6 +85,14 @@ defmodule Core.Office do
     |> Repo.insert()
   end
 
+  def update_work_item(%WorkItem{} = work_item, attrs) when is_map(attrs) do
+    attrs = Planner.normalize_quick_entry(attrs)
+
+    work_item
+    |> WorkItem.planner_changeset(attrs)
+    |> Repo.update()
+  end
+
   def transition_work_item(%WorkItem{} = work_item, to_status, %User{} = moved_by)
       when is_binary(to_status) do
     if WorkItem.valid_transition?(work_item.status, to_status) do
@@ -125,6 +133,14 @@ defmodule Core.Office do
     |> Repo.insert()
   end
 
+  def update_timeline_entry(%TimelineEntry{} = timeline_entry, attrs) when is_map(attrs) do
+    attrs = Planner.normalize_timeline_entry(attrs)
+
+    timeline_entry
+    |> TimelineEntry.changeset(attrs)
+    |> Repo.update()
+  end
+
   def get_work_item_for_project!(user_id, project_id, work_item_id) do
     WorkItem
     |> where(
@@ -134,11 +150,28 @@ defmodule Core.Office do
     |> Repo.get!(work_item_id)
   end
 
-  def planner_changeset(attrs \\ %{}) do
+  def get_timeline_entry_for_project!(user_id, project_id, timeline_entry_id) do
+    TimelineEntry
+    |> where(
+      [entry],
+      entry.user_id == ^user_id and entry.project_id == ^project_id
+    )
+    |> Repo.get!(timeline_entry_id)
+  end
+
+  def planner_changeset(%WorkItem{} = work_item, attrs) when is_map(attrs) do
+    WorkItem.planner_changeset(work_item, attrs)
+  end
+
+  def planner_changeset(attrs) when is_map(attrs) do
     WorkItem.planner_changeset(%WorkItem{}, attrs)
   end
 
-  def timeline_entry_changeset(attrs \\ %{}) do
+  def timeline_entry_changeset(%TimelineEntry{} = timeline_entry, attrs) when is_map(attrs) do
+    TimelineEntry.changeset(timeline_entry, attrs)
+  end
+
+  def timeline_entry_changeset(attrs) when is_map(attrs) do
     TimelineEntry.changeset(%TimelineEntry{}, attrs)
   end
 

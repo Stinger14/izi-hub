@@ -31,6 +31,27 @@ defmodule Core.OfficeTest do
     assert work_item.sequence == 1
   end
 
+  test "update_work_item edits an existing task without changing its lane" do
+    user = user_fixture()
+    project = Office.default_project_for_user(user)
+
+    {:ok, work_item} =
+      Office.create_work_item(user, project, %{
+        "title" => "Draft office schema",
+        "priority" => "low"
+      })
+
+    assert {:ok, updated_work_item} =
+             Office.update_work_item(work_item, %{
+               "title" => "Review office schema",
+               "priority" => "high"
+             })
+
+    assert updated_work_item.title == "Review office schema"
+    assert updated_work_item.priority == "high"
+    assert updated_work_item.status == "queue"
+  end
+
   test "transition_work_item records the status change" do
     user = user_fixture()
     project = Office.default_project_for_user(user)
@@ -73,6 +94,30 @@ defmodule Core.OfficeTest do
 
     assert entry.project_id == project.id
     assert entry.description == "Public milestone"
+  end
+
+  test "update_timeline_entry edits an existing roadmap event" do
+    user = user_fixture()
+    project = Office.default_project_for_user(user)
+
+    {:ok, entry} =
+      Office.create_timeline_entry(user, project, %{
+        "title" => "Beta launch",
+        "kind" => "milestone",
+        "starts_at" => "2026-03-20T10:30"
+      })
+
+    assert {:ok, updated_entry} =
+             Office.update_timeline_entry(entry, %{
+               "title" => "Beta launch review",
+               "description" => "Updated timeline note",
+               "kind" => "deadline",
+               "starts_at" => "2026-03-20T11:00"
+             })
+
+    assert updated_entry.title == "Beta launch review"
+    assert updated_entry.description == "Updated timeline note"
+    assert updated_entry.kind == "deadline"
   end
 
   defp user_fixture do
