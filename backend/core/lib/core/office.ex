@@ -19,7 +19,7 @@ defmodule Core.Office do
     _default_project = ensure_default_project(user)
 
     Project
-    |> where([project], project.user_id == ^user.id)
+    |> where([project], project.user_id == ^user.id and project.status == "active")
     |> order_by([project], asc: project.inserted_at)
     |> Repo.all()
   end
@@ -27,6 +27,57 @@ defmodule Core.Office do
   def default_project_for_user(%User{} = user) do
     ensure_default_project(user)
   end
+
+  def project_summary(%Project{} = project) do
+    work_item_count =
+      WorkItem
+      |> where([work_item], work_item.project_id == ^project.id)
+      |> select([work_item], count(work_item.id))
+      |> Repo.one()
+
+    timeline_entry_count =
+      TimelineEntry
+      |> where([entry], entry.project_id == ^project.id)
+      |> select([entry], count(entry.id))
+      |> Repo.one()
+
+    transition_count =
+      WorkItemTransition
+      |> join(:inner, [transition], work_item in WorkItem,
+        on: transition.work_item_id == work_item.id
+      )
+      |> where([_transition, work_item], work_item.project_id == ^project.id)
+      |> select([transition, _work_item], count(transition.id))
+      |> Repo.one()
+
+    %{
+      work_item_count: work_item_count || 0,
+      timeline_entry_count: timeline_entry_count || 0,
+      transition_count: transition_count || 0
+    }
+  end
+
+  def archive_project(%User{} = user, %Project{} = project) do
+    with :ok <- ensure_project_owner(user, project),
+         :ok <- ensure_not_default_project(user, project) do
+      project
+      |> Project.changeset(%{"status" => "archived"})
+      |> Repo.update()
+    end
+  end
+
+  def delete_project(%User{} = user, %Project{} = project) do
+    with :ok <- ensure_project_owner(user, project),
+         :ok <- ensure_not_default_project(user, project) do
+      Repo.delete(project)
+    end
+  end
+
+  def default_project?(%User{} = user, %Project{} = project) do
+    ensure_default_project(user).id == project.id
+  end
+
+  def active_project?(%Project{} = project), do: project.status == "active"
 
   def get_project_for_user(%User{} = user, slug \\ nil) do
     default_project = ensure_default_project(user)
@@ -36,7 +87,13 @@ defmodule Core.Office do
         default_project
 
       project_slug ->
-        Repo.get_by(Project, user_id: user.id, slug: project_slug) || default_project
+        Project
+        |> where(
+          [project],
+          project.user_id == ^user.id and project.slug == ^project_slug and
+            project.status == "active"
+        )
+        |> Repo.one() || default_project
     end
   end
 
@@ -193,9 +250,7 @@ defmodule Core.Office do
   defp ensure_default_project(%User{} = user) do
     project =
       Project
-      |> where([project], project.user_id == ^user.id)
-      |> order_by([project], asc: project.inserted_at)
-      |> limit(1)
+      |> where([project], project.user_id == ^user.id and project.slug == "personal-roadmap")
       |> Repo.one()
       |> case do
         nil ->
@@ -208,9 +263,10 @@ defmodule Core.Office do
 
             {:error, _changeset} ->
               Project
-              |> where([project], project.user_id == ^user.id)
-              |> order_by([project], asc: project.inserted_at)
-              |> limit(1)
+              |> where(
+                [project],
+                project.user_id == ^user.id and project.slug == "personal-roadmap"
+              )
               |> Repo.one!()
           end
 
@@ -230,5 +286,13 @@ defmodule Core.Office do
     TimelineEntry
     |> where([entry], entry.user_id == ^user_id and is_nil(entry.project_id))
     |> Repo.update_all(set: [project_id: project_id])
+  end
+
+  defp ensure_project_owner(%User{} = user, %Project{} = project) do
+    if project.user_id == user.id, do: :ok, else: {:error, :forbidden}
+  end
+
+  defp ensure_not_default_project(%User{} = user, %Project{} = project) do
+    if default_project?(user, project), do: {:error, :protected_default}, else: :ok
   end
 end

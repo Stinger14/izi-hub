@@ -64,6 +64,42 @@ defmodule CoreWeb.OfficeLiveTest do
     refute html =~ ">Start<"
   end
 
+  test "expands a stage task from the preview cta", %{conn: conn} do
+    user = user_fixture()
+    project = Office.default_project_for_user(user)
+
+    {:ok, work_item} =
+      Office.create_work_item(user, project, %{
+        "title" => "Review launch copy",
+        "description" => "Tighten the wording before handoff",
+        "priority" => "medium"
+      })
+
+    conn = init_test_session(conn, user_id: user.id)
+    {:ok, view, html} = live(conn, ~p"/office")
+
+    refute html =~ ">Start<"
+
+    html =
+      view
+      |> element("button[data-stage-open-id=\"work-item:#{work_item.id}\"]")
+      |> render_click()
+
+    assert html =~ "Tighten the wording before handoff"
+
+    assert has_element?(
+             view,
+             "button[phx-click=\"transition_work_item\"][phx-value-id=\"#{work_item.id}\"][phx-value-to=\"wip\"]"
+           )
+
+    _html = render_click(view, "close_stage_items", %{})
+
+    refute has_element?(
+             view,
+             "button[phx-click=\"transition_work_item\"][phx-value-id=\"#{work_item.id}\"][phx-value-to=\"wip\"]"
+           )
+  end
+
   test "creates milestone entries on the roadmap track", %{conn: conn} do
     user = user_fixture()
     conn = init_test_session(conn, user_id: user.id)
@@ -97,6 +133,55 @@ defmodule CoreWeb.OfficeLiveTest do
     assert html =~ "Internal milestone"
   end
 
+  test "projects scheduled tasks onto the interactive roadmap", %{conn: conn} do
+    user = user_fixture()
+    project = Office.default_project_for_user(user)
+    selected_date = Date.utc_today() |> Date.add(1)
+
+    {:ok, work_item} =
+      Office.create_work_item(user, project, %{
+        "title" => "Prep release checklist",
+        "description" => "Validate the launch tasks before shipping",
+        "priority" => "high",
+        "scheduled_for" => Date.to_iso8601(selected_date),
+        "due_at" => Date.to_iso8601(selected_date) <> "T13:30"
+      })
+
+    conn = init_test_session(conn, user_id: user.id)
+    {:ok, view, _html} = live(conn, ~p"/office")
+
+    view
+    |> element(
+      "button[phx-click=\"select_calendar_date\"][phx-value-date=\"#{Date.to_iso8601(selected_date)}\"]"
+    )
+    |> render_click()
+
+    assert has_element?(
+             view,
+             "[data-roadmap-date=\"#{Date.to_iso8601(selected_date)}\"] [data-roadmap-item-id=\"roadmap-work-item:#{work_item.id}\"]"
+           )
+
+    html =
+      view
+      |> element(
+        "[data-roadmap-date=\"#{Date.to_iso8601(selected_date)}\"] [data-roadmap-item-id=\"roadmap-work-item:#{work_item.id}\"]"
+      )
+      |> render_click()
+
+    assert html =~ "Queue task"
+    assert html =~ "HIGH priority"
+    assert html =~ "Open on board"
+    refute html =~ ">Start<"
+
+    html =
+      view
+      |> element("button[data-roadmap-open-board-id=\"#{work_item.id}\"]")
+      |> render_click()
+
+    assert html =~ "Validate the launch tasks before shipping"
+    assert html =~ "Start"
+  end
+
   test "opens project creator inline without hiding add entry", %{conn: conn} do
     user = user_fixture()
     conn = init_test_session(conn, user_id: user.id)
@@ -109,6 +194,57 @@ defmodule CoreWeb.OfficeLiveTest do
 
     assert html =~ "Project title"
     assert html =~ "Add entry"
+  end
+
+  test "archives a non-default project from the current project card", %{conn: conn} do
+    user = user_fixture()
+    {:ok, project} = Office.create_project(user, %{"name" => "Client launch"})
+    conn = init_test_session(conn, user_id: user.id)
+    {:ok, view, _html} = live(conn, ~p"/office/#{project.slug}")
+
+    html =
+      view
+      |> element("button[phx-click=\"archive_current_project\"]")
+      |> render_click()
+
+    assert html =~ "Personal roadmap"
+    refute html =~ "Client launch</span></a>"
+  end
+
+  test "deletes a non-default project from the current project card", %{conn: conn} do
+    user = user_fixture()
+    {:ok, project} = Office.create_project(user, %{"name" => "Client launch"})
+    _default_project = Office.default_project_for_user(user)
+
+    assert {:ok, _work_item} =
+             Office.create_work_item(user, project, %{"title" => "Ship launch"})
+
+    assert {:ok, _entry} =
+             Office.create_timeline_entry(user, project, %{
+               "title" => "Launch review",
+               "kind" => "milestone",
+               "starts_at" => "2026-03-21T10:00"
+             })
+
+    conn = init_test_session(conn, user_id: user.id)
+    {:ok, view, _html} = live(conn, ~p"/office/#{project.slug}")
+
+    html =
+      view
+      |> element("button[phx-click=\"open_delete_project_confirm\"]")
+      |> render_click()
+
+    assert html =~ "Delete project"
+    assert html =~ "1 tasks"
+    assert html =~ "1 milestones"
+
+    html =
+      view
+      |> element("button[phx-click=\"delete_current_project\"]")
+      |> render_click()
+
+    assert html =~ "Personal roadmap"
+    refute html =~ "Client launch</span></a>"
   end
 
   test "calendar filters roadmap rows by selected date and shows daily counts", %{conn: conn} do
@@ -165,11 +301,12 @@ defmodule CoreWeb.OfficeLiveTest do
     html =
       view
       |> element(
-        "button[phx-click=\"focus_day_task\"][phx-value-id=\"work-item:#{work_item.id}\"]"
+        "button[phx-click=\"toggle_day_task_details\"][phx-value-id=\"work-item:#{work_item.id}\"]"
       )
       |> render_click()
 
     assert html =~ "Sync the stage board from the calendar sidebar"
+    assert html =~ "Stage:"
   end
 
   test "edits an existing roadmap event inline from the timeline popover", %{conn: conn} do
@@ -265,6 +402,39 @@ defmodule CoreWeb.OfficeLiveTest do
              view,
              "button[phx-click=\"edit_timeline_entry\"][phx-value-id=\"#{entry.id}\"]"
            )
+  end
+
+  test "expands a sidebar day task in place", %{conn: conn} do
+    user = user_fixture()
+    project = Office.default_project_for_user(user)
+    selected_date = Date.utc_today() |> Date.add(5)
+
+    {:ok, work_item} =
+      Office.create_work_item(user, project, %{
+        "title" => "Check release rollout",
+        "description" => "Review the handoff notes with QA",
+        "scheduled_for" => Date.to_iso8601(selected_date)
+      })
+
+    conn = init_test_session(conn, user_id: user.id)
+    {:ok, view, _html} = live(conn, ~p"/office")
+
+    view
+    |> element(
+      "button[phx-click=\"select_calendar_date\"][phx-value-date=\"#{Date.to_iso8601(selected_date)}\"]"
+    )
+    |> render_click()
+
+    html =
+      view
+      |> element(
+        "button[phx-click=\"toggle_day_task_details\"][phx-value-id=\"work-item:#{work_item.id}\"]"
+      )
+      |> render_click()
+
+    assert html =~ "Review the handoff notes with QA"
+    assert html =~ "Scheduled for"
+    assert html =~ "Stage:"
   end
 
   defp user_fixture do

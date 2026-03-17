@@ -538,6 +538,26 @@
         animation: fx-preview-pop 280ms cubic-bezier(0.2, 0.88, 0.23, 1.15);
     }
 
+    .stage-fx-preview.fx-preview {
+        border-color: transparent;
+        box-shadow: none;
+    }
+
+    .stage-fx-preview.fx-preview::before {
+        opacity: 0;
+    }
+
+    .fx-item:hover .stage-fx-preview.fx-preview,
+    .fx-item:focus-within .stage-fx-preview.fx-preview {
+        border-color: var(--fx-accent-300);
+        box-shadow: 0 24px 32px -24px var(--fx-shadow-preview);
+    }
+
+    .fx-item:hover .stage-fx-preview.fx-preview::before,
+    .fx-item:focus-within .stage-fx-preview.fx-preview::before {
+        opacity: 1;
+    }
+
     .fx-preview::before {
         content: "";
         position: absolute;

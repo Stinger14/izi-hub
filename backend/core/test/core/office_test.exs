@@ -15,6 +15,51 @@ defmodule Core.OfficeTest do
     assert project.slug == "personal-roadmap"
   end
 
+  test "archive_project hides a non-default project from active listings" do
+    user = user_fixture()
+    _default_project = Office.default_project_for_user(user)
+    {:ok, project} = Office.create_project(user, %{"name" => "Client launch"})
+
+    assert {:ok, archived_project} = Office.archive_project(user, project)
+
+    assert archived_project.status == "archived"
+    refute Enum.any?(Office.list_projects_for_user(user), &(&1.id == project.id))
+    assert Office.get_project_for_user(user, project.slug).slug == "personal-roadmap"
+  end
+
+  test "delete_project removes a non-default project and its data" do
+    user = user_fixture()
+    _default_project = Office.default_project_for_user(user)
+    {:ok, project} = Office.create_project(user, %{"name" => "Client launch"})
+    {:ok, work_item} = Office.create_work_item(user, project, %{"title" => "Ship launch"})
+
+    {:ok, entry} =
+      Office.create_timeline_entry(user, project, %{
+        "title" => "Launch review",
+        "kind" => "milestone",
+        "starts_at" => "2026-03-20T10:30"
+      })
+
+    assert {:ok, _deleted_project} = Office.delete_project(user, project)
+    refute Enum.any?(Office.list_projects_for_user(user), &(&1.id == project.id))
+
+    assert_raise Ecto.NoResultsError, fn ->
+      Office.get_work_item_for_project!(user.id, project.id, work_item.id)
+    end
+
+    assert_raise Ecto.NoResultsError, fn ->
+      Office.get_timeline_entry_for_project!(user.id, project.id, entry.id)
+    end
+  end
+
+  test "default project cannot be archived or deleted" do
+    user = user_fixture()
+    project = Office.default_project_for_user(user)
+
+    assert {:error, :protected_default} = Office.archive_project(user, project)
+    assert {:error, :protected_default} = Office.delete_project(user, project)
+  end
+
   test "create_work_item always places new work in queue" do
     user = user_fixture()
     project = Office.default_project_for_user(user)
