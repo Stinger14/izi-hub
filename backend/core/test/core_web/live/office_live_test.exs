@@ -24,6 +24,8 @@ defmodule CoreWeb.OfficeLiveTest do
     assert html =~ "QA"
     assert html =~ "Release"
     assert html =~ "Add entry"
+    assert html =~ ~s(data-stage-empty-state="queue")
+    refute html =~ "No roadmap cards in Queue yet."
     refute html =~ "Add roadmap entry"
   end
 
@@ -54,6 +56,7 @@ defmodule CoreWeb.OfficeLiveTest do
 
     assert html =~ "Ship Office live view"
     assert html =~ "HIGH priority"
+    assert has_element?(view, ~s([data-stage-canvas="queue"][style*="height: 18.0rem;"]))
 
     html =
       view
@@ -307,6 +310,85 @@ defmodule CoreWeb.OfficeLiveTest do
 
     assert html =~ "Sync the stage board from the calendar sidebar"
     assert html =~ "Stage:"
+  end
+
+  test "selected day keeps an empty task card without helper copy when there are no tasks", %{
+    conn: conn
+  } do
+    user = user_fixture()
+    project = Office.default_project_for_user(user)
+    selected_date = Date.utc_today() |> Date.add(4)
+
+    assert {:ok, _entry} =
+             Office.create_timeline_entry(user, project, %{
+               "title" => "Design sync",
+               "kind" => "milestone",
+               "starts_at" => Date.to_iso8601(selected_date) <> "T10:00"
+             })
+
+    conn = init_test_session(conn, user_id: user.id)
+    {:ok, view, _html} = live(conn, ~p"/office")
+
+    html =
+      view
+      |> element(
+        "button[phx-click=\"select_calendar_date\"][phx-value-date=\"#{Date.to_iso8601(selected_date)}\"]"
+      )
+      |> render_click()
+
+    assert html =~ "Tasks for the day"
+    refute html =~ "No tasks scheduled or due on this day."
+
+    assert has_element?(view, "[data-selected-day-empty-state=\"tasks\"]")
+  end
+
+  test "selected day plus button opens an inline task form and creates a task", %{conn: conn} do
+    user = user_fixture()
+    project = Office.default_project_for_user(user)
+    selected_date = Date.utc_today() |> Date.add(5)
+
+    assert {:ok, _entry} =
+             Office.create_timeline_entry(user, project, %{
+               "title" => "Weekly review",
+               "kind" => "milestone",
+               "starts_at" => Date.to_iso8601(selected_date) <> "T11:00"
+             })
+
+    conn = init_test_session(conn, user_id: user.id)
+    {:ok, view, _html} = live(conn, ~p"/office")
+
+    view
+    |> element(
+      "button[phx-click=\"select_calendar_date\"][phx-value-date=\"#{Date.to_iso8601(selected_date)}\"]"
+    )
+    |> render_click()
+
+    assert has_element?(view, "[data-selected-day-add-entry=\"true\"]")
+
+    html =
+      view
+      |> element("[data-selected-day-add-entry=\"true\"]")
+      |> render_click()
+
+    assert html =~ "Quick task"
+    refute html =~ "Add roadmap entry"
+    assert has_element?(view, "input#selected-day-entry-title")
+
+    html =
+      view
+      |> form("form[phx-submit=\"create_selected_day_task\"]",
+        selected_day_entry: %{
+          "title" => "Draft launch note",
+          "description" => "Capture the release summary",
+          "priority" => "high",
+          "due_at" => ""
+        }
+      )
+      |> render_submit()
+
+    assert html =~ "Draft launch note"
+    assert has_element?(view, "[data-selected-day-add-entry=\"true\"]")
+    refute has_element?(view, "input#selected-day-entry-title")
   end
 
   test "edits an existing roadmap event inline from the timeline popover", %{conn: conn} do

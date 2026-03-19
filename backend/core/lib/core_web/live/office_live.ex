@@ -35,11 +35,13 @@ defmodule CoreWeb.OfficeLive do
        expanded_item_ids: [],
        page_title: "IziOffice",
        selected_date: nil,
+       selected_day_entry_form_open: false,
        selected_day_expanded_task_ids: [],
        timeline_edit_form: nil
      )
      |> assign_project_form()
-     |> assign_entry_form()}
+     |> assign_entry_form()
+     |> assign_selected_day_entry_form()}
   end
 
   def handle_params(params, _uri, socket) do
@@ -291,8 +293,13 @@ defmodule CoreWeb.OfficeLive do
       {:ok, date} ->
         {:noreply,
          socket
-         |> assign(selected_date: date, calendar_month: month_start(date))
-         |> assign_workbench()}
+         |> assign(
+           selected_date: date,
+           calendar_month: month_start(date),
+           selected_day_entry_form_open: false
+         )
+         |> assign_workbench()
+         |> assign_selected_day_entry_form(selected_date_task_attrs(date))}
 
       {:error, _reason} ->
         {:noreply, socket}
@@ -300,7 +307,76 @@ defmodule CoreWeb.OfficeLive do
   end
 
   def handle_event("clear_calendar_date", _params, socket) do
-    {:noreply, socket |> assign(selected_date: nil) |> assign_workbench()}
+    {:noreply,
+     socket
+     |> assign(selected_date: nil, selected_day_entry_form_open: false)
+     |> assign_workbench()
+     |> assign_selected_day_entry_form()}
+  end
+
+  def handle_event("toggle_selected_day_entry_form", _params, socket) do
+    if socket.assigns.selected_date do
+      if socket.assigns.selected_day_entry_form_open do
+        {:noreply,
+         socket
+         |> assign(selected_day_entry_form_open: false)
+         |> assign_selected_day_entry_form()}
+      else
+        {:noreply,
+         socket
+         |> assign(
+           entry_form_open: false,
+           project_form_open: false,
+           project_delete_confirm: false,
+           selected_day_entry_form_open: true
+         )
+         |> assign_selected_day_entry_form(selected_date_task_attrs(socket.assigns.selected_date))}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("cancel_selected_day_entry_form", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(selected_day_entry_form_open: false)
+     |> assign_selected_day_entry_form()}
+  end
+
+  def handle_event("create_selected_day_task", %{"selected_day_entry" => params}, socket) do
+    user = socket.assigns.current_scope.user
+    project = socket.assigns.current_project
+
+    case socket.assigns.selected_date do
+      %Date{} = selected_date ->
+        params = Map.put(params, "scheduled_for", Date.to_iso8601(selected_date))
+
+        case Office.create_work_item(user, project, params) do
+          {:ok, work_item} ->
+            {:noreply,
+             socket
+             |> put_flash(:info, "Task added to roadmap")
+             |> assign(
+               selected_day_entry_form_open: false,
+               expanded_item_ids: ["work-item:" <> work_item.id]
+             )
+             |> assign_selected_day_entry_form(selected_date_task_attrs(selected_date))
+             |> assign_workbench()}
+
+          {:error, %Ecto.Changeset{} = changeset} ->
+            {:noreply,
+             socket
+             |> assign(
+               entry_form_open: false,
+               selected_day_entry_form_open: true,
+               selected_day_entry_form: to_form(changeset, as: :selected_day_entry)
+             )}
+        end
+
+      _ ->
+        {:noreply, socket}
+    end
   end
 
   def handle_event("focus_day_task", %{"id" => id}, socket) do
@@ -321,15 +397,25 @@ defmodule CoreWeb.OfficeLive do
   def handle_event("prev_calendar_month", _params, socket) do
     {:noreply,
      socket
-     |> assign(calendar_month: previous_month(socket.assigns.calendar_month), selected_date: nil)
-     |> assign_workbench()}
+     |> assign(
+       calendar_month: previous_month(socket.assigns.calendar_month),
+       selected_date: nil,
+       selected_day_entry_form_open: false
+     )
+     |> assign_workbench()
+     |> assign_selected_day_entry_form()}
   end
 
   def handle_event("next_calendar_month", _params, socket) do
     {:noreply,
      socket
-     |> assign(calendar_month: next_month(socket.assigns.calendar_month), selected_date: nil)
-     |> assign_workbench()}
+     |> assign(
+       calendar_month: next_month(socket.assigns.calendar_month),
+       selected_date: nil,
+       selected_day_entry_form_open: false
+     )
+     |> assign_workbench()
+     |> assign_selected_day_entry_form()}
   end
 
   def render(assigns) do
@@ -1038,11 +1124,18 @@ defmodule CoreWeb.OfficeLive do
                         </span>
                       </div>
 
-                      <div class="relative mt-5 overflow-visible rounded-2xl border border-purple-100/80 bg-[linear-gradient(180deg,rgba(245,243,255,0.94),rgba(237,233,254,0.84))] px-4 py-4" style={stage_canvas_style(Map.get(@canvas_stage_items, stage, []), @expanded_item_ids)}>
+                      <div
+                        class="relative mt-5 overflow-visible rounded-2xl border border-purple-100/80 bg-[linear-gradient(180deg,rgba(245,243,255,0.94),rgba(237,233,254,0.84))] px-4 py-4"
+                        data-stage-canvas={stage}
+                        style={stage_canvas_style(Map.get(@canvas_stage_items, stage, []), @expanded_item_ids)}
+                      >
 
                         <%= if Map.get(@canvas_stage_items, stage, []) == [] do %>
-                          <div class="flex min-h-[14rem] items-center justify-center rounded-xl border border-dashed border-purple-100 bg-purple-50/50 text-sm text-slate-500">
-                            No roadmap cards in <%= lane_title(stage) %> yet.
+                          <div
+                            class="min-h-[16rem] rounded-xl border border-dashed border-purple-100 bg-purple-50/50"
+                            data-stage-empty-state={stage}
+                            aria-hidden="true"
+                          >
                           </div>
                         <% else %>
                           <button
@@ -1248,9 +1341,21 @@ defmodule CoreWeb.OfficeLive do
                     </div>
 
                     <div class="mt-4 rounded-2xl border border-purple-100 bg-white/80 p-4">
-                      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                        <%= selected_day_heading(@selected_date) %>
-                      </p>
+                      <div class="flex items-center justify-between gap-3">
+                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                          <%= selected_day_heading(@selected_date) %>
+                        </p>
+                        <button
+                          :if={@selected_date}
+                          type="button"
+                          phx-click="toggle_selected_day_entry_form"
+                          class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-purple-200 bg-white text-base font-semibold leading-none text-purple-700 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-purple-300 hover:text-purple-800"
+                          data-selected-day-add-entry="true"
+                          aria-label="Toggle task form for selected date"
+                        >
+                          +
+                        </button>
+                      </div>
                       <p class="mt-2 text-2xl font-semibold text-slate-900"><%= @selected_day_summary.total_count %></p>
                       <p class="mt-1 text-sm text-slate-500">planned items</p>
 
@@ -1275,8 +1380,12 @@ defmodule CoreWeb.OfficeLive do
                           Select a date to inspect and open its tasks.
                         </div>
 
-                        <div :if={@selected_date && @selected_day_tasks == []} class="mt-3 rounded-xl border border-dashed border-purple-100 bg-purple-50/50 px-3 py-3 text-sm text-slate-500">
-                          No tasks scheduled or due on this day.
+                        <div
+                          :if={@selected_date && @selected_day_tasks == []}
+                          class="mt-3 min-h-[6rem] rounded-xl border border-dashed border-purple-100 bg-purple-50/50 px-3 py-3"
+                          data-selected-day-empty-state="tasks"
+                          aria-hidden="true"
+                        >
                         </div>
 
                         <div :if={@selected_day_tasks != []} class="mt-3 space-y-2">
@@ -1335,6 +1444,140 @@ defmodule CoreWeb.OfficeLive do
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    <div
+                      :if={@selected_date && @selected_day_entry_form_open}
+                      class="mt-3 rounded-2xl border border-purple-100 bg-white/90 p-4 shadow-sm"
+                    >
+                      <.form
+                        for={@selected_day_entry_form}
+                        phx-submit="create_selected_day_task"
+                        class="space-y-3"
+                      >
+                        <div class="flex items-start justify-between gap-3">
+                          <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Quick task</p>
+                            <p class="mt-1 text-sm font-semibold text-slate-900">
+                              Scheduled for <%= calendar_focus_label(@selected_date) %>
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            phx-click="cancel_selected_day_entry_form"
+                            class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-purple-100 bg-white text-slate-500 transition hover:border-purple-200 hover:text-slate-700"
+                            aria-label="Close selected day task form"
+                          >
+                            <.icon name="hero-x-mark" class="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        <div>
+                          <label
+                            for="selected-day-entry-title"
+                            class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+                          >
+                            Title
+                          </label>
+                          <input
+                            id="selected-day-entry-title"
+                            name={@selected_day_entry_form[:title].name}
+                            value={@selected_day_entry_form[:title].value}
+                            type="text"
+                            placeholder="Add task title"
+                            class="w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                          />
+                          <p
+                            :for={error <- @selected_day_entry_form[:title].errors}
+                            class="mt-1 text-xs text-rose-600"
+                          >
+                            <%= translate_error(error) %>
+                          </p>
+                        </div>
+
+                        <div>
+                          <label
+                            for="selected-day-entry-description"
+                            class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+                          >
+                            Description
+                          </label>
+                          <textarea
+                            id="selected-day-entry-description"
+                            name={@selected_day_entry_form[:description].name}
+                            class="h-20 w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                            placeholder="Add context or notes"
+                          ><%= @selected_day_entry_form[:description].value %></textarea>
+                        </div>
+
+                        <div class="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <label
+                              for="selected-day-entry-priority"
+                              class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+                            >
+                              Priority
+                            </label>
+                            <select
+                              id="selected-day-entry-priority"
+                              name={@selected_day_entry_form[:priority].name}
+                              class="w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                            >
+                              <option
+                                value="low"
+                                selected={@selected_day_entry_form[:priority].value == "low"}
+                              >
+                                Low
+                              </option>
+                              <option
+                                value="medium"
+                                selected={@selected_day_entry_form[:priority].value in [nil, "medium"]}
+                              >
+                                Medium
+                              </option>
+                              <option
+                                value="high"
+                                selected={@selected_day_entry_form[:priority].value == "high"}
+                              >
+                                High
+                              </option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label
+                              for="selected-day-entry-due-at"
+                              class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+                            >
+                              Due at
+                            </label>
+                            <input
+                              id="selected-day-entry-due-at"
+                              name={@selected_day_entry_form[:due_at].name}
+                              value={datetime_local_value(@selected_day_entry_form[:due_at].value)}
+                              type="datetime-local"
+                              class="w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                            />
+                            <p
+                              :for={error <- @selected_day_entry_form[:due_at].errors}
+                              class="mt-1 text-xs text-rose-600"
+                            >
+                              <%= translate_error(error) %>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            phx-click="cancel_selected_day_entry_form"
+                            class="btn btn-ghost btn-xs"
+                          >
+                            Cancel
+                          </button>
+                          <button type="submit" class="btn btn-primary btn-xs">Create task</button>
+                        </div>
+                      </.form>
                     </div>
                   </section>
                 </aside>
@@ -1407,9 +1650,21 @@ defmodule CoreWeb.OfficeLive do
     )
   end
 
+  defp assign_selected_day_entry_form(socket, attrs \\ %{}) do
+    assign(socket,
+      selected_day_entry_form: to_form(Office.planner_changeset(attrs), as: :selected_day_entry)
+    )
+  end
+
   defp assign_project_form(socket, attrs \\ %{}) do
     assign(socket, project_form: to_form(Office.project_changeset(attrs), as: :project))
   end
+
+  defp selected_date_task_attrs(%Date{} = selected_date) do
+    %{"scheduled_for" => Date.to_iso8601(selected_date)}
+  end
+
+  defp selected_date_task_attrs(_selected_date), do: %{}
 
   defp create_task(socket, user, project, params) do
     case Office.create_work_item(user, project, params) do
@@ -2201,7 +2456,7 @@ defmodule CoreWeb.OfficeLive do
   end
 
   defp stage_canvas_height_rem(items, expanded_item_ids) do
-    Enum.reduce(items, 12.5, fn item, acc ->
+    Enum.reduce(items, 18.0, fn item, acc ->
       bottom_rem =
         stage_item_top(item) +
           stage_item_height(expanded?(expanded_item_ids, item.id)) +
