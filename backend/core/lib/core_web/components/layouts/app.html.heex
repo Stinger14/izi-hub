@@ -6,6 +6,10 @@
         <a href={~p"/hub"} class="text-sm font-semibold tracking-tight text-purple-600">IziHub</a>
 
         <div class="flex items-center gap-2">
+          <%= if current_scope do %>
+            <a href={~p"/office"} class="btn btn-secondary btn-xs">Office</a>
+          <% end %>
+
           <%= if current_scope && current_scope.user.role == "admin" do %>
             <a href={~p"/admin"} class="btn btn-secondary btn-xs">Admin</a>
           <% end %>
