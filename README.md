@@ -1,4 +1,4 @@
-# 👾  IziHub Core
+# 👾  IziHub
 
 Monorepo layout:
 
