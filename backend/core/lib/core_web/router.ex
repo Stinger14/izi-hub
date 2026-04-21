@@ -61,6 +61,7 @@ defmodule CoreWeb.Router do
       ] do
       live "/office", OfficeLive, :index
       live "/office/:slug", OfficeLive, :show
+      live "/finance", FinanceLive, :index
     end
   end
 

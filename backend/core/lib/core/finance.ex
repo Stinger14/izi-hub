@@ -7,7 +7,16 @@ defmodule Core.Finance do
   alias Core.Accounts.User
   alias Core.Repo
 
-  alias Core.Finance.{Transaction, Budget, Category}
+  alias Core.Finance.{
+    Budget,
+    Category,
+    Debt,
+    DebtPayment,
+    DebtPayoffPlan,
+    DebtPlanner,
+    Health,
+    Transaction
+  }
 
   # ------ Transactions ------
 
@@ -301,6 +310,108 @@ defmodule Core.Finance do
 
   def delete_budget(%Budget{} = budget), do: Repo.delete(budget)
 
+  # ------ Debts ------
+
+  def list_debts_for_user(%User{} = user) do
+    Debt
+    |> where([debt], debt.user_id == ^user.id and debt.status == "active")
+    |> order_by([debt], asc: debt.current_balance, asc: debt.name)
+    |> preload(:payments)
+    |> Repo.all()
+  end
+
+  def get_debt_for_user!(%User{} = user, id) do
+    Debt
+    |> where([debt], debt.user_id == ^user.id)
+    |> preload(:payments)
+    |> Repo.get!(id)
+  end
+
+  def change_debt(%Debt{} = debt \\ %Debt{}) do
+    Debt.changeset(debt, %{})
+  end
+
+  def create_debt(%User{} = user, attrs \\ %{}) do
+    %Debt{user_id: user.id}
+    |> Debt.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def update_debt(%User{} = user, %Debt{} = debt, attrs) do
+    with :ok <- ensure_resource_owner(user, debt) do
+      debt
+      |> Debt.changeset(attrs)
+      |> Repo.update()
+    end
+  end
+
+  def delete_debt(%User{} = user, %Debt{} = debt) do
+    with :ok <- ensure_resource_owner(user, debt) do
+      debt
+      |> Debt.changeset(%{"status" => "archived"})
+      |> Repo.update()
+    end
+  end
+
+  def record_debt_payment(%User{} = user, %Debt{} = debt, attrs \\ %{}) do
+    with :ok <- ensure_resource_owner(user, debt) do
+      %DebtPayment{user_id: user.id, debt_id: debt.id}
+      |> DebtPayment.changeset(attrs)
+      |> Repo.insert()
+    end
+  end
+
+  def list_payoff_plans_for_user(%User{} = user) do
+    DebtPayoffPlan
+    |> where([plan], plan.user_id == ^user.id and plan.status == "active")
+    |> order_by([plan], desc: plan.inserted_at)
+    |> Repo.all()
+  end
+
+  def generate_debt_payoff_comparison(%User{} = user, opts \\ []) do
+    today = Keyword.get(opts, :today, Date.utc_today())
+    starts_on = Keyword.get(opts, :starts_on, Date.beginning_of_month(today))
+    health = get_financial_health(user, today: today)
+    monthly_amount = Keyword.get(opts, :monthly_amount, health.current_month.free_cash_flow)
+
+    user
+    |> list_debts_for_user()
+    |> DebtPlanner.compare(monthly_amount, starts_on)
+  end
+
+  def save_debt_payoff_plan(%User{} = user, attrs) do
+    %DebtPayoffPlan{user_id: user.id}
+    |> DebtPayoffPlan.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def save_generated_debt_payoff_plan(%User{} = user, plan) do
+    save_debt_payoff_plan(user, %{
+      "name" => "#{String.capitalize(plan.strategy)} payoff plan",
+      "strategy" => plan.strategy,
+      "monthly_amount" => plan.monthly_amount,
+      "starts_on" => Date.beginning_of_month(Date.utc_today()),
+      "target_payoff_date" => plan.target_payoff_date,
+      "snapshot" => stringify_plan(plan)
+    })
+  end
+
+  def get_financial_health(%User{} = user, opts \\ []) do
+    today = Keyword.get(opts, :today, Date.utc_today())
+
+    current_month =
+      month_summary(user.id, Date.beginning_of_month(today), Date.end_of_month(today))
+
+    next_month_start = today |> Date.end_of_month() |> Date.add(1)
+    next_month_end = Date.end_of_month(next_month_start)
+
+    next_month =
+      current_month
+      |> project_next_month(today, next_month_start, next_month_end)
+
+    Health.build(current_month, next_month, list_debts_for_user(user))
+  end
+
   @doc """
   Checks budget status and returns spending %
   """
@@ -341,6 +452,93 @@ defmodule Core.Finance do
 
   defp maybe_filter_by_category(query, category_id) do
     where(query, [t], t.category_id == ^category_id)
+  end
+
+  defp month_summary(user_id, start_date, end_date) do
+    income = sum_transactions(user_id, "income", start_date, end_date)
+    expenses = sum_transactions_excluding_debt_payments(user_id, start_date, end_date)
+
+    %{
+      start_date: start_date,
+      end_date: end_date,
+      income: income,
+      expenses: expenses
+    }
+  end
+
+  defp project_next_month(current_month, today, next_month_start, next_month_end) do
+    elapsed_days = max(today.day, 1)
+    next_month_days = Date.diff(next_month_end, next_month_start) + 1
+
+    %{
+      start_date: next_month_start,
+      end_date: next_month_end,
+      income: project_amount(current_month.income, elapsed_days, next_month_days),
+      expenses: project_amount(current_month.expenses, elapsed_days, next_month_days)
+    }
+  end
+
+  defp project_amount(amount, elapsed_days, projected_days) do
+    amount
+    |> Decimal.div(Decimal.new(elapsed_days))
+    |> Decimal.mult(Decimal.new(projected_days))
+    |> Decimal.round(2)
+  end
+
+  defp sum_transactions(user_id, type, start_date, end_date) do
+    Transaction
+    |> where([transaction], transaction.user_id == ^user_id)
+    |> where([transaction], transaction.type == ^type)
+    |> where(
+      [transaction],
+      transaction.transaction_date >= ^start_date and transaction.transaction_date <= ^end_date
+    )
+    |> select([transaction], sum(transaction.amount))
+    |> Repo.one() || Decimal.new("0")
+  end
+
+  defp sum_transactions_excluding_debt_payments(user_id, start_date, end_date) do
+    debt_payment_transaction_ids =
+      DebtPayment
+      |> where([payment], payment.user_id == ^user_id and not is_nil(payment.transaction_id))
+      |> select([payment], payment.transaction_id)
+
+    Transaction
+    |> where([transaction], transaction.user_id == ^user_id)
+    |> where([transaction], transaction.type == "expense")
+    |> where(
+      [transaction],
+      transaction.transaction_date >= ^start_date and transaction.transaction_date <= ^end_date
+    )
+    |> where([transaction], transaction.id not in subquery(debt_payment_transaction_ids))
+    |> select([transaction], sum(transaction.amount))
+    |> Repo.one() || Decimal.new("0")
+  end
+
+  defp stringify_plan(plan) do
+    %{
+      "strategy" => plan.strategy,
+      "monthly_amount" => Decimal.to_string(plan.monthly_amount),
+      "minimum_payment_total" => Decimal.to_string(plan.minimum_payment_total),
+      "extra_payment" => Decimal.to_string(plan.extra_payment),
+      "feasible" => plan.feasible?,
+      "debt_count" => plan.debt_count,
+      "starting_balance" => Decimal.to_string(plan.starting_balance),
+      "estimated_interest" => Decimal.to_string(plan.estimated_interest),
+      "payoff_months" => plan.payoff_months,
+      "target_payoff_date" => plan.target_payoff_date && Date.to_iso8601(plan.target_payoff_date),
+      "payoff_order" => Enum.map(plan.payoff_order, &Map.take(&1, [:id, :name])),
+      "schedule" =>
+        Enum.map(plan.schedule, fn entry ->
+          %{
+            "month" => entry.month,
+            "date" => Date.to_iso8601(entry.date),
+            "interest" => Decimal.to_string(entry.interest),
+            "payment" => Decimal.to_string(entry.payment),
+            "remaining_balance" => Decimal.to_string(entry.remaining_balance)
+          }
+        end)
+    }
   end
 
   defp ensure_resource_owner(%User{} = user, resource) do

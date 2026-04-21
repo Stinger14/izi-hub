@@ -8,6 +8,7 @@
         <div class="flex items-center gap-2">
           <%= if current_scope do %>
             <a href={~p"/office"} class="btn btn-secondary btn-xs">Office</a>
+            <a href={~p"/finance"} class="btn btn-secondary btn-xs">Finance</a>
           <% end %>
 
           <%= if current_scope && current_scope.user.role == "admin" do %>
