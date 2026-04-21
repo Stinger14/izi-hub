@@ -17,6 +17,7 @@ defmodule Core.Finance.Transaction do
 
     belongs_to :user, Core.Accounts.User
     belongs_to :category, Core.Finance.Category
+    has_many :debt_payments, Core.Finance.DebtPayment
 
     timestamps()
   end

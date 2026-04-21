@@ -24,6 +24,9 @@ defmodule Core.Accounts.User do
     has_many :transactions, Core.Finance.Transaction
     has_many :categories, Core.Finance.Category
     has_many :budgets, Core.Finance.Budget
+    has_many :debts, Core.Finance.Debt
+    has_many :debt_payments, Core.Finance.DebtPayment
+    has_many :debt_payoff_plans, Core.Finance.DebtPayoffPlan
     has_many :notifications, Core.Notifications.Notification
     has_many :office_projects, Core.Office.Project
     has_many :office_work_items, Core.Office.WorkItem
