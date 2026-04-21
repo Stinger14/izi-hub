@@ -79,6 +79,112 @@ defmodule Core.FinanceTest do
     refute status.is_over
   end
 
+  test "create_debt stores the owning user and allows missing apr" do
+    user = user_fixture()
+    other_user = user_fixture()
+
+    assert {:ok, debt} =
+             Finance.create_debt(user, %{
+               "name" => "Rewards card",
+               "kind" => "credit_card",
+               "current_balance" => "1800.00",
+               "minimum_payment" => "60.00",
+               "user_id" => other_user.id
+             })
+
+    assert debt.user_id == user.id
+    assert is_nil(debt.apr)
+  end
+
+  test "generate_debt_payoff_comparison returns snowball and avalanche plans" do
+    user = user_fixture()
+
+    {:ok, _small_high_apr} =
+      Finance.create_debt(user, %{
+        "name" => "Card",
+        "kind" => "credit_card",
+        "current_balance" => "500.00",
+        "apr" => "25.0",
+        "minimum_payment" => "25.00"
+      })
+
+    {:ok, _large_low_apr} =
+      Finance.create_debt(user, %{
+        "name" => "Loan",
+        "kind" => "loan",
+        "current_balance" => "2500.00",
+        "apr" => "7.5",
+        "minimum_payment" => "100.00"
+      })
+
+    plans =
+      Finance.generate_debt_payoff_comparison(user,
+        today: ~D[2026-04-15],
+        starts_on: ~D[2026-05-01],
+        monthly_amount: Decimal.new("600.00")
+      )
+
+    snowball = Enum.find(plans, &(&1.strategy == "snowball"))
+    avalanche = Enum.find(plans, &(&1.strategy == "avalanche"))
+
+    assert snowball.feasible?
+    assert avalanche.feasible?
+    assert List.first(snowball.payoff_order).name == "Card"
+    assert List.first(avalanche.payoff_order).name == "Card"
+    assert snowball.payoff_months > 0
+  end
+
+  test "financial health uses current month income and excludes linked debt payment expenses" do
+    user = user_fixture()
+    {:ok, category} = Finance.create_category(user, %{"name" => "Debt", "type" => "expense"})
+
+    {:ok, debt} =
+      Finance.create_debt(user, %{
+        "name" => "Card",
+        "kind" => "credit_card",
+        "current_balance" => "1000.00",
+        "minimum_payment" => "50.00"
+      })
+
+    {:ok, _income} =
+      Finance.create_transaction(user, %{
+        "amount" => "3000.00",
+        "type" => "income",
+        "transaction_date" => ~D[2026-04-05]
+      })
+
+    {:ok, _regular_expense} =
+      Finance.create_transaction(user, %{
+        "amount" => "500.00",
+        "type" => "expense",
+        "transaction_date" => ~D[2026-04-06]
+      })
+
+    {:ok, debt_transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "75.00",
+        "type" => "expense",
+        "transaction_date" => ~D[2026-04-07],
+        "category_id" => category.id
+      })
+
+    {:ok, _payment} =
+      Finance.record_debt_payment(user, debt, %{
+        "amount" => "75.00",
+        "payment_date" => ~D[2026-04-07],
+        "transaction_id" => debt_transaction.id
+      })
+
+    health = Finance.get_financial_health(user, today: ~D[2026-04-15])
+
+    assert health.current_month.income == Decimal.new("3000.00")
+    assert health.current_month.expenses == Decimal.new("500.00")
+    assert health.current_month.free_cash_flow == Decimal.new("2500.00")
+    assert health.minimum_debt_payment == Decimal.new("50.00")
+
+    assert "One or more debts are missing APR, so projections may be understated." in health.warnings
+  end
+
   defp user_fixture do
     unique = System.unique_integer([:positive])
 
