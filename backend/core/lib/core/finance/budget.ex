@@ -11,7 +11,7 @@ defmodule Core.Finance.Budget do
     field :period, :string
     field :start_date, :date
     field :end_date, :date
-    field :alert_thershold, :integer, default: 80
+    field :alert_threshold, :integer, default: 80
     field :is_active, :boolean, default: true
 
     belongs_to :user, Core.Accounts.User
@@ -33,7 +33,6 @@ defmodule Core.Finance.Budget do
       :end_date,
       :alert_threshold,
       :is_active,
-      :user_id,
       :category_id
     ])
     |> validate_required([:name, :amount, :period, :start_date, :user_id])

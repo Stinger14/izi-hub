@@ -36,7 +36,6 @@ defmodule Core.Finance.Transaction do
       :tags,
       :receipt_url,
       :notes,
-      :user_id,
       :category_id
     ])
     |> validate_required([:amount, :type, :user_id, :transaction_date])

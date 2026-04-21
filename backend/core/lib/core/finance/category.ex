@@ -13,6 +13,7 @@ defmodule Core.Finance.Category do
     field :description, :string
 
     belongs_to :user, Core.Accounts.User
+    has_many :budgets, Core.Finance.Budget
     has_many :transactions, Core.Finance.Transaction
 
     timestamps()
@@ -23,7 +24,7 @@ defmodule Core.Finance.Category do
   @doc false
   def changeset(category, attrs) do
     category
-    |> cast(attrs, [:name, :type, :color, :icon, :description, :user_id])
+    |> cast(attrs, [:name, :type, :color, :icon, :description])
     |> validate_required([:name, :type, :user_id])
     |> validate_length(:name, min: 1, max: 100)
     |> validate_inclusion(:type, @category_types)
