@@ -316,14 +316,14 @@ defmodule Core.Finance do
     Debt
     |> where([debt], debt.user_id == ^user.id and debt.status == "active")
     |> order_by([debt], asc: debt.current_balance, asc: debt.name)
-    |> preload(:payments)
+    |> preload(payments: ^recent_debt_payments_query())
     |> Repo.all()
   end
 
   def get_debt_for_user!(%User{} = user, id) do
     Debt
     |> where([debt], debt.user_id == ^user.id)
-    |> preload(:payments)
+    |> preload(payments: ^recent_debt_payments_query())
     |> Repo.get!(id)
   end
 
@@ -353,11 +353,54 @@ defmodule Core.Finance do
     end
   end
 
+  def change_debt_payment(%DebtPayment{} = payment \\ %DebtPayment{}) do
+    DebtPayment.changeset(payment, %{})
+  end
+
+  def list_debt_payments_for_user(%User{} = user, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 25)
+
+    DebtPayment
+    |> where([payment], payment.user_id == ^user.id)
+    |> order_by([payment], desc: payment.payment_date, desc: payment.inserted_at)
+    |> limit(^limit)
+    |> preload([:debt, :transaction])
+    |> Repo.all()
+  end
+
+  def list_debt_payments_for_debt(%User{} = user, %Debt{} = debt) do
+    with :ok <- ensure_resource_owner(user, debt) do
+      DebtPayment
+      |> where([payment], payment.user_id == ^user.id and payment.debt_id == ^debt.id)
+      |> order_by([payment], desc: payment.payment_date, desc: payment.inserted_at)
+      |> preload(:transaction)
+      |> Repo.all()
+    end
+  end
+
   def record_debt_payment(%User{} = user, %Debt{} = debt, attrs \\ %{}) do
     with :ok <- ensure_resource_owner(user, debt) do
-      %DebtPayment{user_id: user.id, debt_id: debt.id}
-      |> DebtPayment.changeset(attrs)
-      |> Repo.insert()
+      changeset =
+        %DebtPayment{user_id: user.id, debt_id: debt.id}
+        |> DebtPayment.changeset(attrs)
+        |> validate_debt_payment_amount(debt)
+
+      if changeset.valid? do
+        Repo.transaction(fn ->
+          transaction = maybe_create_debt_payment_transaction!(user, debt, attrs, changeset)
+          payment = insert_debt_payment!(changeset, transaction)
+          update_debt_after_payment!(debt, payment)
+          payment
+        end)
+      else
+        {:error, changeset}
+      end
+    end
+  end
+
+  def delete_debt_payment(%User{} = user, %DebtPayment{} = payment) do
+    with :ok <- ensure_resource_owner(user, payment) do
+      Repo.delete(payment)
     end
   end
 
@@ -514,6 +557,89 @@ defmodule Core.Finance do
     |> select([transaction], sum(transaction.amount))
     |> Repo.one() || Decimal.new("0")
   end
+
+  defp recent_debt_payments_query do
+    from payment in DebtPayment,
+      order_by: [desc: payment.payment_date, desc: payment.inserted_at],
+      limit: 3,
+      preload: [:transaction]
+  end
+
+  defp validate_debt_payment_amount(changeset, debt) do
+    amount = Ecto.Changeset.get_field(changeset, :amount)
+    kind = Ecto.Changeset.get_field(changeset, :kind)
+
+    if amount && kind in ["minimum", "extra"] &&
+         Decimal.compare(amount, debt.current_balance) == :gt do
+      Ecto.Changeset.add_error(changeset, :amount, "cannot exceed current balance")
+    else
+      changeset
+    end
+  end
+
+  defp maybe_create_debt_payment_transaction!(user, debt, attrs, changeset) do
+    if create_expense_transaction?(attrs) do
+      amount = Ecto.Changeset.get_field(changeset, :amount)
+      payment_date = Ecto.Changeset.get_field(changeset, :payment_date)
+
+      case create_transaction(user, %{
+             "amount" => amount,
+             "type" => "expense",
+             "description" => "Debt payment: #{debt.name}",
+             "transaction_date" => payment_date,
+             "notes" => Ecto.Changeset.get_field(changeset, :notes)
+           }) do
+        {:ok, transaction} -> transaction
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end
+  end
+
+  defp create_expense_transaction?(attrs) do
+    value =
+      Map.get(attrs, "create_expense_transaction") || Map.get(attrs, :create_expense_transaction)
+
+    value in [true, "true", "on", "1", 1]
+  end
+
+  defp insert_debt_payment!(changeset, nil) do
+    case Repo.insert(changeset) do
+      {:ok, payment} -> payment
+      {:error, changeset} -> Repo.rollback(changeset)
+    end
+  end
+
+  defp insert_debt_payment!(changeset, transaction) do
+    changeset
+    |> Ecto.Changeset.put_change(:transaction_id, transaction.id)
+    |> Repo.insert()
+    |> case do
+      {:ok, payment} -> payment
+      {:error, changeset} -> Repo.rollback(changeset)
+    end
+  end
+
+  defp update_debt_after_payment!(debt, payment) do
+    balance =
+      debt.current_balance
+      |> Decimal.sub(payment.amount)
+      |> max_decimal(Decimal.new("0"))
+
+    attrs =
+      if Decimal.compare(balance, Decimal.new("0")) == :eq do
+        %{"current_balance" => balance, "status" => "paid_off"}
+      else
+        %{"current_balance" => balance}
+      end
+
+    case debt |> Debt.changeset(attrs) |> Repo.update() do
+      {:ok, debt} -> debt
+      {:error, changeset} -> Repo.rollback(changeset)
+    end
+  end
+
+  defp max_decimal(left, right),
+    do: if(Decimal.compare(left, right) == :lt, do: right, else: left)
 
   defp stringify_plan(plan) do
     %{

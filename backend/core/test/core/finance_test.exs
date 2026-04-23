@@ -185,6 +185,103 @@ defmodule Core.FinanceTest do
     assert "One or more debts are missing APR, so projections may be understated." in health.warnings
   end
 
+  test "record_debt_payment reduces balance and creates a linked expense transaction" do
+    user = user_fixture()
+
+    {:ok, debt} =
+      Finance.create_debt(user, %{
+        "name" => "Card",
+        "kind" => "credit_card",
+        "current_balance" => "1000.00",
+        "minimum_payment" => "50.00"
+      })
+
+    assert {:ok, payment} =
+             Finance.record_debt_payment(user, debt, %{
+               "amount" => "125.00",
+               "payment_date" => ~D[2026-04-12],
+               "kind" => "extra",
+               "notes" => "Bonus payment",
+               "create_expense_transaction" => "true"
+             })
+
+    updated_debt = Finance.get_debt_for_user!(user, debt.id)
+
+    assert updated_debt.current_balance == Decimal.new("875.00")
+    assert payment.transaction_id
+
+    transaction = Finance.get_transaction_for_user!(user, payment.transaction_id)
+    assert transaction.amount == Decimal.new("125.00")
+    assert transaction.type == "expense"
+    assert transaction.description == "Debt payment: Card"
+    assert transaction.transaction_date == ~D[2026-04-12]
+  end
+
+  test "record_debt_payment marks debt paid off when balance reaches zero" do
+    user = user_fixture()
+
+    {:ok, debt} =
+      Finance.create_debt(user, %{
+        "name" => "Small loan",
+        "kind" => "loan",
+        "current_balance" => "100.00",
+        "minimum_payment" => "25.00"
+      })
+
+    assert {:ok, _payment} =
+             Finance.record_debt_payment(user, debt, %{
+               "amount" => "100.00",
+               "payment_date" => ~D[2026-04-12],
+               "kind" => "extra"
+             })
+
+    updated_debt = Finance.get_debt_for_user!(user, debt.id)
+
+    assert updated_debt.current_balance == Decimal.new("0.00")
+    assert updated_debt.status == "paid_off"
+  end
+
+  test "record_debt_payment rejects overpayments for regular payment kinds" do
+    user = user_fixture()
+
+    {:ok, debt} =
+      Finance.create_debt(user, %{
+        "name" => "Card",
+        "kind" => "credit_card",
+        "current_balance" => "100.00",
+        "minimum_payment" => "25.00"
+      })
+
+    assert {:error, changeset} =
+             Finance.record_debt_payment(user, debt, %{
+               "amount" => "125.00",
+               "payment_date" => ~D[2026-04-12],
+               "kind" => "extra"
+             })
+
+    assert "cannot exceed current balance" in errors_on(changeset).amount
+  end
+
+  test "record_debt_payment blocks payments against another user's debt" do
+    user = user_fixture()
+    other_user = user_fixture()
+
+    {:ok, debt} =
+      Finance.create_debt(other_user, %{
+        "name" => "Other card",
+        "kind" => "credit_card",
+        "current_balance" => "100.00",
+        "minimum_payment" => "25.00"
+      })
+
+    assert {:error, :forbidden} =
+             Finance.record_debt_payment(user, debt, %{
+               "amount" => "25.00",
+               "payment_date" => ~D[2026-04-12],
+               "kind" => "minimum"
+             })
+  end
+
   defp user_fixture do
     unique = System.unique_integer([:positive])
 
