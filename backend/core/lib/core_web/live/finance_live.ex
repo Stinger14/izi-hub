@@ -2,6 +2,7 @@ defmodule CoreWeb.FinanceLive do
   use CoreWeb, :live_view
 
   alias Core.Finance
+  alias Core.Finance.DebtPayment
 
   def mount(_params, _session, socket) do
     {:ok,
@@ -10,9 +11,11 @@ defmodule CoreWeb.FinanceLive do
      |> assign(
        page_title: "IziFinance",
        debt_form_open: false,
+       payment_form_debt_id: nil,
        comparison: []
      )
      |> assign_debt_form()
+     |> assign_payment_form()
      |> assign_finance_data()}
   end
 
@@ -34,6 +37,7 @@ defmodule CoreWeb.FinanceLive do
          |> put_flash(:info, "Debt added")
          |> assign(debt_form_open: false)
          |> assign_debt_form()
+         |> assign_payment_form()
          |> assign_finance_data()}
 
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -41,6 +45,38 @@ defmodule CoreWeb.FinanceLive do
          socket
          |> assign(debt_form_open: true)
          |> assign(debt_form: to_form(changeset, as: :debt))}
+    end
+  end
+
+  def handle_event("open_payment_form", %{"id" => id}, socket) do
+    {:noreply,
+     socket
+     |> assign(payment_form_debt_id: id, debt_form_open: false)
+     |> assign_payment_form()}
+  end
+
+  def handle_event("close_payment_form", _params, socket) do
+    {:noreply, socket |> assign(payment_form_debt_id: nil) |> assign_payment_form()}
+  end
+
+  def handle_event("record_payment", %{"payment" => params, "debt_id" => debt_id}, socket) do
+    user = socket.assigns.current_scope.user
+    debt = Finance.get_debt_for_user!(user, debt_id)
+
+    case Finance.record_debt_payment(user, debt, params) do
+      {:ok, _payment} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Payment recorded")
+         |> assign(payment_form_debt_id: nil, comparison: [])
+         |> assign_payment_form()
+         |> assign_finance_data()}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply,
+         socket
+         |> assign(payment_form_debt_id: debt_id)
+         |> assign(payment_form: to_form(changeset, as: :payment))}
     end
   end
 
@@ -197,9 +233,14 @@ defmodule CoreWeb.FinanceLive do
                         <%= format_kind(debt.kind) %><%= if debt.provider, do: " with #{debt.provider}" %>
                       </p>
                     </div>
-                    <button type="button" phx-click="archive_debt" phx-value-id={debt.id} class="btn btn-ghost btn-xs text-rose-600">
-                      Archive
-                    </button>
+                    <div class="flex flex-wrap justify-end gap-2">
+                      <button type="button" phx-click="open_payment_form" phx-value-id={debt.id} class="btn btn-secondary btn-xs">
+                        Record payment
+                      </button>
+                      <button type="button" phx-click="archive_debt" phx-value-id={debt.id} class="btn btn-ghost btn-xs text-rose-600">
+                        Archive
+                      </button>
+                    </div>
                   </div>
                   <div class="mt-4 grid grid-cols-3 gap-3 text-sm">
                     <div>
@@ -213,6 +254,51 @@ defmodule CoreWeb.FinanceLive do
                     <div>
                       <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">APR</p>
                       <p class="mt-1 font-semibold text-slate-900"><%= apr(debt.apr) %></p>
+                    </div>
+                  </div>
+
+                  <.form
+                    :if={@payment_form_debt_id == debt.id}
+                    for={@payment_form}
+                    phx-submit="record_payment"
+                    class="mt-4 rounded-2xl border border-purple-100 bg-purple-50/70 p-4"
+                  >
+                    <input type="hidden" name="debt_id" value={debt.id} />
+                    <div class="grid gap-3 md:grid-cols-2">
+                      <.finance_input form={@payment_form} field={:amount} label="Payment amount" placeholder="100.00" type="number" step="0.01" />
+                      <.finance_input form={@payment_form} field={:payment_date} label="Payment date" type="date" />
+                      <.finance_select form={@payment_form} field={:kind} label="Kind" options={payment_kind_options()} />
+                      <label class="flex items-center gap-2 rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
+                        <input type="hidden" name="payment[create_expense_transaction]" value="false" />
+                        <input
+                          type="checkbox"
+                          name="payment[create_expense_transaction]"
+                          value="true"
+                          checked
+                          class="h-4 w-4 rounded border-purple-200 text-purple-600"
+                        />
+                        Create expense transaction
+                      </label>
+                      <div class="md:col-span-2">
+                        <.finance_input form={@payment_form} field={:notes} label="Notes" placeholder="Optional payment note" />
+                      </div>
+                    </div>
+
+                    <div class="mt-4 flex justify-end gap-2">
+                      <button type="button" phx-click="close_payment_form" class="btn btn-ghost btn-xs">Cancel</button>
+                      <button type="submit" class="btn btn-primary btn-xs">Record payment</button>
+                    </div>
+                  </.form>
+
+                  <div :if={debt.payments != []} class="mt-4 rounded-2xl bg-slate-50 p-3">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Recent payments</p>
+                    <div class="mt-2 space-y-2">
+                      <div :for={payment <- debt.payments} class="flex items-center justify-between gap-3 text-sm">
+                        <span class="text-slate-600">
+                          <%= format_date(payment.payment_date) %> · <%= format_kind(payment.kind) %>
+                        </span>
+                        <span class="font-semibold text-slate-900"><%= money(payment.amount) %></span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -403,6 +489,11 @@ defmodule CoreWeb.FinanceLive do
     assign(socket, debt_form: to_form(Finance.change_debt(), as: :debt))
   end
 
+  defp assign_payment_form(socket) do
+    payment = %DebtPayment{payment_date: Date.utc_today(), kind: "extra"}
+    assign(socket, payment_form: to_form(Finance.change_debt_payment(payment), as: :payment))
+  end
+
   defp debt_kind_options do
     [
       {"Credit card", "credit_card"},
@@ -412,6 +503,15 @@ defmodule CoreWeb.FinanceLive do
       {"Medical", "medical"},
       {"Personal", "personal"},
       {"Other", "other"}
+    ]
+  end
+
+  defp payment_kind_options do
+    [
+      {"Extra", "extra"},
+      {"Minimum", "minimum"},
+      {"Settlement", "settlement"},
+      {"Adjustment", "adjustment"}
     ]
   end
 
