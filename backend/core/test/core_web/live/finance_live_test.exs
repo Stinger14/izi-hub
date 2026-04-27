@@ -17,9 +17,191 @@ defmodule CoreWeb.FinanceLiveTest do
     assert {:ok, _view, html} = live(conn, ~p"/finance")
 
     assert html =~ "IziFinance"
-    assert html =~ "Debt consolidation studio"
-    assert html =~ "Snowball vs avalanche"
-    assert html =~ "Current income"
+    assert html =~ "Money cockpit"
+    assert html =~ "Add transaction"
+    assert html =~ "Budget remaining"
+    assert html =~ "Transactions"
+  end
+
+  test "creates a manual transaction from the dashboard", %{conn: conn} do
+    user = user_fixture()
+    conn = init_test_session(conn, user_id: user.id)
+
+    {:ok, category} = Finance.create_category(user, %{"name" => "Salary", "type" => "income"})
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    view
+    |> element("button[phx-value-section=\"transactions\"]", "Transactions")
+    |> render_click()
+
+    html =
+      view
+      |> form("form[phx-submit=\"create_transaction\"]",
+        transaction: %{
+          "amount" => "3200.00",
+          "type" => "income",
+          "description" => "April salary",
+          "transaction_date" => "2026-04-10",
+          "payment_method" => "bank_transfer",
+          "category_id" => category.id
+        }
+      )
+      |> render_submit()
+
+    assert html =~ "April salary"
+    assert html =~ "+$3200.00"
+
+    [transaction] = Finance.list_transactions_for_user(user)
+    assert transaction.description == "April salary"
+  end
+
+  test "creates a budget and shows active budget status", %{conn: conn} do
+    user = user_fixture()
+    conn = init_test_session(conn, user_id: user.id)
+
+    {:ok, category} = Finance.create_category(user, %{"name" => "Groceries", "type" => "expense"})
+
+    {:ok, _transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "75.00",
+        "type" => "expense",
+        "description" => "Market",
+        "transaction_date" => "2026-04-10",
+        "category_id" => category.id
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    view
+    |> element("button[phx-value-section=\"budgets\"]", "Budgets")
+    |> render_click()
+
+    html =
+      view
+      |> form("form[phx-submit=\"create_budget\"]",
+        budget: %{
+          "name" => "Groceries",
+          "amount" => "300.00",
+          "period" => "monthly",
+          "start_date" => "2026-04-01",
+          "alert_threshold" => "80",
+          "category_id" => category.id
+        }
+      )
+      |> render_submit()
+
+    assert html =~ "$75.00"
+    assert html =~ "$225.00"
+  end
+
+  test "review queue confirms a pending transaction", %{conn: conn} do
+    user = user_fixture()
+    conn = init_test_session(conn, user_id: user.id)
+
+    {:ok, transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "54.25",
+        "type" => "expense",
+        "description" => "Card alert",
+        "merchant" => "Cafe Central",
+        "transaction_date" => "2026-04-11",
+        "status" => "pending_review",
+        "source" => "email",
+        "review_reason" => "Matched subject"
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    view
+    |> element("button[phx-value-section=\"review\"]", "Review (1)")
+    |> render_click()
+
+    html =
+      view
+      |> element("button[phx-click=\"confirm_transaction\"][phx-value-id=\"#{transaction.id}\"]")
+      |> render_click()
+
+    refute html =~ "Cafe Central"
+    assert Finance.get_transaction_for_user!(user, transaction.id).status == "confirmed"
+  end
+
+  test "editing a pending transaction confirms it", %{conn: conn} do
+    user = user_fixture()
+    conn = init_test_session(conn, user_id: user.id)
+
+    {:ok, transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "18.50",
+        "type" => "expense",
+        "description" => "Raw import",
+        "transaction_date" => "2026-04-11",
+        "status" => "pending_review",
+        "source" => "email"
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    view
+    |> element("button[phx-value-section=\"review\"]", "Review (1)")
+    |> render_click()
+
+    html =
+      view
+      |> element(
+        "button[phx-click=\"open_edit_transaction\"][phx-value-id=\"#{transaction.id}\"]"
+      )
+      |> render_click()
+
+    assert html =~ "Save and confirm"
+
+    html =
+      view
+      |> form("form[phx-submit=\"update_transaction\"]",
+        transaction: %{
+          "amount" => "18.50",
+          "type" => "expense",
+          "description" => "Taxi",
+          "transaction_date" => "2026-04-11",
+          "payment_method" => "card",
+          "category_id" => ""
+        }
+      )
+      |> render_submit()
+
+    assert html =~ "Taxi"
+
+    updated_transaction = Finance.get_transaction_for_user!(user, transaction.id)
+    assert updated_transaction.status == "confirmed"
+    assert updated_transaction.description == "Taxi"
+  end
+
+  test "review queue can ignore a pending transaction", %{conn: conn} do
+    user = user_fixture()
+    conn = init_test_session(conn, user_id: user.id)
+
+    {:ok, transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "11.00",
+        "type" => "expense",
+        "description" => "Noise",
+        "transaction_date" => "2026-04-11",
+        "status" => "pending_review",
+        "source" => "email"
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    view
+    |> element("button[phx-value-section=\"review\"]", "Review (1)")
+    |> render_click()
+
+    html =
+      view
+      |> element("button[phx-click=\"ignore_transaction\"][phx-value-id=\"#{transaction.id}\"]")
+      |> render_click()
+
+    refute html =~ "Noise"
+    assert Finance.get_transaction_for_user!(user, transaction.id).status == "ignored"
   end
 
   test "records a debt payment from the finance dashboard", %{conn: conn} do
@@ -35,6 +217,10 @@ defmodule CoreWeb.FinanceLiveTest do
       })
 
     {:ok, view, _html} = live(conn, ~p"/finance")
+
+    view
+    |> element("button[phx-value-section=\"debts\"]", "Debts")
+    |> render_click()
 
     html =
       view

@@ -104,6 +104,10 @@ defmodule Core.Finance do
     |> Repo.insert()
   end
 
+  def change_transaction(%Transaction{} = transaction \\ %Transaction{}) do
+    Transaction.changeset(transaction, %{})
+  end
+
   def ingest_email_transaction_candidate(%User{} = user, attrs) do
     EmailIngestion.ingest(user, attrs)
   end
@@ -252,6 +256,10 @@ defmodule Core.Finance do
     |> Repo.insert()
   end
 
+  def change_category(%Category{} = category \\ %Category{}) do
+    Category.changeset(category, %{})
+  end
+
   @doc """
   Updates a category
   """
@@ -324,6 +332,16 @@ defmodule Core.Finance do
     %Budget{user_id: user.id}
     |> Budget.changeset(attrs)
     |> Repo.insert()
+  end
+
+  def change_budget(%Budget{} = budget \\ %Budget{}) do
+    Budget.changeset(budget, %{})
+  end
+
+  def list_budget_statuses_for_user(%User{} = user) do
+    user
+    |> list_budgets_for_user()
+    |> Enum.map(&check_budget_status/1)
   end
 
   @doc """
