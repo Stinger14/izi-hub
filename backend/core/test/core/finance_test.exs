@@ -79,6 +79,129 @@ defmodule Core.FinanceTest do
     refute status.is_over
   end
 
+  test "pending review transactions are excluded from budget status and health" do
+    user = user_fixture()
+    {:ok, category} = Finance.create_category(user, %{"name" => "Food", "type" => "expense"})
+
+    {:ok, budget} =
+      Finance.create_budget(user, %{
+        "name" => "Food",
+        "amount" => "200.00",
+        "period" => "monthly",
+        "start_date" => ~D[2026-04-01],
+        "category_id" => category.id
+      })
+
+    {:ok, _pending_transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "80.00",
+        "type" => "expense",
+        "transaction_date" => ~D[2026-04-10],
+        "category_id" => category.id,
+        "status" => "pending_review",
+        "source" => "email"
+      })
+
+    status = Finance.check_budget_status(budget)
+    health = Finance.get_financial_health(user, today: ~D[2026-04-15])
+
+    assert status.spent == Decimal.new("0")
+    assert status.remaining == Decimal.new("200.00")
+    assert health.current_month.expenses == Decimal.new("0")
+  end
+
+  test "list_pending_transactions_for_user/2 returns pending items only" do
+    user = user_fixture()
+
+    {:ok, pending_transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "80.00",
+        "type" => "expense",
+        "transaction_date" => ~D[2026-04-10],
+        "status" => "pending_review",
+        "source" => "email"
+      })
+
+    {:ok, _confirmed_transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "1200.00",
+        "type" => "income",
+        "transaction_date" => ~D[2026-04-11]
+      })
+
+    assert [transaction] = Finance.list_pending_transactions_for_user(user)
+    assert transaction.id == pending_transaction.id
+  end
+
+  test "confirm_transaction updates and confirms a pending transaction" do
+    user = user_fixture()
+
+    {:ok, transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "80.00",
+        "type" => "expense",
+        "transaction_date" => ~D[2026-04-10],
+        "status" => "pending_review",
+        "source" => "email",
+        "review_reason" => "Matched bank alert"
+      })
+
+    assert {:ok, confirmed} =
+             Finance.confirm_transaction(user, transaction, %{
+               "description" => "Coffee shop",
+               "merchant" => "Cafe",
+               "payment_method" => "card"
+             })
+
+    assert confirmed.status == "confirmed"
+    assert confirmed.description == "Coffee shop"
+    assert confirmed.merchant == "Cafe"
+    assert is_nil(confirmed.review_reason)
+  end
+
+  test "ignore_transaction marks a pending transaction as ignored" do
+    user = user_fixture()
+
+    {:ok, transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "80.00",
+        "type" => "expense",
+        "transaction_date" => ~D[2026-04-10],
+        "status" => "pending_review",
+        "source" => "email"
+      })
+
+    assert {:ok, ignored} = Finance.ignore_transaction(user, transaction)
+    assert ignored.status == "ignored"
+    assert Finance.list_pending_transactions_for_user(user) == []
+  end
+
+  test "transaction external_id is unique per user" do
+    user = user_fixture()
+
+    assert {:ok, _transaction} =
+             Finance.create_transaction(user, %{
+               "amount" => "80.00",
+               "type" => "expense",
+               "transaction_date" => ~D[2026-04-10],
+               "status" => "pending_review",
+               "source" => "email",
+               "external_id" => "email-123"
+             })
+
+    assert {:error, changeset} =
+             Finance.create_transaction(user, %{
+               "amount" => "120.00",
+               "type" => "expense",
+               "transaction_date" => ~D[2026-04-10],
+               "status" => "pending_review",
+               "source" => "email",
+               "external_id" => "email-123"
+             })
+
+    assert "has already been taken" in errors_on(changeset).external_id
+  end
+
   test "create_debt stores the owning user and allows missing apr" do
     user = user_fixture()
     other_user = user_fixture()

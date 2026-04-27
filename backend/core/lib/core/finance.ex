@@ -33,6 +33,18 @@ defmodule Core.Finance do
       {:type, type}, query ->
         where(query, [t], t.type == ^type)
 
+      {:status, statuses}, query when is_list(statuses) ->
+        where(query, [t], t.status in ^statuses)
+
+      {:status, status}, query ->
+        where(query, [t], t.status == ^status)
+
+      {:source, sources}, query when is_list(sources) ->
+        where(query, [t], t.source in ^sources)
+
+      {:source, source}, query ->
+        where(query, [t], t.source == ^source)
+
       {:category_id, category_id}, query ->
         where(query, [t], t.category_id == ^category_id)
 
@@ -59,6 +71,11 @@ defmodule Core.Finance do
 
     query = apply_transaction_filters(query, opts)
     Repo.all(query)
+  end
+
+  def list_pending_transactions_for_user(%User{} = user, opts \\ []) do
+    user
+    |> list_transactions_for_user(Keyword.put(opts, :status, "pending_review"))
   end
 
   @doc """
@@ -101,6 +118,24 @@ defmodule Core.Finance do
     |> Repo.update()
   end
 
+  def confirm_transaction(%User{} = user, %Transaction{} = transaction, attrs \\ %{}) do
+    with :ok <- ensure_resource_owner(user, transaction) do
+      transaction
+      |> Transaction.changeset(
+        Map.merge(attrs, %{"status" => "confirmed", "review_reason" => nil})
+      )
+      |> Repo.update()
+    end
+  end
+
+  def ignore_transaction(%User{} = user, %Transaction{} = transaction) do
+    with :ok <- ensure_resource_owner(user, transaction) do
+      transaction
+      |> Transaction.changeset(%{"status" => "ignored"})
+      |> Repo.update()
+    end
+  end
+
   @doc """
   Deletes a transaction
   """
@@ -124,6 +159,7 @@ defmodule Core.Finance do
   def calculate_total_income(user_id, start_date, end_date) do
     Transaction
     |> where([t], t.user_id == ^user_id)
+    |> where([t], t.status == "confirmed")
     |> where([t], t.type == "income")
     |> where([t], t.transaction_date >= ^start_date and t.transaction_date <= ^end_date)
     |> select([t], sum(t.amount))
@@ -140,6 +176,7 @@ defmodule Core.Finance do
   def calculate_total_expenses(user_id, start_date, end_date) do
     Transaction
     |> where([t], t.user_id == ^user_id)
+    |> where([t], t.status == "confirmed")
     |> where([t], t.type == "expense")
     |> where([t], t.transaction_date >= ^start_date and t.transaction_date <= ^end_date)
     |> select([t], sum(t.amount))
@@ -462,6 +499,7 @@ defmodule Core.Finance do
     spent =
       Transaction
       |> where([t], t.user_id == ^budget.user_id)
+      |> where([t], t.status == "confirmed")
       |> where([t], t.type == "expense")
       |> where([t], t.transaction_date >= ^budget.start_date)
       |> maybe_filter_by_end_date(budget.end_date)
@@ -531,6 +569,7 @@ defmodule Core.Finance do
   defp sum_transactions(user_id, type, start_date, end_date) do
     Transaction
     |> where([transaction], transaction.user_id == ^user_id)
+    |> where([transaction], transaction.status == "confirmed")
     |> where([transaction], transaction.type == ^type)
     |> where(
       [transaction],
@@ -548,6 +587,7 @@ defmodule Core.Finance do
 
     Transaction
     |> where([transaction], transaction.user_id == ^user_id)
+    |> where([transaction], transaction.status == "confirmed")
     |> where([transaction], transaction.type == "expense")
     |> where(
       [transaction],
