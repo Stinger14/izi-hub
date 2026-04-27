@@ -75,6 +75,7 @@ defmodule CoreWeb.Router do
         {CoreWeb.UserAuth, :track_site_presence}
       ] do
       live "/", DashboardLive, :index
+      live "/finops", FinOpsLive, :index
       live "/ops", OpsLive, :index
     end
   end
