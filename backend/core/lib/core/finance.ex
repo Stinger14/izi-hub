@@ -14,6 +14,7 @@ defmodule Core.Finance do
     DebtPayment,
     DebtPayoffPlan,
     DebtPlanner,
+    EmailIngestion,
     Health,
     Transaction
   }
@@ -101,6 +102,10 @@ defmodule Core.Finance do
     %Transaction{user_id: user.id}
     |> Transaction.changeset(attrs)
     |> Repo.insert()
+  end
+
+  def ingest_email_transaction_candidate(%User{} = user, attrs) do
+    EmailIngestion.ingest(user, attrs)
   end
 
   @doc """
