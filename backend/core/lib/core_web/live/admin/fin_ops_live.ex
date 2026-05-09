@@ -97,8 +97,8 @@ defmodule CoreWeb.Admin.FinOpsLive do
           </div>
         </header>
 
-        <main class="mx-auto grid max-w-6xl gap-6 px-6 py-10 lg:grid-cols-[1.1fr_0.9fr]">
-          <section class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <main class="mx-auto grid max-w-7xl gap-6 px-6 py-10 lg:grid-cols-[1.45fr_0.75fr]">
+          <section class="rounded-lg border border-violet-100 bg-white p-6 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h1 class="text-xl font-semibold text-slate-950">Sample email ingestion</h1>
@@ -115,17 +115,21 @@ defmodule CoreWeb.Admin.FinOpsLive do
             </div>
 
             <.form for={@form} as={:finops} phx-submit="ingest_sample" class="mt-6 space-y-4">
-              <div class="grid gap-4 sm:grid-cols-2">
-                <.finops_input form={@form} field={:target_email} label="Target user email" type="email" placeholder="user@example.com" />
-                <.finops_input form={@form} field={:provider} label="Provider" placeholder="bank_email" />
-                <.finops_input form={@form} field={:from} label="From" type="email" placeholder="alerts@bank.com" />
-                <.finops_input form={@form} field={:subject} label="Subject" placeholder="Card purchase alert" />
-                <.finops_input form={@form} field={:message_id} label="Message ID" placeholder="<sample-1@bank.com>" />
-                <.finops_input form={@form} field={:received_at} label="Received at UTC" type="datetime-local" />
-              </div>
+              <div class="grid gap-5 lg:grid-cols-[1fr_0.76fr]">
+                <div class="finops-compose-panel">
+                  <.finops_input form={@form} field={:target_email} label="Target user email" type="email" placeholder="user@example.com" required />
+                  <.finops_input form={@form} field={:provider} label="Provider" placeholder="bank_email" required />
+                  <.finops_input form={@form} field={:from} label="From" type="email" placeholder="alerts@bank.com" required />
+                  <.finops_input form={@form} field={:subject} label="Subject" placeholder="Card purchase alert" required />
+                  <.finops_input form={@form} field={:message_id} label="Message ID" placeholder="<sample-1@bank.com>" required />
+                  <.finops_input form={@form} field={:received_at} label="Received at UTC" type="datetime-local" required />
+                  <.finops_textarea form={@form} field={:html_body} label="HTML body optional" placeholder="<p>Optional HTML copy</p>" rows="4" />
+                </div>
 
-              <.finops_textarea form={@form} field={:text_body} label="Text body" placeholder="Card purchase alert&#10;Merchant: Cafe Central&#10;Amount: USD 54.25" />
-              <.finops_textarea form={@form} field={:html_body} label="HTML body optional" placeholder="<p>Optional HTML copy</p>" rows="4" />
+                <div class="finops-compose-panel finops-body-panel">
+                  <.finops_textarea form={@form} field={:text_body} label="Text body" placeholder="Card purchase alert&#10;Merchant: Cafe Central&#10;Amount: USD 54.25" rows="13" required />
+                </div>
+              </div>
 
               <div :if={@form_error} class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
                 <%= @form_error %>
@@ -193,15 +197,17 @@ defmodule CoreWeb.Admin.FinOpsLive do
   attr :label, :string, required: true
   attr :type, :string, default: "text"
   attr :placeholder, :string, default: nil
+  attr :required, :boolean, default: false
 
   defp finops_input(assigns) do
     field = assigns.form[assigns.field]
     assigns = assign(assigns, :field_data, field)
 
     ~H"""
-    <div>
-      <label for={@field_data.id} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-        <%= @label %>
+    <div class="finops-glow-field">
+      <label for={@field_data.id} class="finops-glow-label">
+        <span><%= @label %></span>
+        <.icon name="hero-arrow-right" class="finops-glow-label-icon" />
       </label>
       <input
         id={@field_data.id}
@@ -209,7 +215,8 @@ defmodule CoreWeb.Admin.FinOpsLive do
         type={@type}
         value={@field_data.value}
         placeholder={@placeholder}
-        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+        required={@required}
+        class="finops-glow-control"
       />
     </div>
     """
@@ -220,22 +227,25 @@ defmodule CoreWeb.Admin.FinOpsLive do
   attr :label, :string, required: true
   attr :placeholder, :string, default: nil
   attr :rows, :string, default: "8"
+  attr :required, :boolean, default: false
 
   defp finops_textarea(assigns) do
     field = assigns.form[assigns.field]
     assigns = assign(assigns, :field_data, field)
 
     ~H"""
-    <div>
-      <label for={@field_data.id} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-        <%= @label %>
+    <div class="finops-glow-field">
+      <label for={@field_data.id} class="finops-glow-label">
+        <span><%= @label %></span>
+        <.icon name="hero-arrow-right" class="finops-glow-label-icon" />
       </label>
       <textarea
         id={@field_data.id}
         name={@field_data.name}
         rows={@rows}
         placeholder={@placeholder}
-        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+        required={@required}
+        class="finops-glow-control finops-glow-textarea"
       ><%= @field_data.value %></textarea>
     </div>
     """

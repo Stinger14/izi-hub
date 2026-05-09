@@ -490,6 +490,154 @@
         }
     }
 
+    .finops-compose-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        border: 1px solid #ede9fe;
+        border-radius: 10px;
+        background: linear-gradient(180deg, #faf5ff, #ffffff);
+        padding: 14px;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.94),
+            0 14px 28px -26px rgba(88, 28, 135, 0.42);
+    }
+
+    .finops-body-panel {
+        background: linear-gradient(180deg, #f8fafc, #ffffff);
+    }
+
+    .finops-glow-field {
+        display: grid;
+        grid-template-columns: minmax(104px, 0.34fr) minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+    }
+
+    .finops-glow-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        color: #475569;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        line-height: 1.2;
+        text-transform: uppercase;
+    }
+
+    .finops-glow-label-icon {
+        width: 14px;
+        height: 14px;
+        flex: 0 0 auto;
+        color: #a78bfa;
+    }
+
+    .finops-glow-control {
+        width: 100%;
+        min-height: 40px;
+        border: 1px solid #ddd6fe;
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.94);
+        padding: 10px 12px;
+        color: #0f172a;
+        font-size: 13px;
+        outline: none;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.9),
+            0 0 0 3px rgba(167, 139, 250, 0.1),
+            0 12px 24px -22px rgba(88, 28, 135, 0.48);
+        transition:
+            background-color 160ms ease,
+            border-color 160ms ease,
+            box-shadow 160ms ease,
+            transform 160ms ease;
+    }
+
+    .finops-glow-control::placeholder {
+        color: #94a3b8;
+    }
+
+    .finops-glow-control:focus {
+        border-color: #8b5cf6;
+        transform: translateY(-1px);
+        animation: finops-glow-ready 1500ms ease-in-out infinite alternate;
+    }
+
+    .finops-glow-control:required:valid,
+    .finops-glow-control:not(:required):not(:placeholder-shown):valid {
+        border-color: #34d399;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.92),
+            0 0 0 3px rgba(52, 211, 153, 0.14),
+            0 0 18px rgba(52, 211, 153, 0.28);
+    }
+
+    .finops-glow-control:required:invalid {
+        border-color: #fb7185;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.92),
+            0 0 0 3px rgba(251, 113, 133, 0.12),
+            0 0 16px rgba(251, 113, 133, 0.26);
+    }
+
+    .finops-glow-control:placeholder-shown,
+    .finops-glow-control:not(:required):placeholder-shown {
+        border-color: #ddd6fe;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.9),
+            0 0 0 3px rgba(167, 139, 250, 0.1),
+            0 12px 24px -22px rgba(88, 28, 135, 0.48);
+    }
+
+    .finops-glow-textarea {
+        min-height: 116px;
+        resize: vertical;
+        line-height: 1.55;
+    }
+
+    .finops-body-panel .finops-glow-field {
+        grid-template-columns: 1fr;
+        align-items: start;
+        gap: 8px;
+    }
+
+    .finops-body-panel .finops-glow-label {
+        justify-content: flex-start;
+    }
+
+    .finops-body-panel .finops-glow-textarea {
+        min-height: 284px;
+    }
+
+    @keyframes finops-glow-ready {
+        0% {
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.92),
+                0 0 0 3px rgba(139, 92, 246, 0.14),
+                0 0 14px rgba(139, 92, 246, 0.24);
+        }
+
+        100% {
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.92),
+                0 0 0 4px rgba(139, 92, 246, 0.2),
+                0 0 24px rgba(139, 92, 246, 0.34);
+        }
+    }
+
+    @media (max-width: 640px) {
+        .finops-glow-field {
+            grid-template-columns: 1fr;
+            gap: 6px;
+        }
+
+        .finops-glow-label {
+            justify-content: flex-start;
+        }
+    }
+
     .badge-status {
         position: relative;
         display: inline-flex;
