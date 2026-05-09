@@ -15,6 +15,7 @@ defmodule Core.Finance do
     DebtPayoffPlan,
     DebtPlanner,
     EmailIngestion,
+    EmailIngestionAttempt,
     Health,
     Transaction
   }
@@ -110,6 +111,17 @@ defmodule Core.Finance do
 
   def ingest_email_transaction_candidate(%User{} = user, attrs) do
     EmailIngestion.ingest(user, attrs)
+  end
+
+  def list_email_ingestions_for_user(%User{} = user, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 25)
+
+    EmailIngestionAttempt
+    |> where([attempt], attempt.user_id == ^user.id)
+    |> order_by([attempt], desc: attempt.inserted_at)
+    |> limit(^limit)
+    |> preload(:transaction)
+    |> Repo.all()
   end
 
   @doc """

@@ -30,6 +30,15 @@ defmodule Core.Finance.EmailIngestionTest do
     assert transaction.merchant == "Cafe Central"
     assert transaction.transaction_date == ~D[2026-04-25]
     assert transaction.review_reason == "Parsed from bank email"
+
+    assert [attempt] = Finance.list_email_ingestions_for_user(user)
+    assert attempt.status == "created"
+    assert attempt.provider == "bank_email"
+    assert attempt.message_id == "<msg-1@bank.com>"
+    assert attempt.sender == "alerts@bank.com"
+    assert attempt.parser_name == "Core.Finance.Parsers.BankAlertParser"
+    assert attempt.transaction_id == transaction.id
+    assert attempt.body_snippet =~ "Merchant: Cafe Central"
   end
 
   test "duplicate message ids are treated as duplicates" do
@@ -52,6 +61,11 @@ defmodule Core.Finance.EmailIngestionTest do
     assert {:ok, _transaction} = Finance.ingest_email_transaction_candidate(user, attrs)
     assert {:ok, :duplicate} = Finance.ingest_email_transaction_candidate(user, attrs)
     assert length(Finance.list_pending_transactions_for_user(user)) == 1
+
+    attempts = Finance.list_email_ingestions_for_user(user)
+    assert Enum.map(attempts, & &1.status) |> Enum.sort() == ["created", "duplicate"]
+    assert Enum.all?(attempts, &(&1.message_id == "<msg-2@bank.com>"))
+    assert Enum.all?(attempts, & &1.transaction_id)
   end
 
   test "unsupported sender returns unsupported email" do
@@ -67,6 +81,12 @@ defmodule Core.Finance.EmailIngestionTest do
                "text_body" => "hello there",
                "html_body" => nil
              })
+
+    assert [attempt] = Finance.list_email_ingestions_for_user(user)
+    assert attempt.status == "unsupported_email"
+    assert attempt.error_reason == "unsupported_email"
+    assert attempt.sender == "newsletter@example.com"
+    assert is_nil(attempt.transaction_id)
   end
 
   test "unparseable supported email returns unparseable email" do
@@ -82,6 +102,12 @@ defmodule Core.Finance.EmailIngestionTest do
                "text_body" => "Merchant: Cafe Central",
                "html_body" => nil
              })
+
+    assert [attempt] = Finance.list_email_ingestions_for_user(user)
+    assert attempt.status == "unparseable_email"
+    assert attempt.error_reason == "amount_not_found"
+    assert attempt.parser_name == "Core.Finance.Parsers.BankAlertParser"
+    assert is_nil(attempt.transaction_id)
   end
 
   test "pending review transactions from email do not affect health until confirmed" do
