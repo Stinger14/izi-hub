@@ -6,6 +6,15 @@ defmodule CoreWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :browser_api do
+    plug :accepts, ["json"]
+    plug :fetch_session
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+    plug CoreWeb.UserAuth, :fetch_current_scope
+    plug CoreWeb.UserAuth, :require_authenticated_api_user
+  end
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -22,6 +31,12 @@ defmodule CoreWeb.Router do
 
   scope "/api", CoreWeb do
     pipe_through :api
+  end
+
+  scope "/api", CoreWeb do
+    pipe_through :browser_api
+
+    post "/finance/email-ingestions", Api.Finance.EmailIngestionController, :create
   end
 
   scope "/", CoreWeb do

@@ -14,6 +14,7 @@ defmodule CoreWeb.UserAuth do
 
   def call(conn, :fetch_current_scope), do: fetch_current_scope(conn, [])
   def call(conn, :require_authenticated_user), do: require_authenticated_user(conn, [])
+  def call(conn, :require_authenticated_api_user), do: require_authenticated_api_user(conn, [])
   def call(conn, :require_admin_user), do: require_admin_user(conn, [])
 
   def fetch_current_scope(conn, _opts) do
@@ -59,6 +60,17 @@ defmodule CoreWeb.UserAuth do
       conn
       |> put_flash(:error, "Please sign in to continue")
       |> redirect(to: ~p"/hub?auth=login")
+      |> halt()
+    else
+      conn
+    end
+  end
+
+  def require_authenticated_api_user(conn, _opts) do
+    if is_nil(conn.assigns.current_scope) do
+      conn
+      |> put_status(:unauthorized)
+      |> json(%{error: "unauthenticated"})
       |> halt()
     else
       conn
