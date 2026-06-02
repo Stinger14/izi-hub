@@ -35,15 +35,91 @@ defmodule CoreWeb.Admin.DashboardLive do
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="min-h-screen bg-purple-50 text-slate-900">
         <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
-          <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-            <div>
+          <div class="mx-auto max-w-6xl px-6 py-5">
+            <div class="max-w-4xl">
               <p class="text-lg font-semibold tracking-tight text-purple-500">Admin dashboard</p>
               <p class="mt-1 text-xs text-slate-500">Last refresh: <%= format_datetime(@last_refreshed_at) %></p>
-            </div>
-            <div class="flex items-center gap-3">
-                <a href={~p"/admin/ops"} class="btn btn-secondary btn-sm">Admin ops</a>
-                <button phx-click="refresh" class="btn btn-secondary btn-sm">Refresh</button>
-                <a href={~p"/hub"} class="btn btn-secondary btn-sm">Back to hub</a>
+
+              <div class="admin-console mt-4" aria-label="Admin console actions">
+                <div class="admin-console-status">
+                  <span class="admin-console-dot"></span>
+                  <span>Admin console</span>
+                </div>
+
+                <div class="admin-console-actions">
+                  <div class="admin-console-item">
+                    <a href={~p"/admin/finops"} class="admin-console-action">
+                      <.icon name="hero-banknotes" class="h-4 w-4" />
+                      <span>FinOps</span>
+                    </a>
+                    <div class="admin-console-preview">
+                      <p class="admin-console-preview-kicker">$ finops</p>
+                      <p class="admin-console-preview-title">Finance ingestion tools</p>
+                      <div class="admin-console-preview-actions">
+                        <a href={~p"/admin/finops"} class="admin-console-preview-action">
+                          <.icon name="hero-banknotes" class="h-3.5 w-3.5" />
+                          <span>Open FinOps</span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="admin-console-item">
+                    <a href={~p"/admin/ops"} class="admin-console-action">
+                      <.icon name="hero-wrench-screwdriver" class="h-4 w-4" />
+                      <span>Admin ops</span>
+                    </a>
+                    <div class="admin-console-preview">
+                      <p class="admin-console-preview-kicker">$ ops</p>
+                      <p class="admin-console-preview-title">Operational controls</p>
+                      <div class="admin-console-preview-actions">
+                        <a href={~p"/admin/ops"} class="admin-console-preview-action">
+                          <.icon name="hero-wrench-screwdriver" class="h-3.5 w-3.5" />
+                          <span>Open Admin ops</span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="admin-console-item">
+                    <button type="button" phx-click="refresh" class="admin-console-action">
+                      <.icon name="hero-arrow-path" class="h-4 w-4" />
+                      <span>Refresh</span>
+                    </button>
+                    <div class="admin-console-preview">
+                      <p class="admin-console-preview-kicker">$ refresh</p>
+                      <p class="admin-console-preview-title">Reload dashboard metrics</p>
+                      <div class="admin-console-preview-actions">
+                        <button
+                          type="button"
+                          phx-click="refresh"
+                          class="admin-console-preview-action"
+                        >
+                          <.icon name="hero-arrow-path" class="h-3.5 w-3.5" />
+                          <span>Refresh metrics</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="admin-console-item">
+                    <a href={~p"/hub"} class="admin-console-action">
+                      <.icon name="hero-arrow-left" class="h-4 w-4" />
+                      <span>Hub</span>
+                    </a>
+                    <div class="admin-console-preview">
+                      <p class="admin-console-preview-kicker">$ cd /hub</p>
+                      <p class="admin-console-preview-title">Return to hub</p>
+                      <div class="admin-console-preview-actions">
+                        <a href={~p"/hub"} class="admin-console-preview-action">
+                          <.icon name="hero-arrow-left" class="h-3.5 w-3.5" />
+                          <span>Open Hub</span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </header>

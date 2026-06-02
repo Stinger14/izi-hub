@@ -14,6 +14,7 @@ defmodule CoreWeb.UserAuth do
 
   def call(conn, :fetch_current_scope), do: fetch_current_scope(conn, [])
   def call(conn, :require_authenticated_user), do: require_authenticated_user(conn, [])
+  def call(conn, :require_authenticated_api_user), do: require_authenticated_api_user(conn, [])
   def call(conn, :require_admin_user), do: require_admin_user(conn, [])
 
   def fetch_current_scope(conn, _opts) do
@@ -65,6 +66,17 @@ defmodule CoreWeb.UserAuth do
     end
   end
 
+  def require_authenticated_api_user(conn, _opts) do
+    if is_nil(conn.assigns.current_scope) do
+      conn
+      |> put_status(:unauthorized)
+      |> json(%{error: "unauthenticated"})
+      |> halt()
+    else
+      conn
+    end
+  end
+
   def on_mount(:mount_current_scope, _params, session, socket) do
     scope =
       case Map.get(session, "user_id") || Map.get(session, :user_id) do
@@ -91,6 +103,17 @@ defmodule CoreWeb.UserAuth do
     end
 
     {:cont, socket}
+  end
+
+  def on_mount(:ensure_authenticated, _params, _session, socket) do
+    if is_nil(socket.assigns.current_scope) do
+      {:halt,
+       socket
+       |> Phoenix.LiveView.put_flash(:error, "Please sign in to continue")
+       |> Phoenix.LiveView.redirect(to: ~p"/hub?auth=login")}
+    else
+      {:cont, socket}
+    end
   end
 
   def on_mount(:ensure_admin, _params, _session, socket) do
