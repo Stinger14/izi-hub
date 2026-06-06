@@ -53,5 +53,21 @@ defmodule Core.Accounts.UsernameGenerator do
     |> Enum.join("-")
   end
 
+  def generate_from_value(value) do
+    [
+      pick_by_hash(@adjectives, value, 0),
+      pick_by_hash(@topics, value, 1),
+      pick_by_hash(@roles, value, 2)
+    ]
+    |> Enum.join("-")
+  end
+
   defp pick(words), do: Enum.random(words)
+
+  defp pick_by_hash(words, value, salt) do
+    index =
+      :erlang.phash2({value, salt}, length(words))
+
+    Enum.at(words, index)
+  end
 end
