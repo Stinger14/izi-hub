@@ -65,6 +65,23 @@ defmodule CoreWeb.Admin.DashboardLive do
                   </div>
 
                   <div class="admin-console-item">
+                    <a href={~p"/admin/analytics"} class="admin-console-action">
+                      <.icon name="hero-chart-bar-square" class="h-4 w-4" />
+                      <span>Analytics</span>
+                    </a>
+                    <div class="admin-console-preview">
+                      <p class="admin-console-preview-kicker">$ analytics</p>
+                      <p class="admin-console-preview-title">Visitor activity and page-view insights</p>
+                      <div class="admin-console-preview-actions">
+                        <a href={~p"/admin/analytics"} class="admin-console-preview-action">
+                          <.icon name="hero-chart-bar-square" class="h-3.5 w-3.5" />
+                          <span>Open Analytics</span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="admin-console-item">
                     <a href={~p"/admin/ops"} class="admin-console-action">
                       <.icon name="hero-wrench-screwdriver" class="h-4 w-4" />
                       <span>Admin ops</span>

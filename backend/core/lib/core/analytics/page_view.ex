@@ -22,7 +22,7 @@ defmodule Core.Analytics.PageView do
     timestamps(updated_at: false)
   end
 
-  @device_types ~w(desktop mobile tablet bot unknown)a
+  @device_types ~w(desktop mobile tablet bot unknown)
 
   @doc false
   def changeset(page_view, attrs) do

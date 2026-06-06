@@ -384,5 +384,4 @@ defmodule CoreWeb.HubLive do
       %{title: "Resources", description: "Check playbooks and templates.", href: "/resources"}
     ]
   end
-
 end

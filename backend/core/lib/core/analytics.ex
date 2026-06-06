@@ -109,11 +109,44 @@ defmodule Core.Analytics do
   end
 
   @doc """
+  Counts unique sessions across all tracked page views.
+  """
+  def count_unique_sessions(start_date \\ nil, end_date \\ nil) do
+    query =
+      PageView
+      |> where([pv], not is_nil(pv.session_id))
+
+    query =
+      if start_date do
+        where(query, [pv], pv.inserted_at >= ^start_date)
+      else
+        query
+      end
+
+    query =
+      if end_date do
+        where(query, [pv], pv.inserted_at <= ^end_date)
+      else
+        query
+      end
+
+    query
+    |> select([pv], count(fragment("DISTINCT ?", pv.session_id)))
+    |> Repo.one()
+  end
+
+  @doc """
   Returns the timestamp of the most recent page view for a given path.
   """
-  def last_page_viewed_at(page_path) do
-    PageView
-    |> where([pv], pv.page_path == ^page_path)
+  def last_page_viewed_at(page_path \\ nil) do
+    query =
+      if page_path do
+        where(PageView, [pv], pv.page_path == ^page_path)
+      else
+        PageView
+      end
+
+    query
     |> order_by([pv], desc: pv.inserted_at)
     |> limit(1)
     |> select([pv], pv.inserted_at)
@@ -147,6 +180,36 @@ defmodule Core.Analytics do
 
     Repo.all(query)
     |> Enum.map(fn {path, count} -> %{page_path: path, views: count} end)
+  end
+
+  @doc """
+  Returns the most recent tracked page views across all pages.
+  """
+  def list_recent_page_views(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 50)
+    start_date = Keyword.get(opts, :start_date)
+    end_date = Keyword.get(opts, :end_date)
+
+    query =
+      PageView
+      |> order_by([pv], desc: pv.inserted_at)
+      |> limit(^limit)
+
+    query =
+      if start_date do
+        where(query, [pv], pv.inserted_at >= ^start_date)
+      else
+        query
+      end
+
+    query =
+      if end_date do
+        where(query, [pv], pv.inserted_at <= ^end_date)
+      else
+        query
+      end
+
+    Repo.all(query)
   end
 
   @doc """
