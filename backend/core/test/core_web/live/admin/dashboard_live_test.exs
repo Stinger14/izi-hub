@@ -29,6 +29,7 @@ defmodule CoreWeb.Admin.DashboardLiveTest do
     assert html =~ "Admin dashboard"
     assert html =~ "CV Downloads"
     assert html =~ "Online Now"
+    assert html =~ "Analytics"
     assert html =~ "FinOps"
     assert html =~ "2"
   end
