@@ -198,16 +198,19 @@ defmodule CoreWeb.HubLive do
                 <div class="flex items-center justify-between">
                   <div>
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">GitHub</p>
-                    <h3 class="mt-1 text-lg font-semibold text-slate-900">Recent activity</h3>
+                    <h3 class="mt-1 text-lg font-semibold text-slate-900">Contribution pulse</h3>
+                    <p class="mt-1 text-xs text-slate-500">
+                      A quick heatmap preview. Open the full contributions page for branch logs and recent commits.
+                    </p>
                   </div>
-                  <a href="https://github.com" class="btn btn-ghost btn-xs">
-                    View GitHub
+                  <a href={~p"/contributions"} class="btn btn-secondary btn-xs">
+                    View contributions
                   </a>
                 </div>
 
                 <div class="mt-6 grid gap-6">
                   <%= if @github_accounts == [] and @loading_data do %>
-                    <p class="text-xs text-slate-500">Loading recent activity...</p>
+                    <p class="text-xs text-slate-500">Loading GitHub pulse...</p>
                   <% else %>
                     <%= for account <- @github_accounts do %>
                       <div class="rounded-xl border border-purple-100 bg-white p-4">
@@ -221,25 +224,33 @@ defmodule CoreWeb.HubLive do
                           </a>
                         </div>
 
-                        <div class="mt-4">
-                          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Recent events</p>
+                        <div class="mt-4 space-y-4">
+                          <div class="overflow-x-auto rounded-xl border border-purple-100 bg-white p-3">
+                            <%= if account.contributions_svg do %>
+                              <div class="min-w-[720px] text-slate-700">
+                                <%= Phoenix.HTML.raw(account.contributions_svg) %>
+                              </div>
+                            <% else %>
+                              <p class="text-xs text-slate-500">Contribution heatmap unavailable.</p>
+                            <% end %>
+                          </div>
+
                           <%= if account.events == [] do %>
-                            <p class="mt-2 text-xs text-slate-500">No recent events.</p>
+                            <p class="text-xs text-slate-500">No recent public activity.</p>
                           <% else %>
-                            <ul class="mt-2 space-y-2 text-xs text-slate-600">
-                              <%= for event <- account.events do %>
-                                <li class="flex items-center justify-between gap-2">
-                                  <span>
-                                    <span class="font-semibold text-slate-700"><%= event.type %></span>
-                                    <span class="text-slate-400">·</span>
-                                    <a href={event.repo_url} class="text-purple-600 hover:text-purple-700">
-                                      <%= event.repo %>
-                                    </a>
-                                  </span>
-                                  <span class="text-slate-400"><%= event.created_at %></span>
-                                </li>
-                              <% end %>
-                            </ul>
+                            <div class="rounded-xl border border-purple-100 bg-purple-50/60 px-3 py-3">
+                              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Latest touchpoint</p>
+                              <div class="mt-2 flex items-center justify-between gap-3 text-xs text-slate-600">
+                                <span>
+                                  <span class="font-semibold text-slate-700"><%= List.first(account.events).type %></span>
+                                  <span class="text-slate-400">·</span>
+                                  <a href={List.first(account.events).repo_url} class="text-purple-600 hover:text-purple-700">
+                                    <%= List.first(account.events).repo %>
+                                  </a>
+                                </span>
+                                <span class="text-slate-400"><%= List.first(account.events).created_at_label %></span>
+                              </div>
+                            </div>
                           <% end %>
                         </div>
                       </div>
@@ -361,6 +372,65 @@ defmodule CoreWeb.HubLive do
           </div>
         </section>
 
+        <section class="mx-auto max-w-6xl px-6 pb-16">
+          <div class="rounded-2xl border border-purple-100 bg-white/80 p-6 shadow-sm">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">GitHub</p>
+                <h3 class="mt-1 text-lg font-semibold text-slate-900">Recent activity</h3>
+                <p class="mt-1 text-xs text-slate-500">
+                  Lower-signal event stream from tracked accounts. Open source and branch-level detail live on the contributions page.
+                </p>
+              </div>
+              <a href={~p"/contributions"} class="btn btn-ghost btn-xs">
+                Open contributions
+              </a>
+            </div>
+
+            <div class="mt-6 grid gap-6">
+              <%= if @github_accounts == [] and @loading_data do %>
+                <p class="text-xs text-slate-500">Loading recent activity...</p>
+              <% else %>
+                <%= for account <- @github_accounts do %>
+                  <div class="rounded-xl border border-purple-100 bg-white p-4">
+                    <div class="flex items-center justify-between">
+                      <p class="text-sm font-semibold text-slate-900"><%= account.username %></p>
+                      <a
+                        href={account.repo_url}
+                        class="btn btn-ghost btn-xs"
+                      >
+                        Profile
+                      </a>
+                    </div>
+
+                    <div class="mt-4">
+                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Recent events</p>
+                      <%= if account.events == [] do %>
+                        <p class="mt-2 text-xs text-slate-500">No recent events.</p>
+                      <% else %>
+                        <ul class="mt-2 space-y-2 text-xs text-slate-600">
+                          <%= for event <- Enum.take(account.events, 4) do %>
+                            <li class="flex items-center justify-between gap-2">
+                              <span>
+                                <span class="font-semibold text-slate-700"><%= event.type %></span>
+                                <span class="text-slate-400">·</span>
+                                <a href={event.repo_url} class="text-purple-600 hover:text-purple-700">
+                                  <%= event.repo %>
+                                </a>
+                              </span>
+                              <span class="text-slate-400"><%= event.created_at_label %></span>
+                            </li>
+                          <% end %>
+                        </ul>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
+              <% end %>
+            </div>
+          </div>
+        </section>
+
       </main>
 
     </div>
@@ -378,7 +448,7 @@ defmodule CoreWeb.HubLive do
       },
       %{
         title: "Contributions",
-        description: "View GitHub charts and stats.",
+        description: "View heatmaps, branch logs, and recent commits.",
         href: "/contributions"
       },
       %{title: "Resources", description: "Check playbooks and templates.", href: "/resources"}
