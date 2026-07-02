@@ -1,7 +1,7 @@
 [project]
 name = "finance-ingestion-service"
 version = "0.1.0"
-description = "Add your description here"
+description = "Izihub email ingestion service for the finance module."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
