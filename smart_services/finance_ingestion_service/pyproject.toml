@@ -20,5 +20,10 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "httpx2>=0.22.0",
+    "pytest-asyncio>=1.2.0",
     "ruff>=0.15.20",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
