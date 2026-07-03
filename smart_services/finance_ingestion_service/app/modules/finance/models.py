@@ -18,11 +18,13 @@ class FinanceTransaction(Base):
     amount: Mapped[float] = mapped_column(Numeric(12, 2))
     currency: Mapped[str] = mapped_column(String(10), default="DOP")
     merchant: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    occurred_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    occurred_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     raw_text: Mapped[str] = mapped_column(Text)
     dedup_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     score: Mapped[float] = mapped_column(Numeric(4, 2), default=0)
     is_suspicious: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

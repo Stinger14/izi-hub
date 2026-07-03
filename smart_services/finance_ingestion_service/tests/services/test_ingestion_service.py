@@ -1,8 +1,10 @@
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from decimal import Decimal
 
 import pytest
 
+from app.modules.finance.exceptions import DuplicateTransactionError
 from app.modules.finance.schemas import EmailIngestionRequest, ParsedBankAlert
 from app.services.ingestion_service import EmailIngestionService
 
@@ -44,9 +46,10 @@ class StubScoringService:
 
 
 class SpyRepo:
-    def __init__(self, exists_result=False, transaction_id=123):
+    def __init__(self, exists_result=False, transaction_id=123, create_error=None):
         self.exists_result = exists_result
         self.transaction_id = transaction_id
+        self.create_error = create_error
         self.create_calls = []
 
     async def exists_by_hash(self, dedup_hash):
@@ -54,6 +57,10 @@ class SpyRepo:
 
     async def create(self, **kwargs):
         self.create_calls.append(kwargs)
+
+        if self.create_error is not None:
+            raise self.create_error
+
         return SimpleNamespace(id=self.transaction_id)
 
 
@@ -153,3 +160,73 @@ async def test_ingest_raises_when_no_parser_matches():
 
     with pytest.raises(ValueError, match="No parser available for this email"):
         await service.ingest(payload)
+
+
+@pytest.mark.asyncio
+async def test_ingest_uses_received_at_when_occurred_at_is_missing():
+    received_at = datetime(2026, 7, 3, 12, 0, tzinfo=timezone.utc)
+    payload = EmailIngestionRequest(
+        sender="alertas@popular.com",
+        subject="Alerta de consumo",
+        body="Consumo por RD$ 1,250.00 en Nacional tarjeta 1234",
+        received_at=received_at,
+    )
+    parsed = ParsedBankAlert(
+        bank_name="Banco Popular",
+        account_hint="1234",
+        transaction_type="purchase",
+        amount=Decimal("1250.00"),
+        currency="DOP",
+        merchant="NACIONAL",
+        raw_text=payload.body,
+    )
+
+    repo = SpyRepo(exists_result=False)
+    service = EmailIngestionService(
+        repo=repo,
+        dedup_service=StubDedupService("hash-123"),
+        normalization_service=StubNormalizationService(parsed),
+        scoring_service=StubScoringService(0.4),
+    )
+    service.parsers = [StubParser(parsed)]
+
+    await service.ingest(payload)
+
+    assert repo.create_calls[0]["parsed"].occurred_at == received_at
+
+
+@pytest.mark.asyncio
+async def test_ingest_returns_duplicate_when_insert_hits_unique_constraint():
+    payload = EmailIngestionRequest(
+        sender="alertas@popular.com",
+        subject="Alerta de consumo",
+        body="Consumo por RD$ 1,250.00 en Nacional tarjeta 1234",
+    )
+    parsed = ParsedBankAlert(
+        bank_name="Banco Popular",
+        account_hint="1234",
+        transaction_type="purchase",
+        amount=Decimal("1250.00"),
+        currency="DOP",
+        merchant="NACIONAL",
+        raw_text=payload.body,
+    )
+
+    repo = SpyRepo(
+        exists_result=False,
+        create_error=DuplicateTransactionError(),
+    )
+    service = EmailIngestionService(
+        repo=repo,
+        dedup_service=StubDedupService("hash-123"),
+        normalization_service=StubNormalizationService(parsed),
+        scoring_service=StubScoringService(0.4),
+    )
+    service.parsers = [StubParser(parsed)]
+
+    result = await service.ingest(payload)
+
+    assert result.status == "duplicate"
+    assert result.duplicate is True
+    assert result.score == 0
+    assert result.transaction_id is None

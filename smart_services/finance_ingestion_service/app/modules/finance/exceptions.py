@@ -1,0 +1,2 @@
+class DuplicateTransactionError(Exception):
+    pass

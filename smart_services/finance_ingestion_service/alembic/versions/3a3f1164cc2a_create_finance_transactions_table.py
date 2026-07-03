@@ -31,12 +31,12 @@ def upgrade() -> None:
     sa.Column('amount', sa.Numeric(precision=12, scale=2), nullable=False),
     sa.Column('currency', sa.String(length=10), nullable=False),
     sa.Column('merchant', sa.String(length=255), nullable=True),
-    sa.Column('occurred_at', sa.DateTime(), nullable=True),
+    sa.Column('occurred_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('raw_text', sa.Text(), nullable=False),
     sa.Column('dedup_hash', sa.String(length=64), nullable=False),
     sa.Column('score', sa.Numeric(precision=4, scale=2), nullable=False),
     sa.Column('is_suspicious', sa.Boolean(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_finance_transactions_dedup_hash'), 'finance_transactions', ['dedup_hash'], unique=True)

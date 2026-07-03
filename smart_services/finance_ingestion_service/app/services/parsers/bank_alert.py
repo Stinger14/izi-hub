@@ -44,7 +44,7 @@ class BankAlertParser(EmailParser):
             return "withdrawal"
         if "transferencia" in lowered:
             return "transfer"
-        if "consumo" in lowered:
+        if "consumo" in lowered or "compra" in lowered:
             return "purchase"
 
         return "unknown"
@@ -70,7 +70,7 @@ class BankAlertParser(EmailParser):
             return "Banco Popular"
         if "bhd" in text:
             return "BHD"
-        if "Qik" in text:
+        if "qik" in text:
             return "QiK"
 
         return None

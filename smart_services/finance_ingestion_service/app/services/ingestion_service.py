@@ -1,3 +1,4 @@
+from app.modules.finance.exceptions import DuplicateTransactionError
 from app.modules.finance.schemas import (
     EmailIngestionRequest,
     IngestionResult,
@@ -36,6 +37,9 @@ class EmailIngestionService:
 
         parsed = self.normalization_service.normalize(parsed)
 
+        if parsed.occurred_at is None and payload.received_at is not None:
+            parsed.occurred_at = payload.received_at
+
         dedup_hash = self.dedup_service.create_hash(
             parsed=parsed,
             sender=payload.sender,
@@ -52,13 +56,21 @@ class EmailIngestionService:
 
         score = self.scoring_service.score(parsed)
 
-        transaction = await self.repo.create(
-            sender=payload.sender,
-            subject=payload.subject,
-            parsed=parsed,
-            dedup_hash=dedup_hash,
-            score=score,
-        )
+        try:
+            transaction = await self.repo.create(
+                sender=payload.sender,
+                subject=payload.subject,
+                parsed=parsed,
+                dedup_hash=dedup_hash,
+                score=score,
+            )
+        except DuplicateTransactionError:
+            return IngestionResult(
+                status="duplicate",
+                duplicate=True,
+                score=0,
+                transaction_id=None,
+            )
 
         return IngestionResult(
             status="ingested",
