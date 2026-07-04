@@ -1,0 +1,59 @@
+# Finance Ingestion Service
+
+FastAPI service for ingesting bank alert emails, parsing transaction data, deduplicating records, scoring risk, and storing transactions in PostgreSQL.
+
+## Prerequisites
+
+- Python 3.12+
+- PostgreSQL
+- uv
+
+## Setup
+
+Install dependencies:
+
+```bash
+uv sync
+```
+
+Create a `.env` file:
+
+```env
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/izihub_finance_ingestion
+DB_ECHO=false
+```
+
+Create the database:
+
+```sql
+CREATE DATABASE izihub_finance_ingestion;
+```
+
+Run migrations:
+
+```bash
+alembic upgrade head
+```
+
+## Run
+
+```bash
+uv run uvicorn app.main:app --reload
+```
+
+API docs:
+- `http://127.0.0.1:8000/docs`
+
+## Endpoint
+
+`POST /api/v1/finance/ingestion/email`
+
+Example request:
+
+```json
+{
+  "sender": "alertas@popular.com",
+  "subject": "Alerta de consumo",
+  "body": "Consumo por RD$ 1,250.00 en Supermercado Nacional tarjeta 1234"
+}
+```
