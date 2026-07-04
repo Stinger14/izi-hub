@@ -5,18 +5,23 @@ defmodule CoreWeb.FinanceLive do
   alias Core.Finance.{Budget, Category, DebtPayment, Transaction}
 
   @sections ["overview", "transactions", "review", "budgets", "debts", "insights"]
+  @time_scopes ["day", "week", "month", "year", "event"]
+  @focus_panels ["budget_overview", "activity", "signals", "obligations"]
 
   def mount(_params, _session, socket) do
     {:ok,
      socket
      |> assign_new(:current_scope, fn -> nil end)
      |> assign(
-       page_title: "IziFinance",
+       page_title: "Finance",
        active_section: "overview",
+       ownership_scope: "personal",
+       time_scope: "month",
+       focus_panel: nil,
        editing_transaction_id: nil,
        debt_form_open: false,
        payment_form_debt_id: nil,
-       comparison: []
+        comparison: []
      )
      |> assign_forms()
      |> assign_finance_data()}
@@ -27,6 +32,29 @@ defmodule CoreWeb.FinanceLive do
   end
 
   def handle_event("show_section", _params, socket), do: {:noreply, socket}
+
+  def handle_event("set_time_scope", %{"scope" => scope}, socket) when scope in @time_scopes do
+    {:noreply, socket |> assign(time_scope: scope) |> assign_finance_data()}
+  end
+
+  def handle_event("set_time_scope", _params, socket), do: {:noreply, socket}
+
+  def handle_event("set_ownership_scope", %{"scope" => "personal"}, socket) do
+    {:noreply, assign(socket, ownership_scope: "personal")}
+  end
+
+  def handle_event("set_ownership_scope", _params, socket), do: {:noreply, socket}
+
+  def handle_event("open_focus_panel", %{"panel" => panel}, socket)
+      when panel in @focus_panels do
+    {:noreply, assign(socket, focus_panel: panel)}
+  end
+
+  def handle_event("open_focus_panel", _params, socket), do: {:noreply, socket}
+
+  def handle_event("close_focus_panel", _params, socket) do
+    {:noreply, assign(socket, focus_panel: nil)}
+  end
 
   def handle_event("create_transaction", %{"transaction" => params}, socket) do
     user = socket.assigns.current_scope.user
@@ -275,58 +303,498 @@ defmodule CoreWeb.FinanceLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="min-h-screen bg-slate-50 text-slate-900">
-        <main class="mx-auto max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
-          <section class="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-6">
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-emerald-600">Money cockpit</p>
-              <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-                IziFinance
-              </h1>
-              <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                Track cash flow, budgets, transactions, and debt from one simple workspace.
-              </p>
+      <div class="min-h-screen bg-purple-50 text-slate-900">
+        <main class="mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
+          <.finance_dashboard_header {assigns} />
+
+          <section class="mt-6 rounded-2xl border border-purple-100 bg-white/85 p-5 shadow-sm backdrop-blur">
+            <div class="flex flex-wrap items-center justify-between gap-4 border-b border-purple-100 pb-4">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Workspace</p>
+                <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Manage personal finances</h2>
+                <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                  Personal budgets and transactions remain visible only to the signed-in member. Household mode will never reuse this workspace to expose another member's private budget data.
+                </p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  phx-click="open_focus_panel"
+                  phx-value-panel="budget_overview"
+                  class="btn btn-secondary btn-sm"
+                >
+                  Budget overview
+                </button>
+                <button
+                  type="button"
+                  phx-click="open_focus_panel"
+                  phx-value-panel="activity"
+                  class="btn btn-secondary btn-sm"
+                >
+                  Activity
+                </button>
+                <button
+                  type="button"
+                  phx-click="open_focus_panel"
+                  phx-value-panel="signals"
+                  class="btn btn-secondary btn-sm"
+                >
+                  Signals
+                </button>
+                <button
+                  type="button"
+                  phx-click="open_focus_panel"
+                  phx-value-panel="obligations"
+                  class="btn btn-secondary btn-sm"
+                >
+                  Obligations
+                </button>
+                <button
+                  :if={@active_section != "review" and @pending_review_count > 0}
+                  type="button"
+                  phx-click="show_section"
+                  phx-value-section="review"
+                  class="btn btn-secondary btn-sm"
+                >
+                  Open review queue
+                </button>
+              </div>
             </div>
 
-            <div class="flex flex-wrap gap-2">
-              <button type="button" phx-click="show_section" phx-value-section="transactions" class="btn btn-primary btn-sm">
-                Add transaction
-              </button>
-              <button type="button" phx-click="open_debt_form" class="btn btn-secondary btn-sm">
-                Add debt
-              </button>
+            <nav class="mt-5 flex gap-2 overflow-x-auto pb-1">
+              <.section_button active_section={@active_section} section="overview" label="Snapshot" />
+              <.section_button active_section={@active_section} section="transactions" label="Transactions" />
+              <.section_button active_section={@active_section} section="review" label={review_section_label(@pending_review_count)} />
+              <.section_button active_section={@active_section} section="budgets" label="Budgets" />
+              <.section_button active_section={@active_section} section="debts" label="Debts" />
+              <.section_button active_section={@active_section} section="insights" label="Insights" />
+            </nav>
+
+            <div class="mt-6">
+              <.overview_section :if={@active_section == "overview"} {assigns} />
+              <.transactions_section :if={@active_section == "transactions"} {assigns} />
+              <.review_section :if={@active_section == "review"} {assigns} />
+              <.budgets_section :if={@active_section == "budgets"} {assigns} />
+              <.debts_section :if={@active_section == "debts"} {assigns} />
+              <.insights_section :if={@active_section == "insights"} {assigns} />
             </div>
           </section>
 
-          <section class="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-            <.metric_card label="Income" value={money(@health.current_month.income)} tone="income" />
-            <.metric_card label="Expenses" value={money(@health.current_month.expenses)} tone="expense" />
-            <.metric_card label="Free cash flow" value={money(@health.current_month.free_cash_flow)} tone="cash" />
-            <.metric_card label="Budget remaining" value={money(@budget_remaining)} tone="budget" />
-            <.metric_card label="Debt" value={money(@health.total_debt)} tone="debt" />
-            <.metric_card label="Pending review" value={Integer.to_string(@pending_review_count)} tone="review" />
-          </section>
-
-          <nav class="mt-6 flex gap-2 overflow-x-auto border-b border-slate-200 pb-2">
-            <.section_button active_section={@active_section} section="overview" label="Overview" />
-            <.section_button active_section={@active_section} section="transactions" label="Transactions" />
-            <.section_button active_section={@active_section} section="review" label={review_section_label(@pending_review_count)} />
-            <.section_button active_section={@active_section} section="budgets" label="Budgets" />
-            <.section_button active_section={@active_section} section="debts" label="Debts" />
-            <.section_button active_section={@active_section} section="insights" label="Insights" />
-          </nav>
-
-          <div class="mt-6">
-            <.overview_section :if={@active_section == "overview"} {assigns} />
-            <.transactions_section :if={@active_section == "transactions"} {assigns} />
-            <.review_section :if={@active_section == "review"} {assigns} />
-            <.budgets_section :if={@active_section == "budgets"} {assigns} />
-            <.debts_section :if={@active_section == "debts"} {assigns} />
-            <.insights_section :if={@active_section == "insights"} {assigns} />
-          </div>
+          <.focus_panel_modal :if={@focus_panel} panel={@focus_panel} {assigns} />
         </main>
       </div>
     </Layouts.app>
+    """
+  end
+
+  defp finance_dashboard_header(assigns) do
+    ~H"""
+    <section class="overflow-hidden rounded-2xl border border-purple-100 bg-white/85 shadow-sm backdrop-blur">
+      <div class="border-b border-purple-100 bg-[radial-gradient(circle_at_top_left,_rgba(168,85,247,0.14),_transparent_42%),linear-gradient(180deg,_rgba(255,255,255,0.98)_0%,_rgba(250,245,255,0.84)_100%)] px-5 py-5 sm:px-6">
+        <div class="flex flex-wrap items-start justify-between gap-5">
+          <div class="max-w-3xl">
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-purple-500">Finance</p>
+            <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+              <%= finance_title(@ownership_scope, @current_scope) %>
+            </h1>
+            <p class="mt-3 text-sm leading-6 text-slate-600">
+              Available cash, budget remaining, and review items stay visible first. Personal budgets remain private to their owner, and admin extras stay operational-only.
+            </p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white/90 p-1 shadow-sm">
+              <button
+                type="button"
+                phx-click="set_ownership_scope"
+                phx-value-scope="personal"
+                class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-purple-600 text-white"
+                aria-label="Personal finance scope"
+                title="My finances"
+              >
+                <.icon name="hero-user" class="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                disabled
+                class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-400"
+                aria-label="Household finance scope coming soon"
+                title="Household coming soon"
+              >
+                <.icon name="hero-home" class="h-4 w-4" />
+              </button>
+            </div>
+
+            <div class="rounded-full border border-purple-100 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm">
+              <%= @date_window_label %>
+            </div>
+
+            <button type="button" phx-click="show_section" phx-value-section="transactions" class="btn btn-primary btn-sm">
+              Add expense
+            </button>
+            <button type="button" phx-click="show_section" phx-value-section="budgets" class="btn btn-secondary btn-sm">
+              Create budget
+            </button>
+            <button type="button" phx-click="show_section" phx-value-section="debts" class="btn btn-secondary btn-sm">
+              Manage debt
+            </button>
+            <.link
+              :if={admin_user?(@current_scope)}
+              navigate={~p"/admin/finops"}
+              class="btn btn-ghost btn-sm text-slate-700"
+            >
+              Admin tools
+            </.link>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-5 py-5 sm:px-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div class="inline-flex flex-wrap items-center gap-2 rounded-full border border-purple-100 bg-purple-50/70 p-1">
+            <.time_scope_button current={@time_scope} scope="day" />
+            <.time_scope_button current={@time_scope} scope="week" />
+            <.time_scope_button current={@time_scope} scope="month" />
+            <.time_scope_button current={@time_scope} scope="year" />
+            <.time_scope_button current={@time_scope} scope="event" />
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span class="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white px-3 py-1.5 font-semibold text-purple-600">
+              <.icon name="hero-lock-closed" class="h-3.5 w-3.5" />
+              Private by default
+            </span>
+            <span :if={admin_user?(@current_scope)} class="inline-flex items-center gap-1 rounded-full border border-purple-100 bg-white px-3 py-1.5 font-semibold text-slate-600">
+              <.icon name="hero-shield-check" class="h-3.5 w-3.5 text-purple-500" />
+              Admin tools visible
+            </span>
+          </div>
+        </div>
+
+        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <.metric_card
+            label="Available cash"
+            value={money(@period_summary.balance)}
+            note={time_scope_summary_note(@time_scope, @date_window_label)}
+            tone="cash"
+          />
+          <.metric_card
+            label="Budget remaining"
+            value={money(@budget_remaining)}
+            note="#{length(@budget_statuses)} active budgets"
+            tone="budget"
+          />
+          <.metric_card
+            label="Income"
+            value={money(@period_summary.income)}
+            note={@date_window_label}
+            tone="income"
+          />
+          <.metric_card
+            label="Expenses"
+            value={money(@period_summary.expenses)}
+            note="#{length(@transactions)} transactions in view"
+            tone="expense"
+          />
+          <.metric_card
+            label="Pending review"
+            value={Integer.to_string(@pending_review_count)}
+            note="Personal queue only"
+            tone="review"
+          />
+        </div>
+      </div>
+    </section>
+    """
+  end
+
+  attr :current, :string, required: true
+  attr :scope, :string, required: true
+
+  defp time_scope_button(assigns) do
+    ~H"""
+    <button
+      type="button"
+      phx-click="set_time_scope"
+      phx-value-scope={@scope}
+      class={[
+        "rounded-full px-3 py-1.5 text-xs font-semibold transition",
+        @current == @scope && "bg-white text-purple-600 shadow-sm",
+        @current != @scope && "text-slate-500 hover:bg-white/80 hover:text-slate-900"
+      ]}
+    >
+      <%= time_scope_title(@scope) %>
+    </button>
+    """
+  end
+
+  defp budget_overview_panel(assigns) do
+    ~H"""
+    <section class="rounded-2xl border border-purple-100 bg-white/85 p-5 shadow-sm backdrop-blur">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Budget overview</p>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Planned spending and event envelopes</h2>
+        </div>
+        <button type="button" phx-click="show_section" phx-value-section="budgets" class="btn btn-secondary btn-xs">
+          Open budgets
+        </button>
+      </div>
+
+      <div class="mt-5 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <div class="space-y-3">
+          <.budget_status_card :for={status <- Enum.take(@budget_statuses, 3)} status={status} />
+          <div :if={@budget_statuses == []} class="rounded-xl border border-dashed border-purple-100 bg-purple-50/50 p-4 text-sm text-slate-500">
+            Create your first personal budget to start tracking daily, weekly, monthly, or yearly targets.
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-purple-100 bg-purple-50/55 p-4">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Event budgets</p>
+              <h3 class="mt-2 text-lg font-semibold text-slate-950">Custom date ranges</h3>
+            </div>
+            <span class="rounded-full border border-purple-100 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+              <%= length(@event_budget_statuses) %> active
+            </span>
+          </div>
+
+          <div class="mt-4 space-y-3">
+            <div :for={status <- Enum.take(@event_budget_statuses, 3)} class="rounded-xl border border-purple-100 bg-white p-4">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="font-semibold text-slate-900"><%= status.budget.name %></p>
+                  <p class="mt-1 text-xs text-slate-500">
+                    <%= format_date(status.budget.start_date) %> to <%= format_date(status.budget.end_date) %>
+                  </p>
+                </div>
+                <span class={["rounded-full px-2.5 py-1 text-xs font-semibold", budget_state_class(status)]}>
+                  <%= budget_state_label(status) %>
+                </span>
+              </div>
+              <div class="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+                <div class={["h-full rounded-full", budget_progress_class(status)]} style={"width: #{min(status.percentage, 100)}%"} />
+              </div>
+              <div class="mt-3 flex items-center justify-between text-xs">
+                <span class="text-slate-500">Spent <%= money(status.spent) %></span>
+                <span class="font-semibold text-slate-900">Remaining <%= money(status.remaining) %></span>
+              </div>
+            </div>
+
+            <div :if={@event_budget_statuses == []} class="rounded-xl border border-dashed border-purple-100 bg-white p-4 text-sm text-slate-500">
+              Use a custom budget period for trips, birthdays, repairs, or any event you want to track separately.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    """
+  end
+
+  defp signals_panel(assigns) do
+    ~H"""
+    <section class="rounded-2xl border border-purple-100 bg-white/85 p-5 shadow-sm backdrop-blur">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Signals</p>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Cash picture, visibility, and rules</h2>
+        </div>
+        <button type="button" phx-click="show_section" phx-value-section="insights" class="btn btn-secondary btn-xs">
+          Insights
+        </button>
+      </div>
+
+      <div class="mt-5 grid gap-3 sm:grid-cols-2">
+        <div class="rounded-xl border border-purple-100 bg-purple-50/55 p-4">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Net flow</p>
+          <p class={["mt-2 text-2xl font-semibold tracking-tight", metric_tone_class("cash")]}>
+            <%= money(@period_summary.balance) %>
+          </p>
+          <p class="mt-2 text-sm text-slate-600">Income minus expenses for <%= String.downcase(time_scope_title(@time_scope)) %>.</p>
+        </div>
+        <div class="rounded-xl border border-purple-100 bg-purple-50/55 p-4">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Visibility note</p>
+          <p class="mt-2 text-sm leading-6 text-slate-600">
+            Personal and household bank accounts will appear here once account records are added. Until then, this panel shows spending grouped by payment method to keep the dashboard practical without pretending to know balances.
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-5 grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
+        <div class="space-y-3">
+          <div :for={rail <- @payment_method_breakdown} class="flex items-center justify-between gap-4 rounded-xl border border-purple-100 bg-white p-4">
+            <div>
+              <p class="font-semibold text-slate-900"><%= rail.label %></p>
+              <p class="mt-1 text-xs text-slate-500"><%= rail.count %> transactions in view</p>
+            </div>
+            <span class="text-sm font-semibold text-slate-900"><%= money(rail.amount) %></span>
+          </div>
+
+          <div :if={@payment_method_breakdown == []} class="rounded-xl border border-dashed border-purple-100 bg-purple-50/50 p-4 text-sm text-slate-500">
+            No confirmed transactions for this time lens yet.
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <div :for={warning <- @health.warnings} class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <%= warning %>
+          </div>
+          <div :if={@health.warnings == []} class="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 text-sm text-emerald-900">
+            No financial health warnings for this personal snapshot.
+          </div>
+          <div class="rounded-xl border border-purple-100 bg-white p-4 text-sm leading-6 text-slate-600">
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Privacy rule</p>
+            <p class="mt-3">
+              Personal budgets, balances, and transactions are scoped to the member who owns them. Admin-only actions support operations only and must not reveal another member's personal budget details.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+    """
+  end
+
+  defp activity_panel(assigns) do
+    ~H"""
+    <section class="rounded-2xl border border-purple-100 bg-white/85 p-5 shadow-sm backdrop-blur">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Activity</p>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Recent movements and review queue</h2>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" phx-click="show_section" phx-value-section="transactions" class="btn btn-secondary btn-xs">
+            Transactions
+          </button>
+          <button type="button" phx-click="show_section" phx-value-section="review" class="btn btn-secondary btn-xs">
+            <%= review_section_label(@pending_review_count) %>
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-5 space-y-3">
+        <.transaction_row :for={transaction <- Enum.take(@transactions, 4)} transaction={transaction} compact />
+        <div :if={@transactions == []} class="rounded-xl border border-dashed border-purple-100 bg-purple-50/50 p-4 text-sm text-slate-500">
+          No transactions recorded for this period.
+        </div>
+      </div>
+
+      <div class="mt-5 rounded-xl border border-purple-100 bg-purple-50/55 p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Pending review</p>
+            <h3 class="mt-2 text-lg font-semibold text-slate-950">Imported suggestions</h3>
+          </div>
+          <span class="rounded-full border border-purple-100 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+            <%= @pending_review_count %> waiting
+          </span>
+        </div>
+
+        <div class="mt-4 space-y-3">
+          <.review_row :for={transaction <- Enum.take(@pending_transactions, 2)} transaction={transaction} compact />
+          <div :if={@pending_transactions == []} class="rounded-xl border border-dashed border-purple-100 bg-white p-4 text-sm text-slate-500">
+            No personal transactions are waiting for review.
+          </div>
+        </div>
+      </div>
+    </section>
+    """
+  end
+
+  defp obligations_panel(assigns) do
+    ~H"""
+    <section class="rounded-2xl border border-purple-100 bg-white/85 p-5 shadow-sm backdrop-blur">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Obligations</p>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Debt commitments and payoff planning</h2>
+        </div>
+        <button type="button" phx-click="show_section" phx-value-section="debts" class="btn btn-secondary btn-xs">
+          Open debts
+        </button>
+      </div>
+
+      <div class="mt-5 grid gap-4 lg:grid-cols-[1fr_0.92fr]">
+        <div class="space-y-3">
+          <div :for={debt <- Enum.take(@debts, 4)} class="rounded-xl border border-purple-100 bg-purple-50/55 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="font-semibold text-slate-900"><%= debt.name %></p>
+                <p class="mt-1 text-xs text-slate-500">
+                  <%= format_kind(debt.kind) %><%= if debt.provider, do: " with #{debt.provider}" %>
+                </p>
+              </div>
+              <span class="text-sm font-semibold text-slate-900"><%= money(debt.minimum_payment) %></span>
+            </div>
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span class="text-slate-500"><%= due_day_label(debt.due_day) %></span>
+              <span class="font-semibold text-slate-900">Balance <%= money(debt.current_balance) %></span>
+            </div>
+          </div>
+
+          <div :if={@debts == []} class="rounded-xl border border-dashed border-purple-100 bg-purple-50/50 p-4 text-sm text-slate-500">
+            No active debts yet. Add one if you want repayment planning and obligations on the dashboard.
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-purple-100 bg-white p-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Saved plans</p>
+          <div class="mt-4 space-y-3">
+            <div :for={plan <- Enum.take(@plans, 3)} class="rounded-xl border border-purple-100 bg-purple-50/55 p-4">
+              <div class="flex items-center justify-between gap-3">
+                <p class="font-semibold text-slate-900"><%= plan.name %></p>
+                <span class="text-xs font-semibold text-slate-500"><%= format_date(plan.target_payoff_date) %></span>
+              </div>
+              <p class="mt-2 text-xs text-slate-500">
+                <%= String.capitalize(plan.strategy) %> · <%= money(plan.monthly_amount) %>/mo
+              </p>
+            </div>
+
+            <div :if={@plans == []} class="rounded-xl border border-dashed border-purple-100 bg-purple-50/50 p-4 text-sm text-slate-500">
+              Generate and save debt payoff plans to keep them visible here.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    """
+  end
+
+  attr :panel, :string, required: true
+
+  defp focus_panel_modal(assigns) do
+    ~H"""
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+      <button
+        type="button"
+        phx-click="close_focus_panel"
+        class="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]"
+        aria-label="Close detail panel"
+      >
+      </button>
+
+      <div class="relative z-10 w-full max-w-5xl overflow-hidden rounded-2xl border border-purple-100 bg-white shadow-2xl">
+        <div class="flex items-center justify-between gap-4 border-b border-purple-100 px-5 py-4 sm:px-6">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Detail panel</p>
+            <h3 class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+              <%= focus_panel_title(@panel) %>
+            </h3>
+          </div>
+          <button type="button" phx-click="close_focus_panel" class="btn btn-ghost btn-xs">
+            <.icon name="hero-x-mark" class="h-4 w-4" />
+          </button>
+        </div>
+
+        <div class="max-h-[80vh] overflow-y-auto bg-purple-50/50 p-5 sm:p-6">
+          <.budget_overview_panel :if={@panel == "budget_overview"} {assigns} />
+          <.activity_panel :if={@panel == "activity"} {assigns} />
+          <.signals_panel :if={@panel == "signals"} {assigns} />
+          <.obligations_panel :if={@panel == "obligations"} {assigns} />
+        </div>
+      </div>
+    </div>
     """
   end
 
@@ -687,12 +1155,14 @@ defmodule CoreWeb.FinanceLive do
   attr :label, :string, required: true
   attr :value, :string, required: true
   attr :tone, :string, default: "cash"
+  attr :note, :string, default: nil
 
   defp metric_card(assigns) do
     ~H"""
-    <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400"><%= @label %></p>
+    <div class="rounded-xl border border-purple-100 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400"><%= @label %></p>
       <p class={["mt-2 text-2xl font-semibold tracking-tight", metric_tone_class(@tone)]}><%= @value %></p>
+      <p :if={@note} class="mt-2 text-xs leading-5 text-slate-500"><%= @note %></p>
     </div>
     """
   end
@@ -708,9 +1178,9 @@ defmodule CoreWeb.FinanceLive do
       phx-click="show_section"
       phx-value-section={@section}
       class={[
-        "shrink-0 rounded-lg px-3 py-2 text-sm font-semibold transition",
-        @active_section == @section && "bg-slate-950 text-white",
-        @active_section != @section && "text-slate-600 hover:bg-white hover:text-slate-950"
+        "shrink-0 rounded-full px-3 py-2 text-sm font-semibold transition",
+        @active_section == @section && "bg-purple-600 text-white",
+        @active_section != @section && "text-slate-600 hover:bg-purple-50 hover:text-slate-950"
       ]}
     >
       <%= @label %>
@@ -1039,23 +1509,40 @@ defmodule CoreWeb.FinanceLive do
   defp assign_finance_data(socket) do
     user = socket.assigns.current_scope.user
     categories = Finance.list_categories_for_user(user)
-    budget_statuses = Finance.list_budget_statuses_for_user(user)
+    budgets = Finance.list_budgets_for_user(user)
+    budget_statuses = Enum.map(budgets, &Finance.check_budget_status/1)
+    event_budget_statuses = Enum.filter(budget_statuses, &event_budget_status?/1)
     pending_transactions = Finance.list_pending_transactions_for_user(user, limit: 20)
+    time_scope = socket.assigns[:time_scope] || "month"
+    period_window = period_window(time_scope, event_budget_statuses, Date.utc_today())
+
+    period_summary =
+      Finance.get_financial_summary(user, period_window.start_date, period_window.end_date)
+
+    transactions =
+      Finance.list_transactions_for_user(user,
+        limit: 20,
+        status: ["confirmed", "pending_review"],
+        start_date: period_window.start_date,
+        end_date: period_window.end_date
+      )
+
+    confirmed_transactions = Enum.filter(transactions, &(&1.status == "confirmed"))
 
     assign(socket,
       categories: categories,
       expense_categories: Enum.filter(categories, &(&1.type == "expense")),
-      transactions:
-        Finance.list_transactions_for_user(user,
-          limit: 20,
-          status: ["confirmed", "pending_review"]
-        ),
+      date_window_label: period_window.label,
+      period_summary: period_summary,
+      transactions: transactions,
       pending_transactions: pending_transactions,
       pending_review_count: length(pending_transactions),
       budget_statuses: budget_statuses,
+      event_budget_statuses: event_budget_statuses,
       budget_remaining: budget_remaining(budget_statuses),
       debts: Finance.list_debts_for_user(user),
       health: Finance.get_financial_health(user),
+      payment_method_breakdown: payment_method_breakdown(confirmed_transactions),
       plans: Finance.list_payoff_plans_for_user(user)
     )
   end
@@ -1202,7 +1689,8 @@ defmodule CoreWeb.FinanceLive do
   defp metric_tone_class("budget"), do: "text-sky-700"
   defp metric_tone_class("debt"), do: "text-slate-950"
   defp metric_tone_class("review"), do: "text-amber-700"
-  defp metric_tone_class(_tone), do: "text-violet-700"
+  defp metric_tone_class("cash"), do: "text-slate-950"
+  defp metric_tone_class(_tone), do: "text-slate-950"
 
   defp transaction_type_class("income"), do: "text-emerald-700"
   defp transaction_type_class(_type), do: "text-rose-700"
@@ -1252,6 +1740,124 @@ defmodule CoreWeb.FinanceLive do
   defp budget_progress_class(%{is_over: true}), do: "bg-rose-500"
   defp budget_progress_class(%{is_near_limit: true}), do: "bg-amber-500"
   defp budget_progress_class(_status), do: "bg-emerald-500"
+
+  defp admin_user?(%{user: %{role: "admin"}}), do: true
+  defp admin_user?(_scope), do: false
+
+  defp finance_title("personal", %{user: user}) do
+    cond do
+      is_binary(user.full_name) and user.full_name != "" -> "#{user.full_name}'s account"
+      is_binary(user.username) and user.username != "" -> "@#{user.username}'s account"
+      true -> "Personal account"
+    end
+  end
+
+  defp finance_title(_, _scope), do: "Finance command center"
+
+  defp time_scope_title("day"), do: "Day"
+  defp time_scope_title("week"), do: "Week"
+  defp time_scope_title("month"), do: "Month"
+  defp time_scope_title("year"), do: "Year"
+  defp time_scope_title("event"), do: "Event"
+
+  defp time_scope_summary_note("event", label), do: "Focused on #{label}"
+  defp time_scope_summary_note(scope, label), do: "#{time_scope_title(scope)} view · #{label}"
+
+  defp period_window("day", _event_budget_statuses, today) do
+    %{start_date: today, end_date: today, label: format_period_window(today, today)}
+  end
+
+  defp period_window("week", _event_budget_statuses, today) do
+    start_date = Date.beginning_of_week(today)
+    end_date = Date.add(start_date, 6)
+
+    %{
+      start_date: start_date,
+      end_date: end_date,
+      label: format_period_window(start_date, end_date)
+    }
+  end
+
+  defp period_window("month", _event_budget_statuses, today) do
+    start_date = Date.beginning_of_month(today)
+    end_date = Date.end_of_month(today)
+
+    %{
+      start_date: start_date,
+      end_date: end_date,
+      label: format_period_window(start_date, end_date)
+    }
+  end
+
+  defp period_window("year", _event_budget_statuses, today) do
+    start_date = Date.new!(today.year, 1, 1)
+    end_date = Date.new!(today.year, 12, 31)
+
+    %{
+      start_date: start_date,
+      end_date: end_date,
+      label: format_period_window(start_date, end_date)
+    }
+  end
+
+  defp period_window("event", [status | _rest], _today) do
+    end_date = status.budget.end_date || status.budget.start_date
+
+    %{
+      start_date: status.budget.start_date,
+      end_date: end_date,
+      label: status.budget.name
+    }
+  end
+
+  defp period_window("event", [], today) do
+    start_date = Date.beginning_of_month(today)
+    end_date = Date.end_of_month(today)
+
+    %{
+      start_date: start_date,
+      end_date: end_date,
+      label: "No event budget selected"
+    }
+  end
+
+  defp event_budget_status?(%{budget: %{period: "custom", end_date: end_date}})
+       when not is_nil(end_date),
+       do: true
+
+  defp event_budget_status?(_status), do: false
+
+  defp payment_method_breakdown(transactions) do
+    transactions
+    |> Enum.group_by(&payment_method_label(&1.payment_method))
+    |> Enum.map(fn {label, grouped_transactions} ->
+      %{
+        label: label,
+        count: length(grouped_transactions),
+        amount:
+          Enum.reduce(grouped_transactions, Decimal.new("0"), fn transaction, total ->
+            Decimal.add(total, transaction.amount)
+          end)
+      }
+    end)
+    |> Enum.sort_by(&{Decimal.to_float(&1.amount) * -1, &1.label})
+  end
+
+  defp payment_method_label(nil), do: "Unspecified"
+  defp payment_method_label(""), do: "Unspecified"
+  defp payment_method_label(method), do: format_kind(method)
+
+  defp due_day_label(nil), do: "Due day not set"
+  defp due_day_label(due_day), do: "Due on day #{due_day}"
+
+  defp format_period_window(start_date, end_date) do
+    "#{format_date(start_date)} to #{format_date(end_date)}"
+  end
+
+  defp focus_panel_title("budget_overview"), do: "Budget overview"
+  defp focus_panel_title("activity"), do: "Recent activity"
+  defp focus_panel_title("signals"), do: "Signals and visibility"
+  defp focus_panel_title("obligations"), do: "Obligations and payoff plans"
 
   defp translate_error({message, opts}) do
     Enum.reduce(opts, message, fn {key, value}, acc ->

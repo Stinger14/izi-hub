@@ -16,22 +16,22 @@ defmodule CoreWeb.FinanceLiveTest do
 
     assert {:ok, _view, html} = live(conn, ~p"/finance")
 
-    assert html =~ "IziFinance"
-    assert html =~ "Money cockpit"
-    assert html =~ "Add transaction"
-    assert html =~ "Budget remaining"
-    assert html =~ "Transactions"
+    assert html =~ "account"
+    assert html =~ "Household coming soon"
+    assert html =~ "Available cash"
+    assert html =~ "Manage personal finances"
   end
 
   test "creates a manual transaction from the dashboard", %{conn: conn} do
     user = user_fixture()
     conn = init_test_session(conn, user_id: user.id)
+    today = Date.utc_today()
 
     {:ok, category} = Finance.create_category(user, %{"name" => "Salary", "type" => "income"})
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button[phx-value-section=\"transactions\"]", "Transactions")
+    |> element("button", "Add expense")
     |> render_click()
 
     html =
@@ -41,7 +41,7 @@ defmodule CoreWeb.FinanceLiveTest do
           "amount" => "3200.00",
           "type" => "income",
           "description" => "April salary",
-          "transaction_date" => "2026-04-10",
+          "transaction_date" => Date.to_iso8601(today),
           "payment_method" => "bank_transfer",
           "category_id" => category.id
         }
@@ -58,6 +58,8 @@ defmodule CoreWeb.FinanceLiveTest do
   test "creates a budget and shows active budget status", %{conn: conn} do
     user = user_fixture()
     conn = init_test_session(conn, user_id: user.id)
+    today = Date.utc_today()
+    month_start = Date.beginning_of_month(today)
 
     {:ok, category} = Finance.create_category(user, %{"name" => "Groceries", "type" => "expense"})
 
@@ -66,14 +68,14 @@ defmodule CoreWeb.FinanceLiveTest do
         "amount" => "75.00",
         "type" => "expense",
         "description" => "Market",
-        "transaction_date" => "2026-04-10",
+        "transaction_date" => Date.to_iso8601(today),
         "category_id" => category.id
       })
 
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button[phx-value-section=\"budgets\"]", "Budgets")
+    |> element("button", "Create budget")
     |> render_click()
 
     html =
@@ -83,7 +85,7 @@ defmodule CoreWeb.FinanceLiveTest do
           "name" => "Groceries",
           "amount" => "300.00",
           "period" => "monthly",
-          "start_date" => "2026-04-01",
+          "start_date" => Date.to_iso8601(month_start),
           "alert_threshold" => "80",
           "category_id" => category.id
         }
@@ -97,6 +99,7 @@ defmodule CoreWeb.FinanceLiveTest do
   test "review queue confirms a pending transaction", %{conn: conn} do
     user = user_fixture()
     conn = init_test_session(conn, user_id: user.id)
+    today = Date.utc_today()
 
     {:ok, transaction} =
       Finance.create_transaction(user, %{
@@ -104,7 +107,7 @@ defmodule CoreWeb.FinanceLiveTest do
         "type" => "expense",
         "description" => "Card alert",
         "merchant" => "Cafe Central",
-        "transaction_date" => "2026-04-11",
+        "transaction_date" => Date.to_iso8601(today),
         "status" => "pending_review",
         "source" => "email",
         "review_reason" => "Matched subject"
@@ -113,7 +116,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button[phx-value-section=\"review\"]", "Review (1)")
+    |> element("button", "Open review queue")
     |> render_click()
 
     html =
@@ -128,13 +131,14 @@ defmodule CoreWeb.FinanceLiveTest do
   test "editing a pending transaction confirms it", %{conn: conn} do
     user = user_fixture()
     conn = init_test_session(conn, user_id: user.id)
+    today = Date.utc_today()
 
     {:ok, transaction} =
       Finance.create_transaction(user, %{
         "amount" => "18.50",
         "type" => "expense",
         "description" => "Raw import",
-        "transaction_date" => "2026-04-11",
+        "transaction_date" => Date.to_iso8601(today),
         "status" => "pending_review",
         "source" => "email"
       })
@@ -142,7 +146,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button[phx-value-section=\"review\"]", "Review (1)")
+    |> element("button", "Open review queue")
     |> render_click()
 
     html =
@@ -161,7 +165,7 @@ defmodule CoreWeb.FinanceLiveTest do
           "amount" => "18.50",
           "type" => "expense",
           "description" => "Taxi",
-          "transaction_date" => "2026-04-11",
+          "transaction_date" => Date.to_iso8601(today),
           "payment_method" => "card",
           "category_id" => ""
         }
@@ -178,13 +182,14 @@ defmodule CoreWeb.FinanceLiveTest do
   test "review queue can ignore a pending transaction", %{conn: conn} do
     user = user_fixture()
     conn = init_test_session(conn, user_id: user.id)
+    today = Date.utc_today()
 
     {:ok, transaction} =
       Finance.create_transaction(user, %{
         "amount" => "11.00",
         "type" => "expense",
         "description" => "Noise",
-        "transaction_date" => "2026-04-11",
+        "transaction_date" => Date.to_iso8601(today),
         "status" => "pending_review",
         "source" => "email"
       })
@@ -192,7 +197,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button[phx-value-section=\"review\"]", "Review (1)")
+    |> element("button", "Open review queue")
     |> render_click()
 
     html =
@@ -207,6 +212,7 @@ defmodule CoreWeb.FinanceLiveTest do
   test "records a debt payment from the finance dashboard", %{conn: conn} do
     user = user_fixture()
     conn = init_test_session(conn, user_id: user.id)
+    today = Date.utc_today()
 
     {:ok, debt} =
       Finance.create_debt(user, %{
@@ -219,7 +225,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button[phx-value-section=\"debts\"]", "Debts")
+    |> element("button", "Manage debt")
     |> render_click()
 
     html =
@@ -235,7 +241,7 @@ defmodule CoreWeb.FinanceLiveTest do
         debt_id: debt.id,
         payment: %{
           "amount" => "75.00",
-          "payment_date" => "2026-04-12",
+          "payment_date" => Date.to_iso8601(today),
           "kind" => "extra",
           "notes" => "LiveView payment",
           "create_expense_transaction" => "true"

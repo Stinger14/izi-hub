@@ -211,7 +211,8 @@ defmodule Core.Finance do
     get_financial_summary(user.id, start_date, end_date)
   end
 
-  def get_financial_summary(user_id, start_date, end_date) when is_integer(user_id) do
+  def get_financial_summary(user_id, start_date, end_date)
+      when is_integer(user_id) or is_binary(user_id) do
     income = calculate_total_income(user_id, start_date, end_date)
     expenses = calculate_total_expenses(user_id, start_date, end_date)
     balance = Decimal.sub(income, expenses)
