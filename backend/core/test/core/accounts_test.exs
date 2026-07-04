@@ -2,6 +2,7 @@ defmodule Core.AccountsTest do
   use Core.DataCase
 
   alias Core.Accounts
+  alias Core.Accounts.Household
   alias Core.Accounts.User
 
   describe "User Registration" do
@@ -154,6 +155,70 @@ defmodule Core.AccountsTest do
       assert updated_user.id == user.id
       assert :error == Accounts.get_user_by_token(token, "setup_password")
       assert Accounts.get_user_by_email_password(email, "Password123!")
+    end
+  end
+
+  describe "Households" do
+    setup do
+      {:ok, owner} =
+        Accounts.register_user(%{
+          email: "household_owner_#{System.unique_integer([:positive])}@example.com",
+          password: "Password123!",
+          username: "household_owner_#{System.unique_integer([:positive])}",
+          full_name: "Household Owner"
+        })
+
+      {:ok, member} =
+        Accounts.register_user(%{
+          email: "household_member_#{System.unique_integer([:positive])}@example.com",
+          password: "Password123!",
+          username: "household_member_#{System.unique_integer([:positive])}",
+          full_name: "Household Member"
+        })
+
+      %{owner: owner, member: member}
+    end
+
+    test "creates a household and registers the owner as an active member", %{owner: owner} do
+      assert {:ok, %Household{} = household} =
+               Accounts.create_household(owner, %{"name" => "Garcia Home"})
+
+      assert household.name == "Garcia Home"
+      assert household.slug == "garcia-home"
+
+      households = Accounts.list_households_for_user(owner)
+      assert [loaded_household] = households
+      assert loaded_household.id == household.id
+
+      assert Enum.any?(
+               loaded_household.memberships,
+               &(&1.user_id == owner.id and &1.role == "owner")
+             )
+    end
+
+    test "allows active members to load a household and blocks non-members", %{
+      owner: owner,
+      member: member
+    } do
+      {:ok, household} = Accounts.create_household(owner, %{"name" => "Ethical Home"})
+
+      assert {:ok, _membership} = Accounts.add_household_member(owner, household, member)
+      assert Accounts.user_household?(member, household.id)
+
+      loaded_household = Accounts.get_household_for_user!(member, household.id)
+      assert loaded_household.id == household.id
+
+      {:ok, outsider} =
+        Accounts.register_user(%{
+          email: "household_outsider_#{System.unique_integer([:positive])}@example.com",
+          password: "Password123!",
+          username: "household_outsider_#{System.unique_integer([:positive])}",
+          full_name: "Household Outsider"
+        })
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Accounts.get_household_for_user!(outsider, household.id)
+      end
     end
   end
 end

@@ -1,6 +1,7 @@
 defmodule CoreWeb.FinanceLive do
   use CoreWeb, :live_view
 
+  alias Core.Accounts
   alias Core.Finance
   alias Core.Finance.{Budget, Category, DebtPayment, Transaction}
 
@@ -17,11 +18,14 @@ defmodule CoreWeb.FinanceLive do
        active_section: "overview",
        ownership_scope: "personal",
        time_scope: "month",
+       households: [],
+       selected_household_id: nil,
+       selected_household: nil,
        focus_panel: nil,
        editing_transaction_id: nil,
        debt_form_open: false,
        payment_form_debt_id: nil,
-        comparison: []
+       comparison: []
      )
      |> assign_forms()
      |> assign_finance_data()}
@@ -40,7 +44,29 @@ defmodule CoreWeb.FinanceLive do
   def handle_event("set_time_scope", _params, socket), do: {:noreply, socket}
 
   def handle_event("set_ownership_scope", %{"scope" => "personal"}, socket) do
-    {:noreply, assign(socket, ownership_scope: "personal")}
+    {:noreply,
+     socket
+     |> assign(ownership_scope: "personal", focus_panel: nil)
+     |> assign_finance_data()}
+  end
+
+  def handle_event("set_ownership_scope", %{"scope" => "household"}, socket) do
+    households = socket.assigns.households
+    selected_household = select_household(households, socket.assigns.selected_household_id)
+
+    if selected_household do
+      {:noreply,
+       socket
+       |> assign(
+         ownership_scope: "household",
+         selected_household_id: selected_household.id,
+         selected_household: selected_household,
+         focus_panel: nil
+       )
+       |> assign_finance_data()}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("set_ownership_scope", _params, socket), do: {:noreply, socket}
@@ -323,7 +349,7 @@ defmodule CoreWeb.FinanceLive do
                   phx-value-panel="budget_overview"
                   class="btn btn-secondary btn-sm"
                 >
-                  Budget overview
+                  <%= if @ownership_scope == "household", do: "Shared budgets", else: "Budget overview" %>
                 </button>
                 <button
                   type="button"
@@ -361,23 +387,27 @@ defmodule CoreWeb.FinanceLive do
               </div>
             </div>
 
-            <nav class="mt-5 flex gap-2 overflow-x-auto pb-1">
-              <.section_button active_section={@active_section} section="overview" label="Snapshot" />
-              <.section_button active_section={@active_section} section="transactions" label="Transactions" />
-              <.section_button active_section={@active_section} section="review" label={review_section_label(@pending_review_count)} />
-              <.section_button active_section={@active_section} section="budgets" label="Budgets" />
-              <.section_button active_section={@active_section} section="debts" label="Debts" />
-              <.section_button active_section={@active_section} section="insights" label="Insights" />
-            </nav>
+            <div :if={@ownership_scope == "personal"}>
+              <nav class="mt-5 flex gap-2 overflow-x-auto pb-1">
+                <.section_button active_section={@active_section} section="overview" label="Snapshot" />
+                <.section_button active_section={@active_section} section="transactions" label="Transactions" />
+                <.section_button active_section={@active_section} section="review" label={review_section_label(@pending_review_count)} />
+                <.section_button active_section={@active_section} section="budgets" label="Budgets" />
+                <.section_button active_section={@active_section} section="debts" label="Debts" />
+                <.section_button active_section={@active_section} section="insights" label="Insights" />
+              </nav>
 
-            <div class="mt-6">
-              <.overview_section :if={@active_section == "overview"} {assigns} />
-              <.transactions_section :if={@active_section == "transactions"} {assigns} />
-              <.review_section :if={@active_section == "review"} {assigns} />
-              <.budgets_section :if={@active_section == "budgets"} {assigns} />
-              <.debts_section :if={@active_section == "debts"} {assigns} />
-              <.insights_section :if={@active_section == "insights"} {assigns} />
+              <div class="mt-6">
+                <.overview_section :if={@active_section == "overview"} {assigns} />
+                <.transactions_section :if={@active_section == "transactions"} {assigns} />
+                <.review_section :if={@active_section == "review"} {assigns} />
+                <.budgets_section :if={@active_section == "budgets"} {assigns} />
+                <.debts_section :if={@active_section == "debts"} {assigns} />
+                <.insights_section :if={@active_section == "insights"} {assigns} />
+              </div>
             </div>
+
+            <.household_workspace :if={@ownership_scope == "household"} {assigns} />
           </section>
 
           <.focus_panel_modal :if={@focus_panel} panel={@focus_panel} {assigns} />
@@ -395,7 +425,7 @@ defmodule CoreWeb.FinanceLive do
           <div class="max-w-3xl">
             <p class="text-xs font-semibold uppercase tracking-[0.24em] text-purple-500">Finance</p>
             <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-              <%= finance_title(@ownership_scope, @current_scope) %>
+              <%= finance_title(@ownership_scope, @current_scope, @selected_household) %>
             </h1>
             <p class="mt-3 text-sm leading-6 text-slate-600">
               Available cash, budget remaining, and review items stay visible first. Personal budgets remain private to their owner, and admin extras stay operational-only.
@@ -408,7 +438,11 @@ defmodule CoreWeb.FinanceLive do
                 type="button"
                 phx-click="set_ownership_scope"
                 phx-value-scope="personal"
-                class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-purple-600 text-white"
+                class={[
+                  "inline-flex h-9 w-9 items-center justify-center rounded-full transition",
+                  @ownership_scope == "personal" && "bg-purple-600 text-white",
+                  @ownership_scope != "personal" && "text-slate-500 hover:bg-purple-50 hover:text-purple-600"
+                ]}
                 aria-label="Personal finance scope"
                 title="My finances"
               >
@@ -416,10 +450,18 @@ defmodule CoreWeb.FinanceLive do
               </button>
               <button
                 type="button"
-                disabled
-                class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-400"
-                aria-label="Household finance scope coming soon"
-                title="Household coming soon"
+                phx-click={household_scope_available?(@households) && "set_ownership_scope"}
+                phx-value-scope="household"
+                disabled={!household_scope_available?(@households)}
+                class={[
+                  "inline-flex h-9 w-9 items-center justify-center rounded-full transition",
+                  @ownership_scope == "household" && "bg-purple-600 text-white",
+                  @ownership_scope != "household" && household_scope_available?(@households) &&
+                    "text-slate-500 hover:bg-purple-50 hover:text-purple-600",
+                  !household_scope_available?(@households) && "text-slate-400"
+                ]}
+                aria-label={household_scope_aria_label(@households)}
+                title={household_scope_title(@households)}
               >
                 <.icon name="hero-home" class="h-4 w-4" />
               </button>
@@ -429,13 +471,31 @@ defmodule CoreWeb.FinanceLive do
               <%= @date_window_label %>
             </div>
 
-            <button type="button" phx-click="show_section" phx-value-section="transactions" class="btn btn-primary btn-sm">
+            <button
+              :if={@ownership_scope == "personal"}
+              type="button"
+              phx-click="show_section"
+              phx-value-section="transactions"
+              class="btn btn-primary btn-sm"
+            >
               Add expense
             </button>
-            <button type="button" phx-click="show_section" phx-value-section="budgets" class="btn btn-secondary btn-sm">
+            <button
+              :if={@ownership_scope == "personal"}
+              type="button"
+              phx-click="show_section"
+              phx-value-section="budgets"
+              class="btn btn-secondary btn-sm"
+            >
               Create budget
             </button>
-            <button type="button" phx-click="show_section" phx-value-section="debts" class="btn btn-secondary btn-sm">
+            <button
+              :if={@ownership_scope == "personal"}
+              type="button"
+              phx-click="show_section"
+              phx-value-section="debts"
+              class="btn btn-secondary btn-sm"
+            >
               Manage debt
             </button>
             <.link
@@ -788,10 +848,78 @@ defmodule CoreWeb.FinanceLive do
         </div>
 
         <div class="max-h-[80vh] overflow-y-auto bg-purple-50/50 p-5 sm:p-6">
-          <.budget_overview_panel :if={@panel == "budget_overview"} {assigns} />
-          <.activity_panel :if={@panel == "activity"} {assigns} />
-          <.signals_panel :if={@panel == "signals"} {assigns} />
-          <.obligations_panel :if={@panel == "obligations"} {assigns} />
+          <.budget_overview_panel :if={@panel == "budget_overview" and @ownership_scope == "personal"} {assigns} />
+          <.activity_panel :if={@panel == "activity" and @ownership_scope == "personal"} {assigns} />
+          <.signals_panel :if={@panel == "signals" and @ownership_scope == "personal"} {assigns} />
+          <.obligations_panel :if={@panel == "obligations" and @ownership_scope == "personal"} {assigns} />
+          <.household_focus_panel :if={@ownership_scope == "household"} panel={@panel} {assigns} />
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  attr :panel, :string, required: true
+
+  defp household_focus_panel(assigns) do
+    ~H"""
+    <div class="rounded-2xl border border-purple-100 bg-white p-5 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Household scope</p>
+          <h4 class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+            <%= focus_panel_title(@panel) %>
+          </h4>
+        </div>
+        <span class="rounded-full border border-purple-100 bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-600">
+          Shared data next
+        </span>
+      </div>
+
+      <div class="mt-5 rounded-xl border border-dashed border-purple-100 bg-purple-50/50 p-5 text-sm leading-6 text-slate-600">
+        <p>
+          <%= selected_household_name(@selected_household) %> is now a real scope and only active members can open it.
+          Shared budgets, shared transactions, and shared obligations have not been modeled yet, so this panel stays empty instead of falling back to private personal data.
+        </p>
+      </div>
+    </div>
+    """
+  end
+
+  defp household_workspace(assigns) do
+    ~H"""
+    <div class="mt-6 space-y-5">
+      <div class="rounded-xl border border-purple-100 bg-purple-50/55 p-5">
+        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Household workspace</p>
+        <h3 class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+          <%= selected_household_name(@selected_household) %>
+        </h3>
+        <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+          Shared household finance is scoped by membership and intentionally separate from private personal budgets. Shared budgets, balances, and transactions can be added next without leaking anyone's individual ledger.
+        </p>
+      </div>
+
+      <div class="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
+        <div class="rounded-xl border border-purple-100 bg-white p-5 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Members</p>
+          <div class="mt-4 space-y-3">
+            <div :for={member <- household_member_summaries(@selected_household)} class="flex items-center justify-between gap-3 rounded-xl border border-purple-100 bg-purple-50/40 p-4">
+              <div>
+                <p class="font-semibold text-slate-900"><%= member.name %></p>
+                <p class="mt-1 text-xs text-slate-500"><%= member.label %></p>
+              </div>
+              <span class="rounded-full border border-purple-100 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                <%= member.role %>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-purple-100 bg-white p-5 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Next step</p>
+          <div class="mt-4 rounded-xl border border-dashed border-purple-100 bg-purple-50/50 p-4 text-sm leading-6 text-slate-600">
+            Shared finance records are intentionally empty until household budgets, transactions, and accounts are added. Personal data never appears here as a fallback.
+          </div>
         </div>
       </div>
     </div>
@@ -1508,43 +1636,87 @@ defmodule CoreWeb.FinanceLive do
 
   defp assign_finance_data(socket) do
     user = socket.assigns.current_scope.user
-    categories = Finance.list_categories_for_user(user)
-    budgets = Finance.list_budgets_for_user(user)
-    budget_statuses = Enum.map(budgets, &Finance.check_budget_status/1)
-    event_budget_statuses = Enum.filter(budget_statuses, &event_budget_status?/1)
-    pending_transactions = Finance.list_pending_transactions_for_user(user, limit: 20)
+    households = Accounts.list_households_for_user(user)
+    selected_household = select_household(households, socket.assigns[:selected_household_id])
+
+    ownership_scope =
+      resolved_ownership_scope(socket.assigns[:ownership_scope], selected_household)
+
     time_scope = socket.assigns[:time_scope] || "month"
-    period_window = period_window(time_scope, event_budget_statuses, Date.utc_today())
 
-    period_summary =
-      Finance.get_financial_summary(user, period_window.start_date, period_window.end_date)
+    base_assigns = %{
+      households: households,
+      ownership_scope: ownership_scope,
+      selected_household_id: selected_household && selected_household.id,
+      selected_household: selected_household
+    }
 
-    transactions =
-      Finance.list_transactions_for_user(user,
-        limit: 20,
-        status: ["confirmed", "pending_review"],
-        start_date: period_window.start_date,
-        end_date: period_window.end_date
-      )
+    case ownership_scope do
+      "household" ->
+        event_budget_statuses = []
+        period_window = period_window(time_scope, event_budget_statuses, Date.utc_today())
 
-    confirmed_transactions = Enum.filter(transactions, &(&1.status == "confirmed"))
+        assign(
+          socket,
+          Map.merge(base_assigns, %{
+            categories: [],
+            expense_categories: [],
+            date_window_label: period_window.label,
+            period_summary: empty_period_summary(period_window),
+            transactions: [],
+            pending_transactions: [],
+            pending_review_count: 0,
+            budget_statuses: [],
+            event_budget_statuses: [],
+            budget_remaining: Decimal.new("0"),
+            debts: [],
+            health: empty_health(period_window),
+            payment_method_breakdown: [],
+            plans: []
+          })
+        )
 
-    assign(socket,
-      categories: categories,
-      expense_categories: Enum.filter(categories, &(&1.type == "expense")),
-      date_window_label: period_window.label,
-      period_summary: period_summary,
-      transactions: transactions,
-      pending_transactions: pending_transactions,
-      pending_review_count: length(pending_transactions),
-      budget_statuses: budget_statuses,
-      event_budget_statuses: event_budget_statuses,
-      budget_remaining: budget_remaining(budget_statuses),
-      debts: Finance.list_debts_for_user(user),
-      health: Finance.get_financial_health(user),
-      payment_method_breakdown: payment_method_breakdown(confirmed_transactions),
-      plans: Finance.list_payoff_plans_for_user(user)
-    )
+      _personal ->
+        categories = Finance.list_categories_for_user(user)
+        budgets = Finance.list_budgets_for_user(user)
+        budget_statuses = Enum.map(budgets, &Finance.check_budget_status/1)
+        event_budget_statuses = Enum.filter(budget_statuses, &event_budget_status?/1)
+        pending_transactions = Finance.list_pending_transactions_for_user(user, limit: 20)
+        period_window = period_window(time_scope, event_budget_statuses, Date.utc_today())
+
+        period_summary =
+          Finance.get_financial_summary(user, period_window.start_date, period_window.end_date)
+
+        transactions =
+          Finance.list_transactions_for_user(user,
+            limit: 20,
+            status: ["confirmed", "pending_review"],
+            start_date: period_window.start_date,
+            end_date: period_window.end_date
+          )
+
+        confirmed_transactions = Enum.filter(transactions, &(&1.status == "confirmed"))
+
+        assign(
+          socket,
+          Map.merge(base_assigns, %{
+            categories: categories,
+            expense_categories: Enum.filter(categories, &(&1.type == "expense")),
+            date_window_label: period_window.label,
+            period_summary: period_summary,
+            transactions: transactions,
+            pending_transactions: pending_transactions,
+            pending_review_count: length(pending_transactions),
+            budget_statuses: budget_statuses,
+            event_budget_statuses: event_budget_statuses,
+            budget_remaining: budget_remaining(budget_statuses),
+            debts: Finance.list_debts_for_user(user),
+            health: Finance.get_financial_health(user),
+            payment_method_breakdown: payment_method_breakdown(confirmed_transactions),
+            plans: Finance.list_payoff_plans_for_user(user)
+          })
+        )
+    end
   end
 
   defp assign_forms(socket) do
@@ -1744,7 +1916,15 @@ defmodule CoreWeb.FinanceLive do
   defp admin_user?(%{user: %{role: "admin"}}), do: true
   defp admin_user?(_scope), do: false
 
-  defp finance_title("personal", %{user: user}) do
+  defp household_scope_available?(households), do: households != []
+
+  defp household_scope_aria_label([]), do: "Household finance scope coming soon"
+  defp household_scope_aria_label(_households), do: "Household finance scope"
+
+  defp household_scope_title([]), do: "Household coming soon"
+  defp household_scope_title(_households), do: "Household"
+
+  defp finance_title("personal", %{user: user}, _selected_household) do
     cond do
       is_binary(user.full_name) and user.full_name != "" -> "#{user.full_name}'s account"
       is_binary(user.username) and user.username != "" -> "@#{user.username}'s account"
@@ -1752,7 +1932,25 @@ defmodule CoreWeb.FinanceLive do
     end
   end
 
-  defp finance_title(_, _scope), do: "Finance command center"
+  defp finance_title("household", _scope, household) when not is_nil(household),
+    do: household.name
+
+  defp finance_title(_, _scope, _selected_household), do: "Finance command center"
+
+  defp resolved_ownership_scope("household", nil), do: "personal"
+
+  defp resolved_ownership_scope(scope, _selected_household)
+       when scope in ["personal", "household"],
+       do: scope
+
+  defp resolved_ownership_scope(_scope, _selected_household), do: "personal"
+
+  defp select_household([], _selected_household_id), do: nil
+  defp select_household(households, nil), do: List.first(households)
+
+  defp select_household(households, selected_household_id) do
+    Enum.find(households, &(&1.id == selected_household_id)) || List.first(households)
+  end
 
   defp time_scope_title("day"), do: "Day"
   defp time_scope_title("week"), do: "Week"
@@ -1849,6 +2047,55 @@ defmodule CoreWeb.FinanceLive do
 
   defp due_day_label(nil), do: "Due day not set"
   defp due_day_label(due_day), do: "Due on day #{due_day}"
+
+  defp empty_period_summary(period_window) do
+    %{
+      income: Decimal.new("0"),
+      expenses: Decimal.new("0"),
+      balance: Decimal.new("0"),
+      start_date: period_window.start_date,
+      end_date: period_window.end_date
+    }
+  end
+
+  defp empty_health(period_window) do
+    %{
+      current_month: %{
+        start_date: period_window.start_date,
+        end_date: period_window.end_date,
+        income: Decimal.new("0"),
+        expenses: Decimal.new("0"),
+        free_cash_flow: Decimal.new("0")
+      },
+      next_month: %{
+        start_date: period_window.start_date,
+        end_date: period_window.end_date,
+        income: Decimal.new("0"),
+        expenses: Decimal.new("0"),
+        free_cash_flow: Decimal.new("0")
+      },
+      total_debt: Decimal.new("0"),
+      minimum_debt_payment: Decimal.new("0"),
+      debt_to_income_ratio: 0.0,
+      minimum_payment_burden: 0.0,
+      warnings: []
+    }
+  end
+
+  defp selected_household_name(nil), do: "Household"
+  defp selected_household_name(household), do: household.name
+
+  defp household_member_summaries(nil), do: []
+
+  defp household_member_summaries(household) do
+    Enum.map(household.memberships, fn membership ->
+      %{
+        name: membership.user.full_name || membership.user.username || membership.user.email,
+        label: membership.user.username || membership.user.email,
+        role: String.capitalize(membership.role)
+      }
+    end)
+  end
 
   defp format_period_window(start_date, end_date) do
     "#{format_date(start_date)} to #{format_date(end_date)}"

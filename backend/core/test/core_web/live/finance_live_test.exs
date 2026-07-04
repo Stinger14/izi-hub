@@ -4,6 +4,7 @@ defmodule CoreWeb.FinanceLiveTest do
   import Phoenix.LiveViewTest
 
   alias Core.Accounts
+  alias Core.Accounts.Household
   alias Core.Finance
 
   test "redirects unauthenticated users to login", %{conn: conn} do
@@ -254,6 +255,33 @@ defmodule CoreWeb.FinanceLiveTest do
 
     updated_debt = Finance.get_debt_for_user!(user, debt.id)
     assert updated_debt.current_balance == Decimal.new("225.00")
+  end
+
+  test "switches to a household workspace without showing personal finance data", %{conn: conn} do
+    user = user_fixture()
+    conn = init_test_session(conn, user_id: user.id)
+    today = Date.utc_today()
+
+    {:ok, %Household{} = household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
+
+    {:ok, _transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "48.00",
+        "type" => "expense",
+        "description" => "Private groceries",
+        "transaction_date" => Date.to_iso8601(today)
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    html =
+      view
+      |> element("button[aria-label=\"Household finance scope\"]")
+      |> render_click()
+
+    assert html =~ household.name
+    assert html =~ "Shared household finance is scoped by membership"
+    refute html =~ "Private groceries"
   end
 
   defp user_fixture do
