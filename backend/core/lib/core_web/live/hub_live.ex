@@ -11,9 +11,7 @@ defmodule CoreWeb.HubLive do
       |> assign(
         github_accounts: [],
         news_items: [],
-        loading_data: false,
-        selected_roadmap_era: roadmap_default_era(),
-        show_roadmap_evidence: false
+        loading_data: false
       )
 
     socket =
@@ -34,14 +32,6 @@ defmodule CoreWeb.HubLive do
 
     {:noreply,
      assign(socket, github_accounts: github_accounts, news_items: news_items, loading_data: false)}
-  end
-
-  def handle_event("select_roadmap_chapter", %{"era" => era}, socket) do
-    {:noreply, assign(socket, selected_roadmap_era: era, show_roadmap_evidence: false)}
-  end
-
-  def handle_event("toggle_roadmap_evidence", _params, socket) do
-    {:noreply, update(socket, :show_roadmap_evidence, &(!&1))}
   end
 
   def render(assigns) do
@@ -76,7 +66,6 @@ defmodule CoreWeb.HubLive do
                   WIP
                 </span>
               </a>
-              <a href="#roadmap" class="fx-nav-link">Roadmap</a>
               <a href={~p"/liveapps"} class="fx-nav-link fx-nav-link-with-badge relative inline-flex items-center">
                 <span>Liveapps</span>
                 <span
@@ -209,16 +198,19 @@ defmodule CoreWeb.HubLive do
                 <div class="flex items-center justify-between">
                   <div>
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">GitHub</p>
-                    <h3 class="mt-1 text-lg font-semibold text-slate-900">Recent activity</h3>
+                    <h3 class="mt-1 text-lg font-semibold text-slate-900">Contribution pulse</h3>
+                    <p class="mt-1 text-xs text-slate-500">
+                      A quick heatmap preview. Open the full contributions page for branch logs and recent commits.
+                    </p>
                   </div>
-                  <a href="https://github.com" class="btn btn-ghost btn-xs">
-                    View GitHub
+                  <a href={~p"/contributions"} class="btn btn-secondary btn-xs">
+                    View contributions
                   </a>
                 </div>
 
                 <div class="mt-6 grid gap-6">
                   <%= if @github_accounts == [] and @loading_data do %>
-                    <p class="text-xs text-slate-500">Loading recent activity...</p>
+                    <p class="text-xs text-slate-500">Loading GitHub pulse...</p>
                   <% else %>
                     <%= for account <- @github_accounts do %>
                       <div class="rounded-xl border border-purple-100 bg-white p-4">
@@ -232,25 +224,33 @@ defmodule CoreWeb.HubLive do
                           </a>
                         </div>
 
-                        <div class="mt-4">
-                          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Recent events</p>
+                        <div class="mt-4 space-y-4">
+                          <div class="overflow-x-auto rounded-xl border border-purple-100 bg-white p-3">
+                            <%= if account.contributions_svg do %>
+                              <div class="min-w-[720px] text-slate-700">
+                                <%= Phoenix.HTML.raw(account.contributions_svg) %>
+                              </div>
+                            <% else %>
+                              <p class="text-xs text-slate-500">Contribution heatmap unavailable.</p>
+                            <% end %>
+                          </div>
+
                           <%= if account.events == [] do %>
-                            <p class="mt-2 text-xs text-slate-500">No recent events.</p>
+                            <p class="text-xs text-slate-500">No recent public activity.</p>
                           <% else %>
-                            <ul class="mt-2 space-y-2 text-xs text-slate-600">
-                              <%= for event <- account.events do %>
-                                <li class="flex items-center justify-between gap-2">
-                                  <span>
-                                    <span class="font-semibold text-slate-700"><%= event.type %></span>
-                                    <span class="text-slate-400">·</span>
-                                    <a href={event.repo_url} class="text-purple-600 hover:text-purple-700">
-                                      <%= event.repo %>
-                                    </a>
-                                  </span>
-                                  <span class="text-slate-400"><%= event.created_at %></span>
-                                </li>
-                              <% end %>
-                            </ul>
+                            <div class="rounded-xl border border-purple-100 bg-purple-50/60 px-3 py-3">
+                              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Latest touchpoint</p>
+                              <div class="mt-2 flex items-center justify-between gap-3 text-xs text-slate-600">
+                                <span>
+                                  <span class="font-semibold text-slate-700"><%= List.first(account.events).type %></span>
+                                  <span class="text-slate-400">·</span>
+                                  <a href={List.first(account.events).repo_url} class="text-purple-600 hover:text-purple-700">
+                                    <%= List.first(account.events).repo %>
+                                  </a>
+                                </span>
+                                <span class="text-slate-400"><%= List.first(account.events).created_at_label %></span>
+                              </div>
+                            </div>
                           <% end %>
                         </div>
                       </div>
@@ -372,113 +372,61 @@ defmodule CoreWeb.HubLive do
           </div>
         </section>
 
-        <section id="roadmap" class="mx-auto max-w-6xl px-6 pb-16">
-          <div class="rounded-2xl border border-purple-100 bg-white/80 p-8">
-          <div class="flex items-center gap-3">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Roadmap
-            </p>
-          </div>
-            <div class="flex items-center gap-3">
-              <h2 class="text-2xl font-semibold text-slate-900">IziHub evolution</h2>
+        <section class="mx-auto max-w-6xl px-6 pb-16">
+          <div class="rounded-2xl border border-purple-100 bg-white/80 p-6 shadow-sm">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">GitHub</p>
+                <h3 class="mt-1 text-lg font-semibold text-slate-900">Recent activity</h3>
+                <p class="mt-1 text-xs text-slate-500">
+                  Lower-signal event stream from tracked accounts. Open source and branch-level detail live on the contributions page.
+                </p>
+              </div>
+              <a href={~p"/contributions"} class="btn btn-ghost btn-xs">
+                Open contributions
+              </a>
             </div>
-            <div class="mt-6">
-              <div class="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-                <div class="lg:pr-8">
-                  <p class="mt-2 text-xs text-slate-500">
-                    History
-                  </p>
-                  <ul class="mt-4 space-y-2 text-sm text-slate-600">
-                    <%= for chapter <- roadmap_chapters() do %>
-                      <li>
-                        <button
-                          type="button"
-                          phx-click="select_roadmap_chapter"
-                          phx-value-era={chapter.era}
-                          class={
-                            "w-full rounded-lg border px-3.5 py-2.5 text-left transition-colors " <>
-                              if(@selected_roadmap_era == chapter.era,
-                                do:
-                                  "border-purple-300 bg-purple-50/80 shadow-[0_10px_20px_-18px_rgba(109,40,217,0.55)]",
-                                else: "border-purple-100 bg-white/80 hover:bg-purple-50/60"
-                              )
-                          }
-                        >
-                          <div class="flex flex-wrap items-center justify-between gap-2">
-                            <p class="text-[13px] font-semibold text-slate-900"><%= chapter.era %></p>
-                            <span class="text-[10px] font-medium text-purple-600"><%= chapter.range %></span>
-                          </div>
-                          <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-                            <span class={roadmap_lane_class(chapter.lane)}><%= chapter.lane %></span>
-                            <span class="text-[11px] text-slate-600"><%= chapter.story %></span>
-                          </div>
-                        </button>
-                      </li>
-                    <% end %>
-                  </ul>
-                </div>
 
-                <% selected_chapter = selected_roadmap_chapter(@selected_roadmap_era) %>
-                <div class="lg:border-l lg:border-purple-100/80 lg:pl-8">
-                  <div class="rounded-xl border border-purple-100 bg-white/85 p-4 shadow-sm">
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                      <div class="flex flex-wrap items-center gap-2">
-                        <p class="text-sm font-semibold text-slate-900"><%= selected_chapter.era %></p>
-                        <span class={roadmap_lane_class(selected_chapter.lane)}>
-                          <%= selected_chapter.lane %>
-                        </span>
-                      </div>
-                      <span class="text-[11px] font-medium text-purple-600"><%= selected_chapter.range %></span>
-                    </div>
-                    <p class="mt-2 text-xs text-slate-600"><%= selected_chapter.story %></p>
-                    <ul class="mt-3 space-y-1.5 text-xs text-slate-600">
-                      <%= for highlight <- selected_chapter.highlights do %>
-                        <li><span class="text-purple-500">•</span> <%= highlight %></li>
-                      <% end %>
-                    </ul>
-                    <div class="mt-4 flex items-center justify-between gap-2">
-                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-500">Commits</p>
-                      <button
-                        type="button"
-                        phx-click="toggle_roadmap_evidence"
+            <div class="mt-6 grid gap-6">
+              <%= if @github_accounts == [] and @loading_data do %>
+                <p class="text-xs text-slate-500">Loading recent activity...</p>
+              <% else %>
+                <%= for account <- @github_accounts do %>
+                  <div class="rounded-xl border border-purple-100 bg-white p-4">
+                    <div class="flex items-center justify-between">
+                      <p class="text-sm font-semibold text-slate-900"><%= account.username %></p>
+                      <a
+                        href={account.repo_url}
                         class="btn btn-ghost btn-xs"
                       >
-                        <%= if @show_roadmap_evidence do %>
-                          Hide commits
-                        <% else %>
-                          Commits (<%= length(selected_chapter.commits) %>)
-                        <% end %>
-                      </button>
+                        Profile
+                      </a>
                     </div>
-                    <%= if @show_roadmap_evidence do %>
-                      <div class="mt-2 flex flex-wrap gap-1.5">
-                        <%= for commit <- selected_chapter.commits do %>
-                          <span class="rounded-full border border-purple-100 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                            <%= commit %>
-                          </span>
-                        <% end %>
-                      </div>
-                    <% end %>
-                  </div>
 
-                  <div class="mt-4 rounded-xl border border-purple-100 bg-white/85 p-4 shadow-sm">
-                    <div class="flex items-center justify-between gap-2">
-                      <p class="text-sm font-semibold text-slate-900">Upcoming features</p>
-                      <span class={roadmap_lane_class("Planned")}>Planned</span>
-                    </div>
-                    <ul class="mt-3 space-y-2">
-                      <%= for {feature, index} <- Enum.with_index(upcoming_feature_items(), 1) do %>
-                        <li class="rounded-lg border border-purple-100 bg-white/80 px-3 py-2">
-                          <p class="text-[13px] font-semibold text-slate-900">
-                            <%= "#{index}. #{feature.title}" %>
-                          </p>
-                          <p class="mt-1 text-[11px] text-slate-600"><%= feature.detail %></p>
-                        </li>
+                    <div class="mt-4">
+                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Recent events</p>
+                      <%= if account.events == [] do %>
+                        <p class="mt-2 text-xs text-slate-500">No recent events.</p>
+                      <% else %>
+                        <ul class="mt-2 space-y-2 text-xs text-slate-600">
+                          <%= for event <- Enum.take(account.events, 4) do %>
+                            <li class="flex items-center justify-between gap-2">
+                              <span>
+                                <span class="font-semibold text-slate-700"><%= event.type %></span>
+                                <span class="text-slate-400">·</span>
+                                <a href={event.repo_url} class="text-purple-600 hover:text-purple-700">
+                                  <%= event.repo %>
+                                </a>
+                              </span>
+                              <span class="text-slate-400"><%= event.created_at_label %></span>
+                            </li>
+                          <% end %>
+                        </ul>
                       <% end %>
-                    </ul>
+                    </div>
                   </div>
-                </div>
-              </div>
+                <% end %>
+              <% end %>
             </div>
           </div>
         </section>
@@ -500,158 +448,10 @@ defmodule CoreWeb.HubLive do
       },
       %{
         title: "Contributions",
-        description: "View GitHub charts and stats.",
+        description: "View heatmaps, branch logs, and recent commits.",
         href: "/contributions"
       },
       %{title: "Resources", description: "Check playbooks and templates.", href: "/resources"}
     ]
-  end
-
-  defp roadmap_chapters do
-    [
-      %{
-        era: "Genesis",
-        lane: "Core",
-        range: "2025-12-03 to 2025-12-12",
-        story: "Core platform bootstrapped with first auth and account primitives.",
-        highlights: [
-          "Phoenix app initialized and base project structure created.",
-          "Accounts context introduced with users and token models.",
-          "Registration and early account management flow enabled."
-        ],
-        commits: ["d2a4527", "701ed61", "f9989c2", "6bd86fd", "2ad0959"]
-      },
-      %{
-        era: "Domain Expansion",
-        lane: "Product",
-        range: "2025-12-18 to 2026-01-01",
-        story: "IziHub expanded into multiple product domains and analytics.",
-        highlights: [
-          "Portfolio, blog, notifications, and finance contexts were added.",
-          "Configuration setup was hardened for multi-environment use.",
-          "Analytics context was created as the observability foundation."
-        ],
-        commits: ["13aec00", "841e4b6", "02c0ebc", "4ffe6f7", "083126a"]
-      },
-      %{
-        era: "LiveView Platform Shift",
-        lane: "Platform",
-        range: "2026-01-28 to 2026-02-02",
-        story: "The product shifted to a LiveView-first web architecture.",
-        highlights: [
-          "Assets, layouts, and root template workflow were established.",
-          "Browser pipeline and verified routes integration were completed.",
-          "Tailwind and PubSub were enabled for interactive UI behavior."
-        ],
-        commits: ["cfb7a3f", "ba7f9fb", "1613142", "76fa576", "14eaedd"]
-      },
-      %{
-        era: "User Surfaces v1",
-        lane: "UX",
-        range: "2026-02-05 to 2026-02-10",
-        story: "The first complete user-facing IziHub surfaces came online.",
-        highlights: [
-          "Profile experience and CV download flow were launched.",
-          "Notebook markdown rendering and local preview support were added.",
-          "LiveApps module and Hub integrations were introduced."
-        ],
-        commits: ["8eb324e", "3ca2abd", "dc52900", "58611ea", "db941d3"]
-      },
-      %{
-        era: "UX System & Navigation",
-        lane: "UX",
-        range: "2026-02-11 to 2026-02-17",
-        story: "Visual language and routing were unified across the hub.",
-        highlights: [
-          "Hub UI was refined with shared interaction components and tokens.",
-          "Information architecture moved to /hub and /welcome routing.",
-          "Contributions and Resources pages were split into dedicated views."
-        ],
-        commits: ["f80b432", "5720414", "b73d988", "3c39dd3", "95310eb"]
-      },
-      %{
-        era: "Operations & Metrics",
-        lane: "Ops",
-        range: "2026-02-14 to 2026-02-20",
-        story: "Deployment readiness and admin observability matured.",
-        highlights: [
-          "Docker and deployment workflows were standardized.",
-          "Presence and online activity tracking were integrated.",
-          "Admin dashboard and CV download analytics were added."
-        ],
-        commits: ["aceaa43", "0ef0d47", "f5d5e9c", "9efbc0e"]
-      },
-      %{
-        era: "Rebirth",
-        lane: "Current",
-        range: "2026-02-20 to 2026-02-24",
-        story:
-          "Improve UI components focused on better UX, auth, admin visibility, and fallback coverage across the hub.",
-        highlights: [
-          "Implemented session auth with email-only signup and setup-password onboarding.",
-          "Added inline Hub login/signup UX and roadmap timeline refresh.",
-          "Introduced under-development fallback pages and aligned LiveView scope wiring."
-        ],
-        commits: ["9486eff", "d38b1c4", "fbfc4b1"]
-      }
-    ]
-  end
-
-  defp upcoming_feature_items do
-    [
-      %{
-        title: "Personal finance liveapp",
-        detail: "Track income, expenses, and category summaries."
-      },
-      %{
-        title: "Resources content",
-        detail: "Add practical playbooks, templates, and curated notes."
-      },
-      %{title: "IziTools", detail: "Ship focused utility tools directly in the hub."}
-    ]
-  end
-
-  defp roadmap_default_era do
-    roadmap_chapters()
-    |> List.first()
-    |> Map.fetch!(:era)
-  end
-
-  defp selected_roadmap_chapter(era) do
-    chapters = roadmap_chapters()
-
-    Enum.find(chapters, fn chapter -> chapter.era == era end) || List.first(chapters)
-  end
-
-  defp roadmap_lane_class("Core") do
-    "inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-600"
-  end
-
-  defp roadmap_lane_class("Product") do
-    "inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-600"
-  end
-
-  defp roadmap_lane_class("Platform") do
-    "inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-600"
-  end
-
-  defp roadmap_lane_class("UX") do
-    "inline-flex items-center rounded-full border border-fuchsia-200 bg-fuchsia-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fuchsia-600"
-  end
-
-  defp roadmap_lane_class("Ops") do
-    "inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600"
-  end
-
-  defp roadmap_lane_class("Current") do
-    "inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600"
-  end
-
-  defp roadmap_lane_class("Planned") do
-    "inline-flex items-center rounded-full border border-purple-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-600"
-  end
-
-  defp roadmap_lane_class(_lane) do
-    "inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600"
   end
 end
