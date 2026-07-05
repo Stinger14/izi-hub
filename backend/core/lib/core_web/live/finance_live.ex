@@ -690,7 +690,7 @@ defmodule CoreWeb.FinanceLive do
           <.metric_card
             label="Budget remaining"
             value={money(@budget_remaining)}
-            note="#{length(@budget_statuses)} active budgets"
+            note={"#{length(@budget_statuses)} active budgets"}
             tone="budget"
           />
           <.metric_card
@@ -702,7 +702,7 @@ defmodule CoreWeb.FinanceLive do
           <.metric_card
             label="Expenses"
             value={money(@period_summary.expenses)}
-            note="#{length(@transactions)} transactions in view"
+            note={"#{length(@transactions)} transactions in view"}
             tone="expense"
           />
           <.metric_card
