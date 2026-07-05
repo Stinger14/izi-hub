@@ -22,6 +22,7 @@ defmodule Core.Finance.Transaction do
     field :receipt_url, :string
     field :notes, :string
 
+    belongs_to :account, Core.Finance.Account
     belongs_to :user, Core.Accounts.User
     belongs_to :household, Core.Accounts.Household
     belongs_to :category, Core.Finance.Category
@@ -54,6 +55,7 @@ defmodule Core.Finance.Transaction do
       :tags,
       :receipt_url,
       :notes,
+      :account_id,
       :category_id,
       :user_id,
       :household_id
@@ -80,6 +82,7 @@ defmodule Core.Finance.Transaction do
     |> validate_length(:notes, max: 1000)
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:household_id)
+    |> foreign_key_constraint(:account_id)
     |> foreign_key_constraint(:category_id)
     |> external_id_scope_constraint()
   end

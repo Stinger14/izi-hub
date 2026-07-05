@@ -9,6 +9,7 @@ defmodule Core.Finance do
   alias Core.Repo
 
   alias Core.Finance.{
+    Account,
     Budget,
     Category,
     Debt,
@@ -76,7 +77,7 @@ defmodule Core.Finance do
       Transaction
       |> scope_query(owner)
       |> order_by([t], desc: t.transaction_date, desc: t.inserted_at)
-      |> preload(:category)
+      |> preload([:category, :account])
 
     query = apply_transaction_filters(query, opts)
     Repo.all(query)
@@ -96,14 +97,14 @@ defmodule Core.Finance do
   """
   def get_transaction!(id) do
     Transaction
-    |> preload([:user, :category])
+    |> preload([:user, :category, :account])
     |> Repo.get!(id)
   end
 
   def get_transaction_for_user!(%User{} = user, id) do
     Transaction
     |> where([transaction], transaction.user_id == ^user.id)
-    |> preload([:user, :category])
+    |> preload([:user, :category, :account])
     |> Repo.get!(id)
   end
 
@@ -111,7 +112,7 @@ defmodule Core.Finance do
     with :ok <- ensure_scope_access(actor, owner) do
       Transaction
       |> scope_query(owner)
-      |> preload([:user, :household, :category])
+      |> preload([:user, :household, :category, :account])
       |> Repo.get!(id)
     end
   end
@@ -126,7 +127,8 @@ defmodule Core.Finance do
   def create_transaction(%User{} = actor, owner, attrs) do
     with :ok <- ensure_scope_access(actor, owner),
          attrs <- scope_attrs(attrs, owner),
-         :ok <- ensure_category_in_scope(attrs, owner) do
+         :ok <- ensure_category_in_scope(attrs, owner),
+         :ok <- ensure_account_in_scope(attrs, owner) do
       %Transaction{}
       |> Transaction.changeset(attrs)
       |> Repo.insert()
@@ -157,7 +159,8 @@ defmodule Core.Finance do
   """
   def update_transaction(%User{} = user, %Transaction{} = transaction, attrs) do
     with :ok <- ensure_resource_owner(user, transaction) do
-      with :ok <- ensure_category_in_scope(attrs, resource_owner(transaction)) do
+      with :ok <- ensure_category_in_scope(attrs, resource_owner(transaction)),
+           :ok <- ensure_account_in_scope(attrs, resource_owner(transaction)) do
         update_transaction(transaction, attrs)
       end
     end
@@ -268,6 +271,106 @@ defmodule Core.Finance do
   end
 
   # ------ Categories ------
+
+  # ------ Accounts ------
+
+  def list_accounts(%User{} = actor, owner) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      {:ok, do_list_accounts(owner)}
+    end
+  end
+
+  def list_accounts_for_user(%User{} = user) do
+    do_list_accounts(user)
+  end
+
+  defp do_list_accounts(owner) do
+    Account
+    |> scope_query(owner)
+    |> where([account], account.status == "active")
+    |> order_by([account], asc: account.kind, asc: account.name)
+    |> Repo.all()
+  end
+
+  def get_account!(%User{} = actor, owner, id) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      Account
+      |> scope_query(owner)
+      |> Repo.get!(id)
+    end
+  end
+
+  def create_account(%User{} = user, attrs \\ %{}) do
+    create_account(user, user, attrs)
+  end
+
+  def create_account(%User{} = actor, owner, attrs) do
+    with :ok <- ensure_scope_access(actor, owner),
+         attrs <- scope_attrs(attrs, owner) do
+      %Account{}
+      |> Account.changeset(attrs)
+      |> Repo.insert()
+    end
+  end
+
+  def change_account(%Account{} = account \\ %Account{}) do
+    Account.changeset(account, %{})
+  end
+
+  def list_account_summaries(%User{} = actor, owner, start_date, end_date) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      accounts = do_list_accounts(owner)
+
+      totals =
+        Transaction
+        |> scope_query(owner)
+        |> where([transaction], not is_nil(transaction.account_id))
+        |> where(
+          [transaction],
+          transaction.transaction_date >= ^start_date and
+            transaction.transaction_date <= ^end_date
+        )
+        |> group_by([transaction], transaction.account_id)
+        |> select([transaction], %{
+          account_id: transaction.account_id,
+          income:
+            fragment(
+              "COALESCE(SUM(CASE WHEN ? = 'income' AND ? = 'confirmed' THEN ? ELSE 0 END), 0)",
+              transaction.type,
+              transaction.status,
+              transaction.amount
+            ),
+          expenses:
+            fragment(
+              "COALESCE(SUM(CASE WHEN ? = 'expense' AND ? = 'confirmed' THEN ? ELSE 0 END), 0)",
+              transaction.type,
+              transaction.status,
+              transaction.amount
+            ),
+          transaction_count: count(transaction.id)
+        })
+        |> Repo.all()
+        |> Map.new(fn row -> {row.account_id, row} end)
+
+      {:ok,
+       Enum.map(accounts, fn account ->
+         totals_row =
+           Map.get(totals, account.id, %{
+             income: Decimal.new("0"),
+             expenses: Decimal.new("0"),
+             transaction_count: 0
+           })
+
+         %{
+           account: account,
+           income: totals_row.income,
+           expenses: totals_row.expenses,
+           net: Decimal.sub(totals_row.income, totals_row.expenses),
+           transaction_count: totals_row.transaction_count
+         }
+       end)}
+    end
+  end
 
   @doc """
   Returns the list of categories for a user
@@ -411,7 +514,7 @@ defmodule Core.Finance do
     with :ok <- ensure_scope_access(actor, owner) do
       Budget
       |> scope_query(owner)
-      |> preload([:user, :household, :category])
+      |> preload([:user, :household, :category, :account])
       |> Repo.get!(id)
     end
   end
@@ -986,6 +1089,25 @@ defmodule Core.Finance do
           :ok
         else
           {:error, :invalid_category_scope}
+        end
+    end
+  end
+
+  defp ensure_account_in_scope(attrs, owner) do
+    case Map.get(attrs, "account_id") || Map.get(attrs, :account_id) do
+      nil ->
+        :ok
+
+      "" ->
+        :ok
+
+      account_id ->
+        account = Repo.get(Account, account_id)
+
+        if account && same_scope?(owner, account) do
+          :ok
+        else
+          {:error, :invalid_account_scope}
         end
     end
   end
