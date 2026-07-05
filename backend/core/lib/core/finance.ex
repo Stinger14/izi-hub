@@ -564,8 +564,11 @@ defmodule Core.Finance do
 
   def list_debt_payments_for_debt(%User{} = user, %Debt{} = debt) do
     with :ok <- ensure_resource_owner(user, debt) do
+      owner = resource_owner(debt)
+
       DebtPayment
-      |> where([payment], payment.user_id == ^user.id and payment.debt_id == ^debt.id)
+      |> scope_query(owner)
+      |> where([payment], payment.debt_id == ^debt.id)
       |> order_by([payment], desc: payment.payment_date, desc: payment.inserted_at)
       |> preload(:transaction)
       |> Repo.all()
@@ -694,20 +697,21 @@ defmodule Core.Finance do
   end
 
   def get_financial_health(%User{} = actor, owner, opts) do
-    _ = ensure_scope_access(actor, owner)
-    today = Keyword.get(opts, :today, Date.utc_today())
+    with :ok <- ensure_scope_access(actor, owner) do
+      today = Keyword.get(opts, :today, Date.utc_today())
 
-    current_month =
-      month_summary(owner, Date.beginning_of_month(today), Date.end_of_month(today))
+      current_month =
+        month_summary(owner, Date.beginning_of_month(today), Date.end_of_month(today))
 
-    next_month_start = today |> Date.end_of_month() |> Date.add(1)
-    next_month_end = Date.end_of_month(next_month_start)
+      next_month_start = today |> Date.end_of_month() |> Date.add(1)
+      next_month_end = Date.end_of_month(next_month_start)
 
-    next_month =
-      current_month
-      |> project_next_month(today, next_month_start, next_month_end)
+      next_month =
+        current_month
+        |> project_next_month(today, next_month_start, next_month_end)
 
-    Health.build(current_month, next_month, do_list_debts(owner))
+      Health.build(current_month, next_month, do_list_debts(owner))
+    end
   end
 
   @doc """

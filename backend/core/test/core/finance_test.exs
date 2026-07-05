@@ -406,6 +406,42 @@ defmodule Core.FinanceTest do
              })
   end
 
+  test "get_financial_health/3 rejects access to another user's household" do
+    user = user_fixture()
+    other_user = user_fixture()
+
+    {:ok, %Household{} = household} =
+      Accounts.create_household(other_user, %{"name" => "Private Home"})
+
+    assert {:error, :forbidden} =
+             Finance.get_financial_health(user, household, today: ~D[2026-04-15])
+  end
+
+  test "list_debt_payments_for_debt/2 returns household-scoped payments" do
+    user = user_fixture()
+    {:ok, %Household{} = household} = Accounts.create_household(user, %{"name" => "Shared Home"})
+
+    {:ok, debt} =
+      Finance.create_debt(user, household, %{
+        "name" => "Shared card",
+        "kind" => "credit_card",
+        "current_balance" => "600.00",
+        "minimum_payment" => "50.00"
+      })
+
+    assert {:ok, payment} =
+             Finance.record_debt_payment(user, debt, %{
+               "amount" => "120.00",
+               "payment_date" => ~D[2026-04-12],
+               "kind" => "extra",
+               "create_expense_transaction" => "true"
+             })
+
+    assert [listed_payment] = Finance.list_debt_payments_for_debt(user, debt)
+    assert listed_payment.id == payment.id
+    assert listed_payment.household_id == household.id
+  end
+
   test "household finance records stay isolated from personal records" do
     user = user_fixture()
     {:ok, %Household{} = household} = Accounts.create_household(user, %{"name" => "Shared Home"})

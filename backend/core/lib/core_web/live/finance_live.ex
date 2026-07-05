@@ -1816,6 +1816,7 @@ defmodule CoreWeb.FinanceLive do
     confirmed_transactions = Enum.filter(transactions, &(&1.status == "confirmed"))
     {:ok, debts} = Finance.list_debts(user, owner)
     {:ok, plans} = Finance.list_payoff_plans(user, owner)
+    health = Finance.get_financial_health(user, owner, today: Date.utc_today())
 
     base_assigns = %{
       households: households,
@@ -1841,7 +1842,7 @@ defmodule CoreWeb.FinanceLive do
         event_budget_statuses: event_budget_statuses,
         budget_remaining: budget_remaining(budget_statuses),
         debts: debts,
-        health: Finance.get_financial_health(user, owner, today: Date.utc_today()),
+        health: health,
         payment_method_breakdown: payment_method_breakdown(confirmed_transactions),
         plans: plans
       })
