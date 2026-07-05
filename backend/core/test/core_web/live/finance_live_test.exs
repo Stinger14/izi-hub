@@ -18,9 +18,9 @@ defmodule CoreWeb.FinanceLiveTest do
     assert {:ok, _view, html} = live(conn, ~p"/finance")
 
     assert html =~ "account"
-    assert html =~ "Household coming soon"
+    assert html =~ "Default dashboard"
     assert html =~ "Available cash"
-    assert html =~ "Manage personal finances"
+    assert html =~ "Create household"
   end
 
   test "creates a manual transaction from the dashboard", %{conn: conn} do
@@ -32,7 +32,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button", "Add expense")
+    |> element("button[aria-label=\"Add transaction\"]")
     |> render_click()
 
     html =
@@ -76,7 +76,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button", "Create budget")
+    |> element("button[aria-label=\"Create budget\"]")
     |> render_click()
 
     html =
@@ -226,7 +226,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button", "Manage debt")
+    |> element("button[aria-label=\"Manage debt\"]")
     |> render_click()
 
     html =
@@ -264,12 +264,27 @@ defmodule CoreWeb.FinanceLiveTest do
 
     {:ok, %Household{} = household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
 
+    {:ok, household_category} =
+      Finance.create_category(user, household, %{
+        "name" => "Shared Groceries",
+        "type" => "expense"
+      })
+
     {:ok, _transaction} =
       Finance.create_transaction(user, %{
         "amount" => "48.00",
         "type" => "expense",
         "description" => "Private groceries",
         "transaction_date" => Date.to_iso8601(today)
+      })
+
+    {:ok, _shared_transaction} =
+      Finance.create_transaction(user, household, %{
+        "amount" => "112.00",
+        "type" => "expense",
+        "description" => "House groceries",
+        "transaction_date" => Date.to_iso8601(today),
+        "category_id" => household_category.id
       })
 
     {:ok, view, _html} = live(conn, ~p"/finance")
@@ -280,8 +295,26 @@ defmodule CoreWeb.FinanceLiveTest do
       |> render_click()
 
     assert html =~ household.name
-    assert html =~ "Shared household finance is scoped by membership"
+    assert html =~ "House groceries"
     refute html =~ "Private groceries"
+  end
+
+  test "opens the household panel from the header cta", %{conn: conn} do
+    user = user_fixture()
+    conn = init_test_session(conn, user_id: user.id)
+
+    {:ok, _household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    refute has_element?(view, "form[phx-submit=\"create_household\"]")
+
+    html =
+      view
+      |> element("button[aria-label=\"Manage households\"]")
+      |> render_click()
+
+    assert html =~ "Create or switch scope"
+    assert html =~ "aria-label=\"Create household\""
   end
 
   defp user_fixture do

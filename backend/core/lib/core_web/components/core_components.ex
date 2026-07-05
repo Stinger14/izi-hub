@@ -63,6 +63,61 @@ defmodule CoreWeb.CoreComponents do
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
         </svg>
+      <% "hero-plus" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+      <% "hero-plus-circle" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m11.25 0a8.25 8.25 0 1 1-16.5 0 8.25 8.25 0 0 1 16.5 0Z" />
+        </svg>
+      <% "hero-users" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.75a6 6 0 0 0-12 0M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Zm5.25 12a4.5 4.5 0 0 0-3.75-4.436m-7.5 0a4.5 4.5 0 0 0-3.75 4.436m15-4.436a3.75 3.75 0 0 0-2.25-3.436m-10.5 0a3.75 3.75 0 0 0-2.25 3.436" />
+        </svg>
+      <% "hero-user-plus" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.75a6 6 0 0 0-12 0M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Zm5.25 1.5v4.5m2.25-2.25h-4.5" />
+        </svg>
+      <% "hero-chart-bar-square" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75h16.5v16.5H3.75zM8.25 15V9.75m4.5 5.25V7.5m4.5 7.5v-3" />
+        </svg>
       <% "hero-banknotes" -> %>
         <svg
           xmlns="http://www.w3.org/2000/svg"
