@@ -3,11 +3,11 @@ defmodule CoreWeb.FinanceLive do
 
   alias Core.Accounts
   alias Core.Finance
-  alias Core.Finance.{Budget, Category, DebtPayment, Transaction}
+  alias Core.Finance.{Account, Budget, Category, DebtPayment, Transaction}
 
   @sections ["overview", "transactions", "review", "budgets", "debts", "insights"]
   @time_scopes ["day", "week", "month", "year", "event"]
-  @focus_panels ["budget_overview", "activity", "signals", "obligations"]
+  @focus_panels ["budget_overview", "activity", "signals", "obligations", "accounts"]
 
   def mount(_params, _session, socket) do
     {:ok,
@@ -171,6 +171,9 @@ defmodule CoreWeb.FinanceLive do
       {:error, :invalid_category_scope} ->
         {:noreply, put_flash(socket, :error, "Choose a category from the active scope")}
 
+      {:error, :invalid_account_scope} ->
+        {:noreply, put_flash(socket, :error, "Choose an account from the active scope")}
+
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, transaction_form: to_form(changeset, as: :transaction))}
     end
@@ -228,6 +231,30 @@ defmodule CoreWeb.FinanceLive do
 
       {:error, :invalid_category_scope} ->
         {:noreply, put_flash(socket, :error, "Choose a category from the active scope")}
+
+      {:error, :invalid_account_scope} ->
+        {:noreply, put_flash(socket, :error, "Choose an account from the active scope")}
+    end
+  end
+
+  def handle_event("create_account", %{"account" => params}, socket) do
+    user = current_actor(socket)
+    owner = current_finance_owner(socket)
+
+    case Finance.create_account(user, owner, params) do
+      {:ok, _account} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Account added")
+         |> assign_account_form()
+         |> assign(focus_panel: "accounts")
+         |> assign_finance_data()}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply,
+         socket
+         |> assign(focus_panel: "accounts")
+         |> assign(account_form: to_form(changeset, as: :account))}
     end
   end
 
@@ -585,6 +612,17 @@ defmodule CoreWeb.FinanceLive do
             <.household_picker :if={@households != []} households={@households} selected_household_id={@selected_household_id} />
             <button
               type="button"
+              phx-click="open_focus_panel"
+              phx-value-panel="accounts"
+              class="btn btn-secondary btn-sm inline-flex items-center gap-1"
+              aria-label="Add account"
+              title="Add account"
+            >
+              <.icon name="hero-building-library" class="h-4 w-4" />
+              <.icon name="hero-plus" class="h-4 w-4" />
+            </button>
+            <button
+              type="button"
               phx-click="show_section"
               phx-value-section="transactions"
               class="btn btn-primary btn-sm inline-flex items-center gap-1"
@@ -892,25 +930,33 @@ defmodule CoreWeb.FinanceLive do
           <p class="mt-2 text-sm text-slate-600">Income minus expenses for <%= String.downcase(time_scope_title(@time_scope)) %>.</p>
         </div>
         <div class="rounded-xl border border-purple-100 bg-purple-50/55 p-4">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Visibility note</p>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Tracked balances</p>
+          <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+            <%= money(@account_total_balance) %>
+          </p>
           <p class="mt-2 text-sm leading-6 text-slate-600">
-            Personal and household bank accounts will appear here once account records are added. Until then, this panel shows spending grouped by payment method to keep the dashboard practical without pretending to know balances.
+            <%= length(@accounts) %> active account<%= if length(@accounts) == 1, do: "", else: "s" %> in this scope.
           </p>
         </div>
       </div>
 
       <div class="mt-5 grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
         <div class="space-y-3">
-          <div :for={rail <- @payment_method_breakdown} class="flex items-center justify-between gap-4 rounded-xl border border-purple-100 bg-white p-4">
+          <div :for={summary <- @account_summaries} class="flex items-center justify-between gap-4 rounded-xl border border-purple-100 bg-white p-4">
             <div>
-              <p class="font-semibold text-slate-900"><%= rail.label %></p>
-              <p class="mt-1 text-xs text-slate-500"><%= rail.count %> transactions in view</p>
+              <p class="font-semibold text-slate-900"><%= summary.account.name %></p>
+              <p class="mt-1 text-xs text-slate-500">
+                <%= account_summary_subtitle(summary.account) %> · <%= summary.transaction_count %> linked transactions in view
+              </p>
             </div>
-            <span class="text-sm font-semibold text-slate-900"><%= money(rail.amount) %></span>
+            <div class="text-right">
+              <p class="text-sm font-semibold text-slate-900"><%= money(summary.account.current_balance) %></p>
+              <p class="mt-1 text-xs text-slate-500"><%= signed_decimal(summary.net) %> net in range</p>
+            </div>
           </div>
 
-          <div :if={@payment_method_breakdown == []} class="rounded-xl border border-dashed border-purple-100 bg-purple-50/50 p-4 text-sm text-slate-500">
-            No confirmed transactions for this time lens yet.
+          <div :if={@account_summaries == []} class="rounded-xl border border-dashed border-purple-100 bg-purple-50/50 p-4 text-sm text-slate-500">
+            Add accounts to track balances and tie transactions to a real ledger source.
           </div>
         </div>
 
@@ -1070,9 +1116,75 @@ defmodule CoreWeb.FinanceLive do
           <.activity_panel :if={@panel == "activity"} {assigns} />
           <.signals_panel :if={@panel == "signals"} {assigns} />
           <.obligations_panel :if={@panel == "obligations"} {assigns} />
+          <.accounts_panel :if={@panel == "accounts"} {assigns} />
         </div>
       </div>
     </div>
+    """
+  end
+
+  defp accounts_panel(assigns) do
+    ~H"""
+    <section class="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+      <div class="rounded-2xl border border-purple-100 bg-white/85 p-5 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Account setup</p>
+        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Track balances by scope</h2>
+
+        <.form for={@account_form} phx-submit="create_account" class="mt-5 space-y-4">
+          <div class="grid gap-3 sm:grid-cols-2">
+            <.finance_input form={@account_form} field={:name} label="Account name" placeholder="Main checking" />
+            <.finance_input form={@account_form} field={:institution} label="Institution" placeholder="Popular Bank" />
+            <.finance_select form={@account_form} field={:kind} label="Kind" options={account_kind_options()} />
+            <.finance_input form={@account_form} field={:currency} label="Currency" placeholder="USD" />
+            <.finance_input form={@account_form} field={:current_balance} label="Current balance" type="number" step="0.01" placeholder="2400.00" />
+            <.finance_input form={@account_form} field={:available_balance} label="Available balance" type="number" step="0.01" placeholder="2200.00" />
+          </div>
+
+          <.finance_input form={@account_form} field={:notes} label="Notes" placeholder="Optional note" />
+
+          <div class="flex justify-end">
+            <button type="submit" class="btn btn-primary btn-sm">Save account</button>
+          </div>
+        </.form>
+      </div>
+
+      <div class="rounded-2xl border border-purple-100 bg-white p-5 shadow-sm">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Tracked accounts</p>
+            <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Scope balances and activity</h2>
+          </div>
+          <span class="rounded-full border border-purple-100 bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700">
+            <%= money(@account_total_balance) %>
+          </span>
+        </div>
+
+        <div class="mt-5 space-y-3">
+          <div :for={summary <- @account_summaries} class="rounded-xl border border-purple-100 bg-purple-50/35 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="font-semibold text-slate-900"><%= summary.account.name %></p>
+                <p class="mt-1 text-xs text-slate-500"><%= account_summary_subtitle(summary.account) %></p>
+              </div>
+              <div class="text-right">
+                <p class="font-semibold text-slate-900"><%= money(summary.account.current_balance) %></p>
+                <p class="mt-1 text-xs text-slate-500"><%= signed_decimal(summary.net) %> this range</p>
+              </div>
+            </div>
+
+            <div class="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-3">
+              <.status_row label="Income" value={money(summary.income)} />
+              <.status_row label="Expenses" value={money(summary.expenses)} />
+              <.status_row label="Linked tx" value={Integer.to_string(summary.transaction_count)} />
+            </div>
+          </div>
+
+          <div :if={@account_summaries == []} class="rounded-xl border border-dashed border-purple-100 p-4 text-sm text-slate-500">
+            No accounts yet for this scope.
+          </div>
+        </div>
+      </div>
+    </section>
     """
   end
 
@@ -1134,6 +1246,37 @@ defmodule CoreWeb.FinanceLive do
         </div>
       </div>
 
+      <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Accounts</p>
+            <h2 class="mt-1 text-xl font-semibold text-slate-950">Balances by ledger</h2>
+          </div>
+          <button type="button" phx-click="open_focus_panel" phx-value-panel="accounts" class="btn btn-secondary btn-xs">
+            Manage accounts
+          </button>
+        </div>
+
+        <div class="mt-4 space-y-3">
+          <div :for={summary <- Enum.take(@account_summaries, 3)} class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm font-semibold text-slate-900"><%= summary.account.name %></p>
+                <p class="mt-1 text-xs text-slate-500"><%= account_summary_subtitle(summary.account) %></p>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-semibold text-slate-900"><%= money(summary.account.current_balance) %></p>
+                <p class="mt-1 text-xs text-slate-500"><%= summary.transaction_count %> linked</p>
+              </div>
+            </div>
+          </div>
+
+          <div :if={@account_summaries == []} class="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+            No accounts yet in this scope.
+          </div>
+        </div>
+      </div>
+
       <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm xl:col-span-2">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -1177,6 +1320,7 @@ defmodule CoreWeb.FinanceLive do
             <.finance_input form={@transaction_form} field={:amount} label="Amount" placeholder="125.00" type="number" step="0.01" />
             <.finance_input form={@transaction_form} field={:transaction_date} label="Date" type="date" />
             <.finance_select form={@transaction_form} field={:payment_method} label="Method" options={payment_method_options()} />
+            <.finance_select form={@transaction_form} field={:account_id} label="Account" options={account_options(@accounts)} />
           </div>
 
           <.finance_input form={@transaction_form} field={:description} label="Description" placeholder="Salary, groceries, transfer..." />
@@ -1499,6 +1643,7 @@ defmodule CoreWeb.FinanceLive do
         <p class="mt-1 text-xs text-slate-500">
           <%= format_date(@transaction.transaction_date) %>
           <%= if @transaction.category, do: " · #{@transaction.category.name}" %>
+          <%= if @transaction.account, do: " · #{@transaction.account.name}" %>
           <%= if @transaction.payment_method, do: " · #{format_kind(@transaction.payment_method)}" %>
         </p>
       </div>
@@ -1796,11 +1941,20 @@ defmodule CoreWeb.FinanceLive do
     owner = finance_owner(ownership_scope, user, selected_household)
 
     {:ok, categories} = Finance.list_categories(user, owner)
+    {:ok, accounts} = Finance.list_accounts(user, owner)
     {:ok, budgets} = Finance.list_budgets(user, owner)
     budget_statuses = Enum.map(budgets, &Finance.check_budget_status/1)
     event_budget_statuses = Enum.filter(budget_statuses, &event_budget_status?/1)
     {:ok, pending_transactions} = Finance.list_pending_transactions(user, owner, limit: 20)
     period_window = period_window(time_scope, event_budget_statuses, Date.utc_today())
+
+    {:ok, account_summaries} =
+      Finance.list_account_summaries(
+        user,
+        owner,
+        period_window.start_date,
+        period_window.end_date
+      )
 
     period_summary =
       Finance.get_financial_summary(owner, period_window.start_date, period_window.end_date)
@@ -1832,6 +1986,9 @@ defmodule CoreWeb.FinanceLive do
       socket,
       Map.merge(base_assigns, %{
         categories: categories,
+        accounts: accounts,
+        account_summaries: account_summaries,
+        account_total_balance: account_total_balance(accounts),
         expense_categories: Enum.filter(categories, &(&1.type == "expense")),
         date_window_label: period_window.label,
         period_summary: period_summary,
@@ -1856,6 +2013,7 @@ defmodule CoreWeb.FinanceLive do
     |> assign_budget_form()
     |> assign_debt_form()
     |> assign_payment_form()
+    |> assign_account_form()
     |> assign_household_form()
     |> assign_member_form()
   end
@@ -1898,6 +2056,11 @@ defmodule CoreWeb.FinanceLive do
     assign(socket, payment_form: to_form(Finance.change_debt_payment(payment), as: :payment))
   end
 
+  defp assign_account_form(socket) do
+    account = %Account{kind: "checking", currency: "USD", current_balance: Decimal.new("0")}
+    assign(socket, account_form: to_form(Finance.change_account(account), as: :account))
+  end
+
   defp assign_household_form(socket) do
     assign(socket, household_form: to_form(Accounts.change_household(), as: :household))
   end
@@ -1926,6 +2089,18 @@ defmodule CoreWeb.FinanceLive do
     ]
   end
 
+  defp account_kind_options do
+    [
+      {"Checking", "checking"},
+      {"Savings", "savings"},
+      {"Cash", "cash"},
+      {"Credit card", "credit_card"},
+      {"Investment", "investment"},
+      {"Loan", "loan"},
+      {"Other", "other"}
+    ]
+  end
+
   defp budget_period_options do
     [
       {"Monthly", "monthly"},
@@ -1939,6 +2114,10 @@ defmodule CoreWeb.FinanceLive do
 
   defp category_options(categories) do
     [{"Uncategorized", ""}] ++ Enum.map(categories, &{&1.name, &1.id})
+  end
+
+  defp account_options(accounts) do
+    [{"Not set", ""}] ++ Enum.map(accounts, &{&1.name, &1.id})
   end
 
   defp debt_kind_options do
@@ -1978,6 +2157,13 @@ defmodule CoreWeb.FinanceLive do
   defp signed_money(%Transaction{type: "income", amount: amount}), do: "+#{money(amount)}"
   defp signed_money(%Transaction{amount: amount}), do: "-#{money(amount)}"
 
+  defp signed_decimal(%Decimal{} = amount) do
+    case Decimal.compare(amount, Decimal.new("0")) do
+      :lt -> "-#{money(Decimal.abs(amount))}"
+      _ -> "+#{money(amount)}"
+    end
+  end
+
   defp apr(nil), do: "Missing"
   defp apr(%Decimal{} = value), do: "#{Decimal.round(value, 2)}%"
 
@@ -1992,6 +2178,12 @@ defmodule CoreWeb.FinanceLive do
 
   defp category_name(nil), do: "All spending"
   defp category_name(category), do: category.name
+
+  defp account_summary_subtitle(account) do
+    [account.institution, format_kind(account.kind), account.currency]
+    |> Enum.reject(&is_nil_or_empty/1)
+    |> Enum.join(" · ")
+  end
 
   defp payoff_order([]), do: "No active balances"
   defp payoff_order(debts), do: debts |> Enum.map(& &1.name) |> Enum.join(" -> ")
@@ -2203,6 +2395,12 @@ defmodule CoreWeb.FinanceLive do
   defp payment_method_label(""), do: "Unspecified"
   defp payment_method_label(method), do: format_kind(method)
 
+  defp account_total_balance(accounts) do
+    Enum.reduce(accounts, Decimal.new("0"), fn account, total ->
+      Decimal.add(total, account.current_balance || Decimal.new("0"))
+    end)
+  end
+
   defp due_day_label(nil), do: "Due day not set"
   defp due_day_label(due_day), do: "Due on day #{due_day}"
 
@@ -2238,6 +2436,11 @@ defmodule CoreWeb.FinanceLive do
   defp focus_panel_title("activity"), do: "Recent activity"
   defp focus_panel_title("signals"), do: "Signals and visibility"
   defp focus_panel_title("obligations"), do: "Obligations and payoff plans"
+  defp focus_panel_title("accounts"), do: "Accounts and balances"
+
+  defp is_nil_or_empty(nil), do: true
+  defp is_nil_or_empty(""), do: true
+  defp is_nil_or_empty(_value), do: false
 
   defp translate_error({message, opts}) do
     Enum.reduce(opts, message, fn {key, value}, acc ->

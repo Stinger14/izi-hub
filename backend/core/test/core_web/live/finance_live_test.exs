@@ -29,6 +29,14 @@ defmodule CoreWeb.FinanceLiveTest do
     today = Date.utc_today()
 
     {:ok, category} = Finance.create_category(user, %{"name" => "Salary", "type" => "income"})
+
+    {:ok, account} =
+      Finance.create_account(user, %{
+        "name" => "Main checking",
+        "kind" => "checking",
+        "current_balance" => "2000.00"
+      })
+
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
@@ -44,13 +52,15 @@ defmodule CoreWeb.FinanceLiveTest do
           "description" => "April salary",
           "transaction_date" => Date.to_iso8601(today),
           "payment_method" => "bank_transfer",
-          "category_id" => category.id
+          "category_id" => category.id,
+          "account_id" => account.id
         }
       )
       |> render_submit()
 
     assert html =~ "April salary"
     assert html =~ "+$3200.00"
+    assert html =~ "Main checking"
 
     [transaction] = Finance.list_transactions_for_user(user)
     assert transaction.description == "April salary"
@@ -315,6 +325,38 @@ defmodule CoreWeb.FinanceLiveTest do
 
     assert html =~ "Create or switch scope"
     assert html =~ "aria-label=\"Create household\""
+  end
+
+  test "creates an account from the account panel", %{conn: conn} do
+    user = user_fixture()
+    conn = init_test_session(conn, user_id: user.id)
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    view
+    |> element("button[aria-label=\"Add account\"]")
+    |> render_click()
+
+    html =
+      view
+      |> form("form[phx-submit=\"create_account\"]",
+        account: %{
+          "name" => "Emergency savings",
+          "institution" => "Popular Bank",
+          "kind" => "savings",
+          "currency" => "USD",
+          "current_balance" => "1800.00",
+          "available_balance" => "1800.00",
+          "notes" => "Rainy day"
+        }
+      )
+      |> render_submit()
+
+    assert html =~ "Emergency savings"
+    assert html =~ "$1800.00"
+
+    [account] = Finance.list_accounts_for_user(user)
+    assert account.name == "Emergency savings"
   end
 
   defp user_fixture do
