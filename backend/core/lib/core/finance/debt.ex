@@ -19,6 +19,7 @@ defmodule Core.Finance.Debt do
     field :status, :string, default: "active"
 
     belongs_to :user, Core.Accounts.User
+    belongs_to :household, Core.Accounts.Household
     has_many :payments, Core.Finance.DebtPayment
 
     timestamps()
@@ -41,18 +42,33 @@ defmodule Core.Finance.Debt do
       :due_day,
       :opened_on,
       :payoff_goal_date,
-      :status
+      :status,
+      :user_id,
+      :household_id
     ])
-    |> validate_required([:name, :kind, :current_balance, :minimum_payment, :user_id])
+    |> validate_required([:name, :kind, :current_balance, :minimum_payment])
     |> validate_length(:name, min: 1, max: 120)
     |> validate_length(:provider, max: 120)
     |> validate_inclusion(:kind, @kinds)
     |> validate_inclusion(:status, @statuses)
+    |> validate_owner_scope()
     |> validate_number(:current_balance, greater_than_or_equal_to: 0)
     |> validate_number(:principal_balance, greater_than_or_equal_to: 0)
     |> validate_number(:minimum_payment, greater_than_or_equal_to: 0)
     |> validate_number(:apr, greater_than_or_equal_to: 0, less_than_or_equal_to: 100)
     |> validate_number(:due_day, greater_than_or_equal_to: 1, less_than_or_equal_to: 31)
     |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:household_id)
+  end
+
+  defp validate_owner_scope(changeset) do
+    user_id = get_field(changeset, :user_id)
+    household_id = get_field(changeset, :household_id)
+
+    if is_nil(user_id) == is_nil(household_id) do
+      add_error(changeset, :base, "must belong to exactly one owner scope")
+    else
+      changeset
+    end
   end
 end

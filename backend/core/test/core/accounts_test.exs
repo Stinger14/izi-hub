@@ -220,5 +220,22 @@ defmodule Core.AccountsTest do
         Accounts.get_household_for_user!(outsider, household.id)
       end
     end
+
+    test "only owners can add household members", %{owner: owner, member: member} do
+      {:ok, household} = Accounts.create_household(owner, %{"name" => "Owner Home"})
+
+      {:ok, existing_membership} = Accounts.add_household_member(owner, household, member)
+      assert existing_membership.role == "member"
+
+      {:ok, outsider} =
+        Accounts.register_user(%{
+          email: "household_new_member_#{System.unique_integer([:positive])}@example.com",
+          password: "Password123!",
+          username: "household_new_member_#{System.unique_integer([:positive])}",
+          full_name: "Household New Member"
+        })
+
+      assert {:error, :forbidden} = Accounts.add_household_member(member, household, outsider)
+    end
   end
 end

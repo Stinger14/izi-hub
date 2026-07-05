@@ -154,7 +154,7 @@ defmodule Core.Accounts do
         %User{} = member,
         attrs \\ %{}
       ) do
-    with :ok <- ensure_household_member(actor, household) do
+    with :ok <- ensure_household_owner(actor, household) do
       membership_attrs =
         attrs
         |> Map.new()
@@ -166,6 +166,24 @@ defmodule Core.Accounts do
       %HouseholdMember{}
       |> HouseholdMember.changeset(membership_attrs)
       |> Repo.insert()
+    end
+  end
+
+  def add_household_member_by_email(
+        %User{} = actor,
+        %Household{} = household,
+        email,
+        attrs \\ %{}
+      )
+      when is_binary(email) do
+    email = String.trim(email)
+
+    with %User{} = member <- get_user_by_email(email),
+         {:ok, membership} <- add_household_member(actor, household, member, attrs) do
+      {:ok, membership}
+    else
+      nil -> {:error, :user_not_found}
+      {:error, _reason} = error -> error
     end
   end
 
@@ -210,6 +228,16 @@ defmodule Core.Accounts do
       membership.user_id == ^user.id and membership.household_id == ^household_id
     )
     |> where([membership], membership.status == "active")
+    |> Repo.exists?()
+  end
+
+  def user_household_owner?(%User{} = user, household_id) do
+    HouseholdMember
+    |> where(
+      [membership],
+      membership.user_id == ^user.id and membership.household_id == ^household_id
+    )
+    |> where([membership], membership.status == "active" and membership.role == "owner")
     |> Repo.exists?()
   end
 
@@ -436,8 +464,8 @@ defmodule Core.Accounts do
     "TmpA1a-" <> Base.url_encode64(:crypto.strong_rand_bytes(12), padding: false)
   end
 
-  defp ensure_household_member(%User{} = user, %Household{} = household) do
-    if user_household?(user, household.id), do: :ok, else: {:error, :forbidden}
+  defp ensure_household_owner(%User{} = user, %Household{} = household) do
+    if user_household_owner?(user, household.id), do: :ok, else: {:error, :forbidden}
   end
 
   defp active_memberships_query do

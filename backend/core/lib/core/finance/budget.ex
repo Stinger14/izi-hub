@@ -15,6 +15,7 @@ defmodule Core.Finance.Budget do
     field :is_active, :boolean, default: true
 
     belongs_to :user, Core.Accounts.User
+    belongs_to :household, Core.Accounts.Household
     belongs_to :category, Core.Finance.Category
 
     timestamps()
@@ -33,14 +34,18 @@ defmodule Core.Finance.Budget do
       :end_date,
       :alert_threshold,
       :is_active,
-      :category_id
+      :category_id,
+      :user_id,
+      :household_id
     ])
-    |> validate_required([:name, :amount, :period, :start_date, :user_id])
+    |> validate_required([:name, :amount, :period, :start_date])
     |> validate_number(:amount, greater_than: 0)
     |> validate_inclusion(:period, @periods)
     |> validate_number(:alert_threshold, greater_than_or_equal_to: 0, less_than_or_equal_to: 100)
+    |> validate_owner_scope()
     |> validate_date_range()
     |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:household_id)
     |> foreign_key_constraint(:category_id)
   end
 
@@ -50,6 +55,17 @@ defmodule Core.Finance.Budget do
 
     if start_date && end_date && Date.compare(start_date, end_date) == :gt do
       add_error(changeset, :end_date, "must be after start date")
+    else
+      changeset
+    end
+  end
+
+  defp validate_owner_scope(changeset) do
+    user_id = get_field(changeset, :user_id)
+    household_id = get_field(changeset, :household_id)
+
+    if is_nil(user_id) == is_nil(household_id) do
+      add_error(changeset, :base, "must belong to exactly one owner scope")
     else
       changeset
     end

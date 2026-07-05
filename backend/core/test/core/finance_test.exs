@@ -2,6 +2,7 @@ defmodule Core.FinanceTest do
   use Core.DataCase, async: true
 
   alias Core.Accounts
+  alias Core.Accounts.Household
   alias Core.Finance
 
   test "create_budget stores the owning user and ignores user_id from attrs" do
@@ -402,6 +403,59 @@ defmodule Core.FinanceTest do
                "amount" => "25.00",
                "payment_date" => ~D[2026-04-12],
                "kind" => "minimum"
+             })
+  end
+
+  test "household finance records stay isolated from personal records" do
+    user = user_fixture()
+    {:ok, %Household{} = household} = Accounts.create_household(user, %{"name" => "Shared Home"})
+
+    {:ok, personal_category} =
+      Finance.create_category(user, %{"name" => "Personal Food", "type" => "expense"})
+
+    {:ok, household_category} =
+      Finance.create_category(user, household, %{"name" => "Shared Food", "type" => "expense"})
+
+    {:ok, _personal_transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "25.00",
+        "type" => "expense",
+        "transaction_date" => ~D[2026-04-10],
+        "description" => "Personal lunch",
+        "category_id" => personal_category.id
+      })
+
+    assert {:ok, _household_transaction} =
+             Finance.create_transaction(user, household, %{
+               "amount" => "90.00",
+               "type" => "expense",
+               "transaction_date" => ~D[2026-04-10],
+               "description" => "Shared groceries",
+               "category_id" => household_category.id
+             })
+
+    {:ok, personal_transactions} = Finance.list_transactions(user, user)
+    {:ok, household_transactions} = Finance.list_transactions(user, household)
+
+    assert Enum.any?(personal_transactions, &(&1.description == "Personal lunch"))
+    refute Enum.any?(personal_transactions, &(&1.description == "Shared groceries"))
+    assert Enum.any?(household_transactions, &(&1.description == "Shared groceries"))
+    refute Enum.any?(household_transactions, &(&1.description == "Personal lunch"))
+  end
+
+  test "household finance rejects categories from another scope" do
+    user = user_fixture()
+    {:ok, %Household{} = household} = Accounts.create_household(user, %{"name" => "Scope Home"})
+
+    {:ok, personal_category} =
+      Finance.create_category(user, %{"name" => "Personal", "type" => "expense"})
+
+    assert {:error, :invalid_category_scope} =
+             Finance.create_transaction(user, household, %{
+               "amount" => "20.00",
+               "type" => "expense",
+               "transaction_date" => ~D[2026-04-10],
+               "category_id" => personal_category.id
              })
   end
 

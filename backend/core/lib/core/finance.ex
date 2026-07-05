@@ -4,7 +4,8 @@ defmodule Core.Finance do
   """
 
   import Ecto.Query, warn: false
-  alias Core.Accounts.User
+  alias Core.Accounts
+  alias Core.Accounts.{Household, User}
   alias Core.Repo
 
   alias Core.Finance.{
@@ -22,12 +23,18 @@ defmodule Core.Finance do
 
   # ------ Transactions ------
 
+  def list_transactions(%User{} = actor, owner, opts \\ []) when is_list(opts) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      {:ok, do_list_transactions(owner, opts)}
+    end
+  end
+
   def list_transactions_for_user(%User{} = user, opts \\ []) do
-    do_list_transactions(user.id, opts)
+    do_list_transactions(user, opts)
   end
 
   def list_user_transactions(user_id, opts \\ []) do
-    do_list_transactions(user_id, opts)
+    do_list_transactions(%User{id: user_id}, opts)
   end
 
   defp apply_transaction_filters(query, opts) do
@@ -64,12 +71,12 @@ defmodule Core.Finance do
     end)
   end
 
-  defp do_list_transactions(user_id, opts) do
+  defp do_list_transactions(owner, opts) do
     query =
-      from t in Transaction,
-        where: t.user_id == ^user_id,
-        order_by: [desc: t.transaction_date, desc: t.inserted_at],
-        preload: :category
+      Transaction
+      |> scope_query(owner)
+      |> order_by([t], desc: t.transaction_date, desc: t.inserted_at)
+      |> preload(:category)
 
     query = apply_transaction_filters(query, opts)
     Repo.all(query)
@@ -78,6 +85,10 @@ defmodule Core.Finance do
   def list_pending_transactions_for_user(%User{} = user, opts \\ []) do
     user
     |> list_transactions_for_user(Keyword.put(opts, :status, "pending_review"))
+  end
+
+  def list_pending_transactions(%User{} = actor, owner, opts \\ []) do
+    list_transactions(actor, owner, Keyword.put(opts, :status, "pending_review"))
   end
 
   @doc """
@@ -96,13 +107,30 @@ defmodule Core.Finance do
     |> Repo.get!(id)
   end
 
+  def get_transaction!(%User{} = actor, owner, id) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      Transaction
+      |> scope_query(owner)
+      |> preload([:user, :household, :category])
+      |> Repo.get!(id)
+    end
+  end
+
   @doc """
   Creates a transaction
   """
   def create_transaction(%User{} = user, attrs \\ %{}) do
-    %Transaction{user_id: user.id}
-    |> Transaction.changeset(attrs)
-    |> Repo.insert()
+    create_transaction(user, user, attrs)
+  end
+
+  def create_transaction(%User{} = actor, owner, attrs) do
+    with :ok <- ensure_scope_access(actor, owner),
+         attrs <- scope_attrs(attrs, owner),
+         :ok <- ensure_category_in_scope(attrs, owner) do
+      %Transaction{}
+      |> Transaction.changeset(attrs)
+      |> Repo.insert()
+    end
   end
 
   def change_transaction(%Transaction{} = transaction \\ %Transaction{}) do
@@ -129,7 +157,9 @@ defmodule Core.Finance do
   """
   def update_transaction(%User{} = user, %Transaction{} = transaction, attrs) do
     with :ok <- ensure_resource_owner(user, transaction) do
-      update_transaction(transaction, attrs)
+      with :ok <- ensure_category_in_scope(attrs, resource_owner(transaction)) do
+        update_transaction(transaction, attrs)
+      end
     end
   end
 
@@ -174,12 +204,16 @@ defmodule Core.Finance do
   Calculates total income for a user in a date range
   """
   def calculate_total_income(%User{} = user, start_date, end_date) do
-    calculate_total_income(user.id, start_date, end_date)
+    calculate_total_income_for_scope(user, start_date, end_date)
   end
 
-  def calculate_total_income(user_id, start_date, end_date) do
+  def calculate_total_income(owner, start_date, end_date) do
+    calculate_total_income_for_scope(owner, start_date, end_date)
+  end
+
+  defp calculate_total_income_for_scope(owner, start_date, end_date) do
     Transaction
-    |> where([t], t.user_id == ^user_id)
+    |> scope_query(owner)
     |> where([t], t.status == "confirmed")
     |> where([t], t.type == "income")
     |> where([t], t.transaction_date >= ^start_date and t.transaction_date <= ^end_date)
@@ -191,12 +225,16 @@ defmodule Core.Finance do
   Calculates total expenses for a user in a date range
   """
   def calculate_total_expenses(%User{} = user, start_date, end_date) do
-    calculate_total_expenses(user.id, start_date, end_date)
+    calculate_total_expenses_for_scope(user, start_date, end_date)
   end
 
-  def calculate_total_expenses(user_id, start_date, end_date) do
+  def calculate_total_expenses(owner, start_date, end_date) do
+    calculate_total_expenses_for_scope(owner, start_date, end_date)
+  end
+
+  defp calculate_total_expenses_for_scope(owner, start_date, end_date) do
     Transaction
-    |> where([t], t.user_id == ^user_id)
+    |> scope_query(owner)
     |> where([t], t.status == "confirmed")
     |> where([t], t.type == "expense")
     |> where([t], t.transaction_date >= ^start_date and t.transaction_date <= ^end_date)
@@ -208,13 +246,16 @@ defmodule Core.Finance do
   Gets financial summary for a user
   """
   def get_financial_summary(%User{} = user, start_date, end_date) do
-    get_financial_summary(user.id, start_date, end_date)
+    get_financial_summary_for_scope(user, start_date, end_date)
   end
 
-  def get_financial_summary(user_id, start_date, end_date)
-      when is_integer(user_id) or is_binary(user_id) do
-    income = calculate_total_income(user_id, start_date, end_date)
-    expenses = calculate_total_expenses(user_id, start_date, end_date)
+  def get_financial_summary(owner, start_date, end_date) do
+    get_financial_summary_for_scope(owner, start_date, end_date)
+  end
+
+  defp get_financial_summary_for_scope(owner, start_date, end_date) do
+    income = calculate_total_income(owner, start_date, end_date)
+    expenses = calculate_total_expenses(owner, start_date, end_date)
     balance = Decimal.sub(income, expenses)
 
     %{
@@ -232,18 +273,24 @@ defmodule Core.Finance do
   Returns the list of categories for a user
   """
   def list_categories_for_user(%User{} = user, type \\ nil) do
-    do_list_categories(user.id, type)
+    do_list_categories(user, type)
   end
 
   def list_user_categories(user_id, type \\ nil) do
-    do_list_categories(user_id, type)
+    do_list_categories(%User{id: user_id}, type)
   end
 
-  defp do_list_categories(user_id, type) do
+  def list_categories(%User{} = actor, owner, type \\ nil) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      {:ok, do_list_categories(owner, type)}
+    end
+  end
+
+  defp do_list_categories(owner, type) do
     query =
-      from c in Category,
-        where: c.user_id == ^user_id,
-        order_by: [asc: c.name]
+      Category
+      |> scope_query(owner)
+      |> order_by([c], asc: c.name)
 
     query = if type, do: where(query, [c], c.type == ^type), else: query
     Repo.all(query)
@@ -260,13 +307,28 @@ defmodule Core.Finance do
     |> Repo.get!(id)
   end
 
+  def get_category!(%User{} = actor, owner, id) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      Category
+      |> scope_query(owner)
+      |> Repo.get!(id)
+    end
+  end
+
   @doc """
   Creates a category
   """
   def create_category(%User{} = user, attrs \\ %{}) do
-    %Category{user_id: user.id}
-    |> Category.changeset(attrs)
-    |> Repo.insert()
+    create_category(user, user, attrs)
+  end
+
+  def create_category(%User{} = actor, owner, attrs) do
+    with :ok <- ensure_scope_access(actor, owner),
+         attrs <- scope_attrs(attrs, owner) do
+      %Category{}
+      |> Category.changeset(attrs)
+      |> Repo.insert()
+    end
   end
 
   def change_category(%Category{} = category \\ %Category{}) do
@@ -307,16 +369,23 @@ defmodule Core.Finance do
   Returns the list of budgets for a user
   """
   def list_budgets_for_user(%User{} = user) do
-    do_list_budgets(user.id)
+    do_list_budgets(user)
   end
 
   def list_user_budgets(user_id) do
-    do_list_budgets(user_id)
+    do_list_budgets(%User{id: user_id})
   end
 
-  defp do_list_budgets(user_id) do
+  def list_budgets(%User{} = actor, owner) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      {:ok, do_list_budgets(owner)}
+    end
+  end
+
+  defp do_list_budgets(owner) do
     Budget
-    |> where([b], b.user_id == ^user_id and b.is_active == true)
+    |> scope_query(owner)
+    |> where([b], b.is_active == true)
     |> order_by([b], desc: b.inserted_at)
     |> preload(:category)
     |> Repo.all()
@@ -338,13 +407,30 @@ defmodule Core.Finance do
     |> Repo.get!(id)
   end
 
+  def get_budget!(%User{} = actor, owner, id) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      Budget
+      |> scope_query(owner)
+      |> preload([:user, :household, :category])
+      |> Repo.get!(id)
+    end
+  end
+
   @doc """
   Creates a budget
   """
   def create_budget(%User{} = user, attrs \\ %{}) do
-    %Budget{user_id: user.id}
-    |> Budget.changeset(attrs)
-    |> Repo.insert()
+    create_budget(user, user, attrs)
+  end
+
+  def create_budget(%User{} = actor, owner, attrs) do
+    with :ok <- ensure_scope_access(actor, owner),
+         attrs <- scope_attrs(attrs, owner),
+         :ok <- ensure_category_in_scope(attrs, owner) do
+      %Budget{}
+      |> Budget.changeset(attrs)
+      |> Repo.insert()
+    end
   end
 
   def change_budget(%Budget{} = budget \\ %Budget{}) do
@@ -357,12 +443,20 @@ defmodule Core.Finance do
     |> Enum.map(&check_budget_status/1)
   end
 
+  def list_budget_statuses(%User{} = actor, owner) do
+    with {:ok, budgets} <- list_budgets(actor, owner) do
+      {:ok, Enum.map(budgets, &check_budget_status/1)}
+    end
+  end
+
   @doc """
   Updates a budget
   """
   def update_budget(%User{} = user, %Budget{} = budget, attrs) do
     with :ok <- ensure_resource_owner(user, budget) do
-      update_budget(budget, attrs)
+      with :ok <- ensure_category_in_scope(attrs, resource_owner(budget)) do
+        update_budget(budget, attrs)
+      end
     end
   end
 
@@ -386,8 +480,19 @@ defmodule Core.Finance do
   # ------ Debts ------
 
   def list_debts_for_user(%User{} = user) do
+    do_list_debts(user)
+  end
+
+  def list_debts(%User{} = actor, owner) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      {:ok, do_list_debts(owner)}
+    end
+  end
+
+  defp do_list_debts(owner) do
     Debt
-    |> where([debt], debt.user_id == ^user.id and debt.status == "active")
+    |> scope_query(owner)
+    |> where([debt], debt.status == "active")
     |> order_by([debt], asc: debt.current_balance, asc: debt.name)
     |> preload(payments: ^recent_debt_payments_query())
     |> Repo.all()
@@ -400,14 +505,30 @@ defmodule Core.Finance do
     |> Repo.get!(id)
   end
 
+  def get_debt!(%User{} = actor, owner, id) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      Debt
+      |> scope_query(owner)
+      |> preload(payments: ^recent_debt_payments_query())
+      |> Repo.get!(id)
+    end
+  end
+
   def change_debt(%Debt{} = debt \\ %Debt{}) do
     Debt.changeset(debt, %{})
   end
 
   def create_debt(%User{} = user, attrs \\ %{}) do
-    %Debt{user_id: user.id}
-    |> Debt.changeset(attrs)
-    |> Repo.insert()
+    create_debt(user, user, attrs)
+  end
+
+  def create_debt(%User{} = actor, owner, attrs) do
+    with :ok <- ensure_scope_access(actor, owner),
+         attrs <- scope_attrs(attrs, owner) do
+      %Debt{}
+      |> Debt.changeset(attrs)
+      |> Repo.insert()
+    end
   end
 
   def update_debt(%User{} = user, %Debt{} = debt, attrs) do
@@ -453,9 +574,11 @@ defmodule Core.Finance do
 
   def record_debt_payment(%User{} = user, %Debt{} = debt, attrs \\ %{}) do
     with :ok <- ensure_resource_owner(user, debt) do
+      owner = resource_owner(debt)
+
       changeset =
-        %DebtPayment{user_id: user.id, debt_id: debt.id}
-        |> DebtPayment.changeset(attrs)
+        %DebtPayment{debt_id: debt.id}
+        |> DebtPayment.changeset(scope_attrs(attrs, owner))
         |> validate_debt_payment_amount(debt)
 
       if changeset.valid? do
@@ -478,8 +601,19 @@ defmodule Core.Finance do
   end
 
   def list_payoff_plans_for_user(%User{} = user) do
+    do_list_payoff_plans(user)
+  end
+
+  def list_payoff_plans(%User{} = actor, owner) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      {:ok, do_list_payoff_plans(owner)}
+    end
+  end
+
+  defp do_list_payoff_plans(owner) do
     DebtPayoffPlan
-    |> where([plan], plan.user_id == ^user.id and plan.status == "active")
+    |> scope_query(owner)
+    |> where([plan], plan.status == "active")
     |> order_by([plan], desc: plan.inserted_at)
     |> Repo.all()
   end
@@ -495,10 +629,30 @@ defmodule Core.Finance do
     |> DebtPlanner.compare(monthly_amount, starts_on)
   end
 
+  def generate_debt_payoff_comparison(%User{} = actor, owner, opts) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      today = Keyword.get(opts, :today, Date.utc_today())
+      starts_on = Keyword.get(opts, :starts_on, Date.beginning_of_month(today))
+      health = get_financial_health(actor, owner, today: today)
+      monthly_amount = Keyword.get(opts, :monthly_amount, health.current_month.free_cash_flow)
+
+      owner
+      |> do_list_debts()
+      |> DebtPlanner.compare(monthly_amount, starts_on)
+    end
+  end
+
   def save_debt_payoff_plan(%User{} = user, attrs) do
-    %DebtPayoffPlan{user_id: user.id}
-    |> DebtPayoffPlan.changeset(attrs)
-    |> Repo.insert()
+    save_debt_payoff_plan(user, user, attrs)
+  end
+
+  def save_debt_payoff_plan(%User{} = actor, owner, attrs) do
+    with :ok <- ensure_scope_access(actor, owner),
+         attrs <- scope_attrs(attrs, owner) do
+      %DebtPayoffPlan{}
+      |> DebtPayoffPlan.changeset(attrs)
+      |> Repo.insert()
+    end
   end
 
   def save_generated_debt_payoff_plan(%User{} = user, plan) do
@@ -512,11 +666,22 @@ defmodule Core.Finance do
     })
   end
 
+  def save_generated_debt_payoff_plan(%User{} = actor, owner, plan) do
+    save_debt_payoff_plan(actor, owner, %{
+      "name" => "#{String.capitalize(plan.strategy)} payoff plan",
+      "strategy" => plan.strategy,
+      "monthly_amount" => plan.monthly_amount,
+      "starts_on" => Date.beginning_of_month(Date.utc_today()),
+      "target_payoff_date" => plan.target_payoff_date,
+      "snapshot" => stringify_plan(plan)
+    })
+  end
+
   def get_financial_health(%User{} = user, opts \\ []) do
     today = Keyword.get(opts, :today, Date.utc_today())
 
     current_month =
-      month_summary(user.id, Date.beginning_of_month(today), Date.end_of_month(today))
+      month_summary(user, Date.beginning_of_month(today), Date.end_of_month(today))
 
     next_month_start = today |> Date.end_of_month() |> Date.add(1)
     next_month_end = Date.end_of_month(next_month_start)
@@ -528,13 +693,30 @@ defmodule Core.Finance do
     Health.build(current_month, next_month, list_debts_for_user(user))
   end
 
+  def get_financial_health(%User{} = actor, owner, opts) do
+    _ = ensure_scope_access(actor, owner)
+    today = Keyword.get(opts, :today, Date.utc_today())
+
+    current_month =
+      month_summary(owner, Date.beginning_of_month(today), Date.end_of_month(today))
+
+    next_month_start = today |> Date.end_of_month() |> Date.add(1)
+    next_month_end = Date.end_of_month(next_month_start)
+
+    next_month =
+      current_month
+      |> project_next_month(today, next_month_start, next_month_end)
+
+    Health.build(current_month, next_month, do_list_debts(owner))
+  end
+
   @doc """
   Checks budget status and returns spending %
   """
   def check_budget_status(%Budget{} = budget) do
     spent =
       Transaction
-      |> where([t], t.user_id == ^budget.user_id)
+      |> scope_query(resource_owner(budget))
       |> where([t], t.status == "confirmed")
       |> where([t], t.type == "expense")
       |> where([t], t.transaction_date >= ^budget.start_date)
@@ -571,9 +753,9 @@ defmodule Core.Finance do
     where(query, [t], t.category_id == ^category_id)
   end
 
-  defp month_summary(user_id, start_date, end_date) do
-    income = sum_transactions(user_id, "income", start_date, end_date)
-    expenses = sum_transactions_excluding_debt_payments(user_id, start_date, end_date)
+  defp month_summary(owner, start_date, end_date) do
+    income = sum_transactions(owner, "income", start_date, end_date)
+    expenses = sum_transactions_excluding_debt_payments(owner, start_date, end_date)
 
     %{
       start_date: start_date,
@@ -602,9 +784,9 @@ defmodule Core.Finance do
     |> Decimal.round(2)
   end
 
-  defp sum_transactions(user_id, type, start_date, end_date) do
+  defp sum_transactions(owner, type, start_date, end_date) do
     Transaction
-    |> where([transaction], transaction.user_id == ^user_id)
+    |> scope_query(owner)
     |> where([transaction], transaction.status == "confirmed")
     |> where([transaction], transaction.type == ^type)
     |> where(
@@ -615,14 +797,15 @@ defmodule Core.Finance do
     |> Repo.one() || Decimal.new("0")
   end
 
-  defp sum_transactions_excluding_debt_payments(user_id, start_date, end_date) do
+  defp sum_transactions_excluding_debt_payments(owner, start_date, end_date) do
     debt_payment_transaction_ids =
       DebtPayment
-      |> where([payment], payment.user_id == ^user_id and not is_nil(payment.transaction_id))
+      |> scope_query(owner)
+      |> where([payment], not is_nil(payment.transaction_id))
       |> select([payment], payment.transaction_id)
 
     Transaction
-    |> where([transaction], transaction.user_id == ^user_id)
+    |> scope_query(owner)
     |> where([transaction], transaction.status == "confirmed")
     |> where([transaction], transaction.type == "expense")
     |> where(
@@ -658,7 +841,7 @@ defmodule Core.Finance do
       amount = Ecto.Changeset.get_field(changeset, :amount)
       payment_date = Ecto.Changeset.get_field(changeset, :payment_date)
 
-      case create_transaction(user, %{
+      case create_transaction(user, resource_owner(debt), %{
              "amount" => amount,
              "type" => "expense",
              "description" => "Debt payment: #{debt.name}",
@@ -744,6 +927,79 @@ defmodule Core.Finance do
   end
 
   defp ensure_resource_owner(%User{} = user, resource) do
-    if resource.user_id == user.id, do: :ok, else: {:error, :forbidden}
+    cond do
+      resource.user_id == user.id ->
+        :ok
+
+      resource.household_id ->
+        if Accounts.user_household?(user, resource.household_id),
+          do: :ok,
+          else: {:error, :forbidden}
+
+      true ->
+        {:error, :forbidden}
+    end
+  end
+
+  defp ensure_scope_access(%User{} = actor, %User{} = owner) do
+    if actor.id == owner.id, do: :ok, else: {:error, :forbidden}
+  end
+
+  defp ensure_scope_access(%User{} = actor, %Household{} = owner) do
+    if Accounts.user_household?(actor, owner.id), do: :ok, else: {:error, :forbidden}
+  end
+
+  defp scope_attrs(attrs, %User{} = owner) do
+    attrs
+    |> Map.new()
+    |> Map.delete("household_id")
+    |> Map.delete(:household_id)
+    |> Map.put("user_id", owner.id)
+    |> Map.put("household_id", nil)
+  end
+
+  defp scope_attrs(attrs, %Household{} = owner) do
+    attrs
+    |> Map.new()
+    |> Map.delete("user_id")
+    |> Map.delete(:user_id)
+    |> Map.put("user_id", nil)
+    |> Map.put("household_id", owner.id)
+  end
+
+  defp ensure_category_in_scope(attrs, owner) do
+    case Map.get(attrs, "category_id") || Map.get(attrs, :category_id) do
+      nil ->
+        :ok
+
+      "" ->
+        :ok
+
+      category_id ->
+        category = Repo.get(Category, category_id)
+
+        if category && same_scope?(owner, category) do
+          :ok
+        else
+          {:error, :invalid_category_scope}
+        end
+    end
+  end
+
+  defp same_scope?(%User{id: owner_id}, %{user_id: owner_id, household_id: nil}), do: true
+  defp same_scope?(%Household{id: owner_id}, %{household_id: owner_id, user_id: nil}), do: true
+  defp same_scope?(_owner, _resource), do: false
+
+  defp resource_owner(%{household_id: household_id}) when not is_nil(household_id),
+    do: %Household{id: household_id}
+
+  defp resource_owner(%{user_id: user_id}), do: %User{id: user_id}
+
+  defp scope_query(query, %User{id: owner_id}) do
+    where(query, [record], record.user_id == ^owner_id and is_nil(record.household_id))
+  end
+
+  defp scope_query(query, %Household{id: owner_id}) do
+    where(query, [record], record.household_id == ^owner_id and is_nil(record.user_id))
   end
 end
