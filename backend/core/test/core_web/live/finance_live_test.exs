@@ -17,10 +17,9 @@ defmodule CoreWeb.FinanceLiveTest do
 
     assert {:ok, _view, html} = live(conn, ~p"/finance")
 
-    assert html =~ "Good"
     assert html =~ "IziHub Finance"
     assert html =~ "Available cash"
-    assert html =~ "Create household"
+    assert html =~ "+ Household"
   end
 
   test "creates a manual transaction from the dashboard", %{conn: conn} do
@@ -236,7 +235,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button[aria-label=\"Manage debt\"]")
+    |> element("button[aria-label=\"Add debt\"]")
     |> render_click()
 
     html =
@@ -320,7 +319,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
     html =
       view
-      |> element("button[aria-label=\"Manage households\"]")
+      |> element("button[aria-label=\"Add household\"]")
       |> render_click()
 
     assert html =~ "Create or switch scope"
@@ -333,9 +332,12 @@ defmodule CoreWeb.FinanceLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/finance")
 
-    view
-    |> element("button[aria-label=\"Add account\"]")
-    |> render_click()
+    html =
+      view
+      |> element("button[aria-label=\"Add account\"]")
+      |> render_click()
+
+    assert html =~ ~s(value="DOP")
 
     html =
       view
@@ -344,7 +346,7 @@ defmodule CoreWeb.FinanceLiveTest do
           "name" => "Emergency savings",
           "institution" => "Popular Bank",
           "kind" => "savings",
-          "currency" => "USD",
+          "currency" => "DOP",
           "current_balance" => "1800.00",
           "available_balance" => "1800.00",
           "notes" => "Rainy day"
@@ -357,6 +359,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
     [account] = Finance.list_accounts_for_user(user)
     assert account.name == "Emergency savings"
+    assert account.currency == "DOP"
   end
 
   defp user_fixture do

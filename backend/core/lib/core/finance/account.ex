@@ -9,7 +9,7 @@ defmodule Core.Finance.Account do
     field :name, :string
     field :institution, :string
     field :kind, :string
-    field :currency, :string, default: "USD"
+    field :currency, :string, default: "DOP"
     field :current_balance, :decimal, default: Decimal.new("0")
     field :available_balance, :decimal
     field :status, :string, default: "active"
