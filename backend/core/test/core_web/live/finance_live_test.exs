@@ -17,8 +17,8 @@ defmodule CoreWeb.FinanceLiveTest do
 
     assert {:ok, _view, html} = live(conn, ~p"/finance")
 
-    assert html =~ "account"
-    assert html =~ "Default dashboard"
+    assert html =~ "Good"
+    assert html =~ "IziHub Finance"
     assert html =~ "Available cash"
     assert html =~ "Create household"
   end
