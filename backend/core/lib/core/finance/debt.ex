@@ -9,6 +9,7 @@ defmodule Core.Finance.Debt do
     field :name, :string
     field :kind, :string, default: "other"
     field :provider, :string
+    field :currency, :string, default: "DOP"
     field :principal_balance, :decimal
     field :current_balance, :decimal
     field :apr, :decimal
@@ -35,6 +36,7 @@ defmodule Core.Finance.Debt do
       :name,
       :kind,
       :provider,
+      :currency,
       :principal_balance,
       :current_balance,
       :apr,
@@ -46,9 +48,11 @@ defmodule Core.Finance.Debt do
       :user_id,
       :household_id
     ])
-    |> validate_required([:name, :kind, :current_balance, :minimum_payment])
+    |> validate_required([:name, :kind, :currency, :current_balance, :minimum_payment])
     |> validate_length(:name, min: 1, max: 120)
     |> validate_length(:provider, max: 120)
+    |> validate_length(:currency, is: 3)
+    |> update_change(:currency, &normalize_currency/1)
     |> validate_inclusion(:kind, @kinds)
     |> validate_inclusion(:status, @statuses)
     |> validate_owner_scope()
@@ -71,4 +75,7 @@ defmodule Core.Finance.Debt do
       changeset
     end
   end
+
+  defp normalize_currency(nil), do: nil
+  defp normalize_currency(currency), do: currency |> String.trim() |> String.upcase()
 end

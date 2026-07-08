@@ -8,6 +8,7 @@ defmodule Core.Finance.Budget do
   schema "budgets" do
     field :name, :string
     field :amount, :decimal
+    field :currency, :string, default: "DOP"
     field :period, :string
     field :start_date, :date
     field :end_date, :date
@@ -29,6 +30,7 @@ defmodule Core.Finance.Budget do
     |> cast(attrs, [
       :name,
       :amount,
+      :currency,
       :period,
       :start_date,
       :end_date,
@@ -38,8 +40,10 @@ defmodule Core.Finance.Budget do
       :user_id,
       :household_id
     ])
-    |> validate_required([:name, :amount, :period, :start_date])
+    |> validate_required([:name, :amount, :currency, :period, :start_date])
     |> validate_number(:amount, greater_than: 0)
+    |> validate_length(:currency, is: 3)
+    |> update_change(:currency, &normalize_currency/1)
     |> validate_inclusion(:period, @periods)
     |> validate_number(:alert_threshold, greater_than_or_equal_to: 0, less_than_or_equal_to: 100)
     |> validate_owner_scope()
@@ -70,4 +74,7 @@ defmodule Core.Finance.Budget do
       changeset
     end
   end
+
+  defp normalize_currency(nil), do: nil
+  defp normalize_currency(currency), do: currency |> String.trim() |> String.upcase()
 end

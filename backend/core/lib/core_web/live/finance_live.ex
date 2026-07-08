@@ -3,8 +3,9 @@ defmodule CoreWeb.FinanceLive do
 
   alias Core.Accounts
   alias Core.Finance
-  alias Core.Finance.{Account, Budget, Category, DebtPayment, Transaction}
+  alias Core.Finance.{Account, Budget, Category, Debt, DebtPayment, Transaction}
 
+  @default_currency "DOP"
   @sections ["overview", "transactions", "review", "budgets", "debts", "insights"]
   @time_scopes ["day", "week", "month", "year", "event"]
   @focus_panels [
@@ -717,14 +718,14 @@ defmodule CoreWeb.FinanceLive do
             <div class="grid gap-3.5 sm:grid-cols-2">
               <.metric_card
                 label="Available cash"
-                value={money(@period_summary.balance)}
+                value={money_totals(@period_summary_totals.balance)}
                 note={@date_window_label}
                 tone="cash"
                 featured
               />
               <.metric_card
                 label="Budget remaining"
-                value={money(@budget_remaining)}
+                value={money_totals(@budget_remaining_totals)}
                 note={budget_metric_note(@budget_statuses)}
                 tone="budget"
               />
@@ -733,13 +734,13 @@ defmodule CoreWeb.FinanceLive do
             <div class="grid gap-3 sm:grid-cols-2">
               <.metric_card
                 label="Income"
-                value={money(@period_summary.income)}
+                value={money_totals(@period_summary_totals.income)}
                 tone="income"
                 compact
               />
               <.metric_card
                 label="Expenses"
-                value={money(@period_summary.expenses)}
+                value={money_totals(@period_summary_totals.expenses)}
                 note={expense_metric_note(@transactions)}
                 tone="expense"
                 compact
@@ -759,7 +760,7 @@ defmodule CoreWeb.FinanceLive do
               <div class="mt-3.5 space-y-2.5">
                 <div :for={summary <- Enum.take(@account_summaries, 2)} class="flex items-center justify-between gap-3 rounded-[1rem] border border-white/80 bg-white/64 px-3 py-2.5">
                   <p class="min-w-0 truncate text-[13px] font-medium text-slate-900"><%= summary.account.name %></p>
-                  <p class="font-mono text-[12px] font-semibold text-slate-900"><%= money(summary.account.current_balance) %></p>
+                  <p class="font-mono text-[12px] font-semibold text-slate-900"><%= money(summary.account.current_balance, summary.account.currency) %></p>
                 </div>
 
                 <div :if={@account_summaries == []} class="rounded-[1rem] border border-dashed border-purple-100/70 bg-white/50 px-3 py-3 text-xs text-slate-400">
@@ -967,8 +968,8 @@ defmodule CoreWeb.FinanceLive do
                 <div class={["h-full rounded-full", budget_progress_class(status)]} style={"width: #{min(status.percentage, 100)}%"} />
               </div>
               <div class="mt-3 flex items-center justify-between text-xs">
-                <span class="text-slate-500">Spent <%= money(status.spent) %></span>
-                <span class="font-semibold text-slate-900">Remaining <%= money(status.remaining) %></span>
+                <span class="text-slate-500">Spent <%= money(status.spent, status.budget.currency) %></span>
+                <span class="font-semibold text-slate-900">Remaining <%= money(status.remaining, status.budget.currency) %></span>
               </div>
             </div>
 
@@ -999,14 +1000,14 @@ defmodule CoreWeb.FinanceLive do
         <div class="rounded-xl border border-purple-100 bg-purple-50/55 p-4">
           <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Net flow</p>
           <p class={["mt-2 text-2xl font-semibold tracking-tight", metric_tone_class("cash")]}>
-            <%= money(@period_summary.balance) %>
+            <%= money_totals(@period_summary_totals.balance) %>
           </p>
           <p class="mt-2 text-sm text-slate-600">Income minus expenses for <%= String.downcase(time_scope_title(@time_scope)) %>.</p>
         </div>
         <div class="rounded-xl border border-purple-100 bg-purple-50/55 p-4">
           <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Tracked balances</p>
           <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-            <%= money(@account_total_balance) %>
+            <%= money_totals(@account_total_balance_totals) %>
           </p>
           <p class="mt-2 text-sm leading-6 text-slate-600"><%= length(@accounts) %> tracked in this scope.</p>
         </div>
@@ -1022,8 +1023,8 @@ defmodule CoreWeb.FinanceLive do
               </p>
             </div>
             <div class="text-right">
-              <p class="text-sm font-semibold text-slate-900"><%= money(summary.account.current_balance) %></p>
-              <p class="mt-1 text-xs text-slate-500"><%= signed_decimal(summary.net) %> net in range</p>
+              <p class="text-sm font-semibold text-slate-900"><%= money(summary.account.current_balance, summary.account.currency) %></p>
+              <p class="mt-1 text-xs text-slate-500"><%= signed_decimal(summary.net, summary.account.currency) %> net in range</p>
             </div>
           </div>
 
@@ -1119,11 +1120,11 @@ defmodule CoreWeb.FinanceLive do
                   <%= format_kind(debt.kind) %><%= if debt.provider, do: " with #{debt.provider}" %>
                 </p>
               </div>
-              <span class="text-sm font-semibold text-slate-900"><%= money(debt.minimum_payment) %></span>
+              <span class="text-sm font-semibold text-slate-900"><%= money(debt.minimum_payment, debt.currency) %></span>
             </div>
             <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
               <span class="text-slate-500"><%= due_day_label(debt.due_day) %></span>
-              <span class="font-semibold text-slate-900">Balance <%= money(debt.current_balance) %></span>
+              <span class="font-semibold text-slate-900">Balance <%= money(debt.current_balance, debt.currency) %></span>
             </div>
           </div>
 
@@ -1141,7 +1142,7 @@ defmodule CoreWeb.FinanceLive do
                 <span class="text-xs font-semibold text-slate-500"><%= format_date(plan.target_payoff_date) %></span>
               </div>
               <p class="mt-2 text-xs text-slate-500">
-                <%= String.capitalize(plan.strategy) %> · <%= money(plan.monthly_amount) %>/mo
+                <%= String.capitalize(plan.strategy) %> · <%= plan_money(plan.monthly_amount, @debt_currencies) %>
               </p>
             </div>
 
@@ -1209,7 +1210,7 @@ defmodule CoreWeb.FinanceLive do
             <.finance_input form={@account_form} field={:name} label="Account name" placeholder="Main checking" />
             <.finance_input form={@account_form} field={:institution} label="Institution" placeholder="Popular Bank" />
             <.finance_select form={@account_form} field={:kind} label="Kind" options={account_kind_options()} />
-            <.finance_input form={@account_form} field={:currency} label="Currency" placeholder="DOP" />
+            <.finance_select form={@account_form} field={:currency} label="Currency" options={currency_options()} />
             <.finance_input form={@account_form} field={:current_balance} label="Current balance" type="number" step="0.01" placeholder="2400.00" />
             <.finance_input form={@account_form} field={:available_balance} label="Available balance" type="number" step="0.01" placeholder="2200.00" />
           </div>
@@ -1229,7 +1230,7 @@ defmodule CoreWeb.FinanceLive do
             <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Scope balances and activity</h2>
           </div>
           <span class="rounded-full border border-purple-100 bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700">
-            <%= money(@account_total_balance) %>
+            <%= money_totals(@account_total_balance_totals) %>
           </span>
         </div>
 
@@ -1241,14 +1242,14 @@ defmodule CoreWeb.FinanceLive do
                 <p class="mt-1 text-xs text-slate-500"><%= account_summary_subtitle(summary.account) %></p>
               </div>
               <div class="text-right">
-                <p class="font-semibold text-slate-900"><%= money(summary.account.current_balance) %></p>
-                <p class="mt-1 text-xs text-slate-500"><%= signed_decimal(summary.net) %> this range</p>
+                <p class="font-semibold text-slate-900"><%= money(summary.account.current_balance, summary.account.currency) %></p>
+                <p class="mt-1 text-xs text-slate-500"><%= signed_decimal(summary.net, summary.account.currency) %> this range</p>
               </div>
             </div>
 
             <div class="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-3">
-              <.status_row label="Income" value={money(summary.income)} />
-              <.status_row label="Expenses" value={money(summary.expenses)} />
+              <.status_row label="Income" value={money(summary.income, summary.account.currency)} />
+              <.status_row label="Expenses" value={money(summary.expenses, summary.account.currency)} />
               <.status_row label="Linked tx" value={Integer.to_string(summary.transaction_count)} />
             </div>
           </div>
@@ -1323,6 +1324,7 @@ defmodule CoreWeb.FinanceLive do
             <.finance_input form={@budget_form} field={:name} label="Name" placeholder="Groceries, rent, subscriptions..." />
             <div class="grid gap-3 sm:grid-cols-2">
               <.finance_input form={@budget_form} field={:amount} label="Amount" placeholder="400.00" type="number" step="0.01" />
+              <.finance_select form={@budget_form} field={:currency} label="Currency" options={currency_options()} />
               <.finance_select form={@budget_form} field={:period} label="Period" options={budget_period_options()} />
               <.finance_input form={@budget_form} field={:start_date} label="Start date" type="date" />
               <.finance_input form={@budget_form} field={:end_date} label="End date" type="date" />
@@ -1362,7 +1364,7 @@ defmodule CoreWeb.FinanceLive do
             <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Active budgets</p>
             <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Budget status</h2>
           </div>
-          <span class="text-xs font-semibold text-slate-500"><%= money(@budget_remaining) %> remaining</span>
+          <span class="text-xs font-semibold text-slate-500"><%= money_totals(@budget_remaining_totals) %> remaining</span>
         </div>
 
         <div class="mt-5 space-y-3">
@@ -1390,6 +1392,7 @@ defmodule CoreWeb.FinanceLive do
             <.finance_input form={@debt_form} field={:name} label="Name" placeholder="Visa, auto loan..." />
             <.finance_input form={@debt_form} field={:provider} label="Provider" placeholder="Bank or lender" />
             <.finance_select form={@debt_form} field={:kind} label="Kind" options={debt_kind_options()} />
+            <.finance_select form={@debt_form} field={:currency} label="Currency" options={currency_options()} />
             <.finance_input form={@debt_form} field={:current_balance} label="Current balance" placeholder="2500.00" type="number" step="0.01" />
             <.finance_input form={@debt_form} field={:minimum_payment} label="Minimum payment" placeholder="75.00" type="number" step="0.01" />
             <.finance_input form={@debt_form} field={:apr} label="APR optional" placeholder="24.99" type="number" step="0.0001" />
@@ -1413,15 +1416,15 @@ defmodule CoreWeb.FinanceLive do
 
       <div class="rounded-2xl border border-purple-100 bg-white p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Payoff comparison</p>
-            <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Snowball vs avalanche</h2>
-          </div>
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Payoff comparison</p>
+                <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Snowball vs avalanche</h2>
+              </div>
           <button type="button" phx-click="generate_plans" class="btn btn-primary btn-xs">Refresh</button>
         </div>
 
         <div class="mt-5 grid gap-4 lg:grid-cols-2">
-          <.plan_card :for={plan <- @comparison} plan={plan} />
+          <.plan_card :for={plan <- @comparison} plan={plan} debt_currencies={@debt_currencies} />
           <div :if={@comparison == []} class="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-slate-500 lg:col-span-2">
             Generate plans to compare payoff order, payoff month, and estimated interest.
           </div>
@@ -1453,7 +1456,7 @@ defmodule CoreWeb.FinanceLive do
               </span>
               <span class="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/62 px-3 py-1.5 text-xs font-medium text-slate-600 backdrop-blur-sm">
                 <.icon name="hero-wallet" class="h-3.5 w-3.5 text-emerald-600" />
-                <%= money(@health.current_month.free_cash_flow) %>
+                <%= money_totals(@current_month_summary_totals.balance) %>
               </span>
               <div class="flex items-center gap-4 text-[11px] text-slate-500">
                 <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-full bg-emerald-600"></span>Income</span>
@@ -1474,9 +1477,9 @@ defmodule CoreWeb.FinanceLive do
             <div class="grid gap-4">
               <div class="rounded-[1.55rem] border border-white/75 bg-[linear-gradient(160deg,rgba(255,255,255,0.7)_0%,rgba(240,249,255,0.58)_100%)] p-5 shadow-[0_18px_32px_-26px_rgba(88,28,135,0.16)] backdrop-blur-sm">
                 <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Scope balance</p>
-                <p class="mt-4 text-[2.3rem] font-semibold tracking-tight text-slate-950"><%= money(@account_total_balance) %></p>
+                <p class="mt-4 text-[2.3rem] font-semibold tracking-tight text-slate-950"><%= money_totals(@account_total_balance_totals) %></p>
                 <p class={["mt-3 text-sm font-medium", Decimal.compare(@period_summary.balance, Decimal.new("0")) == :lt && "text-rose-600", Decimal.compare(@period_summary.balance, Decimal.new("0")) != :lt && "text-emerald-600"]}>
-                  <%= signed_decimal(@period_summary.balance) %> in <%= String.downcase(time_scope_title(@time_scope)) %> view
+                  <%= signed_money_totals(@period_summary_totals.balance) %> in <%= String.downcase(time_scope_title(@time_scope)) %> view
                 </p>
               </div>
 
@@ -1492,7 +1495,7 @@ defmodule CoreWeb.FinanceLive do
                   </span>
                   <div>
                     <p class="font-semibold text-slate-900">Accounts</p>
-                    <p class="mt-1 text-xs text-slate-500"><%= money(@account_total_balance) %></p>
+                    <p class="mt-1 text-xs text-slate-500"><%= money_totals(@account_total_balance_totals) %></p>
                   </div>
                 </button>
 
@@ -1597,8 +1600,8 @@ defmodule CoreWeb.FinanceLive do
                       <p class="mt-1 text-xs text-slate-500"><%= due_day_label(debt.due_day) %></p>
                     </div>
                     <div class="text-right">
-                      <p class="font-mono text-sm font-semibold text-slate-900"><%= money(debt.current_balance) %></p>
-                      <p class="mt-1 text-xs text-slate-500"><%= money(debt.minimum_payment) %> min</p>
+                      <p class="font-mono text-sm font-semibold text-slate-900"><%= money(debt.current_balance, debt.currency) %></p>
+                      <p class="mt-1 text-xs text-slate-500"><%= money(debt.minimum_payment, debt.currency) %> min</p>
                     </div>
                   </div>
                 </div>
@@ -1700,7 +1703,7 @@ defmodule CoreWeb.FinanceLive do
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Active budgets</p>
             <h2 class="mt-1 text-xl font-semibold text-slate-950">Budget status</h2>
           </div>
-          <span class="text-xs font-semibold text-slate-500"><%= money(@budget_remaining) %> remaining</span>
+          <span class="text-xs font-semibold text-slate-500"><%= money_totals(@budget_remaining_totals) %> remaining</span>
         </div>
 
         <div class="mt-4 space-y-3">
@@ -1745,7 +1748,7 @@ defmodule CoreWeb.FinanceLive do
         </div>
 
         <div class="mt-5 grid gap-4 lg:grid-cols-2">
-          <.plan_card :for={plan <- @comparison} plan={plan} />
+          <.plan_card :for={plan <- @comparison} plan={plan} debt_currencies={@debt_currencies} />
           <div :if={@comparison == []} class="rounded-xl border border-dashed border-purple-100/70 bg-purple-50/35 p-4 text-sm text-slate-500 lg:col-span-2">
             Generate plans to compare payoff order, payoff month, and estimated interest.
           </div>
@@ -1761,7 +1764,7 @@ defmodule CoreWeb.FinanceLive do
               <div>
                 <p class="font-semibold text-slate-900"><%= plan.name %></p>
                 <p class="mt-1 text-xs text-slate-500">
-                  <%= String.capitalize(plan.strategy) %> · <%= money(plan.monthly_amount) %>/mo
+                  <%= String.capitalize(plan.strategy) %> · <%= plan_money(plan.monthly_amount, @debt_currencies) %>
                 </p>
               </div>
               <span class="text-xs font-semibold text-emerald-700"><%= format_date(plan.target_payoff_date) %></span>
@@ -1783,8 +1786,8 @@ defmodule CoreWeb.FinanceLive do
         <div class="mt-5 space-y-3">
           <.status_row label="Debt-to-income" value={"#{@health.debt_to_income_ratio}%"} />
           <.status_row label="Minimum payment burden" value={"#{@health.minimum_payment_burden}%"} />
-          <.status_row label="Monthly debt minimums" value={money(@health.minimum_debt_payment)} />
-          <.status_row label="Current free cash flow" value={money(@health.current_month.free_cash_flow)} />
+          <.status_row label="Monthly debt minimums" value={money_totals(@minimum_debt_payment_totals)} />
+          <.status_row label="Current free cash flow" value={money_totals(@current_month_summary_totals.balance)} />
         </div>
       </div>
 
@@ -1913,9 +1916,9 @@ defmodule CoreWeb.FinanceLive do
       <p class="text-sm font-semibold text-slate-900"><%= @title %></p>
       <p class="mt-1 text-xs text-slate-500"><%= format_date(@month.start_date) %> to <%= format_date(@month.end_date) %></p>
       <div class="mt-4 space-y-2 text-sm">
-        <.status_row label="Income" value={money(@month.income)} />
-        <.status_row label="Expenses" value={money(@month.expenses)} />
-        <.status_row label="Free cash flow" value={money(@month.free_cash_flow)} />
+        <.status_row label="Income" value={money(@month.income, @default_currency)} />
+        <.status_row label="Expenses" value={money(@month.expenses, @default_currency)} />
+        <.status_row label="Free cash flow" value={money(@month.free_cash_flow, @default_currency)} />
       </div>
     </div>
     """
@@ -1976,7 +1979,7 @@ defmodule CoreWeb.FinanceLive do
     <div>
       <div class="flex items-center justify-between gap-4 text-sm">
         <span class="font-medium text-slate-900"><%= @status.budget.name %></span>
-        <span class="font-mono text-[12px] text-slate-500"><%= money(@status.spent) %> / <%= money(@status.budget.amount) %></span>
+        <span class="font-mono text-[12px] text-slate-500"><%= money(@status.spent, @status.budget.currency) %> / <%= money(@status.budget.amount, @status.budget.currency) %></span>
       </div>
       <div class="mt-2.5 h-1.5 overflow-hidden rounded-full bg-purple-100/90">
         <div class={["h-full rounded-full", budget_progress_class(@status)]} style={"width: #{min(@status.percentage, 100)}%"} />
@@ -2096,11 +2099,11 @@ defmodule CoreWeb.FinanceLive do
       <div class="mt-3 grid grid-cols-3 gap-2 text-xs">
         <div>
           <p class="text-slate-400">Spent</p>
-          <p class="mt-1 font-semibold text-slate-900"><%= money(@status.spent) %></p>
+          <p class="mt-1 font-semibold text-slate-900"><%= money(@status.spent, @status.budget.currency) %></p>
         </div>
         <div>
           <p class="text-slate-400">Remaining</p>
-          <p class="mt-1 font-semibold text-slate-900"><%= money(@status.remaining) %></p>
+          <p class="mt-1 font-semibold text-slate-900"><%= money(@status.remaining, @status.budget.currency) %></p>
         </div>
         <div>
           <p class="text-slate-400">Used</p>
@@ -2138,11 +2141,11 @@ defmodule CoreWeb.FinanceLive do
       <div class="mt-4 grid grid-cols-3 gap-3 text-sm">
         <div>
           <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Balance</p>
-          <p class="mt-1 font-semibold text-slate-900"><%= money(@debt.current_balance) %></p>
+          <p class="mt-1 font-semibold text-slate-900"><%= money(@debt.current_balance, @debt.currency) %></p>
         </div>
         <div>
           <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Minimum</p>
-          <p class="mt-1 font-semibold text-slate-900"><%= money(@debt.minimum_payment) %></p>
+          <p class="mt-1 font-semibold text-slate-900"><%= money(@debt.minimum_payment, @debt.currency) %></p>
         </div>
         <div>
           <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">APR</p>
@@ -2179,7 +2182,7 @@ defmodule CoreWeb.FinanceLive do
             <span class="text-slate-600">
               <%= format_date(payment.payment_date) %> · <%= format_kind(payment.kind) %>
             </span>
-            <span class="font-semibold text-slate-900"><%= money(payment.amount) %></span>
+            <span class="font-semibold text-slate-900"><%= money(payment.amount, @debt.currency) %></span>
           </div>
         </div>
       </div>
@@ -2258,6 +2261,7 @@ defmodule CoreWeb.FinanceLive do
   end
 
   attr :plan, :map, required: true
+  attr :debt_currencies, :list, default: []
 
   defp plan_card(assigns) do
     ~H"""
@@ -2273,8 +2277,8 @@ defmodule CoreWeb.FinanceLive do
       </div>
 
       <div class="mt-4 space-y-2">
-        <.status_row label="Monthly amount" value={money(@plan.monthly_amount)} />
-        <.status_row label="Estimated interest" value={money(@plan.estimated_interest)} />
+        <.status_row label="Monthly amount" value={plan_money(@plan.monthly_amount, @debt_currencies)} />
+        <.status_row label="Estimated interest" value={plan_money(@plan.estimated_interest, @debt_currencies)} />
         <.status_row label="Payoff months" value={to_string(@plan.payoff_months)} />
         <.status_row label="Payoff date" value={format_date(@plan.target_payoff_date)} />
       </div>
@@ -2289,6 +2293,7 @@ defmodule CoreWeb.FinanceLive do
 
   defp assign_finance_data(socket) do
     user = current_actor(socket)
+    today = Date.utc_today()
     households = Accounts.list_households_for_user(user)
     selected_household = select_household(households, socket.assigns[:selected_household_id])
 
@@ -2304,7 +2309,7 @@ defmodule CoreWeb.FinanceLive do
     budget_statuses = Enum.map(budgets, &Finance.check_budget_status/1)
     event_budget_statuses = Enum.filter(budget_statuses, &event_budget_status?/1)
     {:ok, pending_transactions} = Finance.list_pending_transactions(user, owner, limit: 20)
-    period_window = period_window(time_scope, event_budget_statuses, Date.utc_today())
+    period_window = period_window(time_scope, event_budget_statuses, today)
 
     {:ok, account_summaries} =
       Finance.list_account_summaries(
@@ -2317,6 +2322,9 @@ defmodule CoreWeb.FinanceLive do
     period_summary =
       Finance.get_financial_summary(owner, period_window.start_date, period_window.end_date)
 
+    period_summary_totals =
+      Finance.get_currency_summary(owner, period_window.start_date, period_window.end_date)
+
     {:ok, transactions} =
       Finance.list_transactions(user, owner,
         limit: 20,
@@ -2328,7 +2336,24 @@ defmodule CoreWeb.FinanceLive do
     confirmed_transactions = Enum.filter(transactions, &(&1.status == "confirmed"))
     {:ok, debts} = Finance.list_debts(user, owner)
     {:ok, plans} = Finance.list_payoff_plans(user, owner)
-    health = Finance.get_financial_health(user, owner, today: Date.utc_today())
+    health = Finance.get_financial_health(user, owner, today: today)
+
+    current_month_summary_totals =
+      Finance.get_currency_summary(
+        owner,
+        Date.beginning_of_month(today),
+        Date.end_of_month(today),
+        exclude_debt_payment_expenses: true
+      )
+
+    account_total_balance_totals = currency_totals(accounts, & &1.current_balance, & &1.currency)
+
+    budget_remaining_totals =
+      currency_totals(budget_statuses, & &1.remaining, & &1.budget.currency)
+
+    debt_total_totals = currency_totals(debts, & &1.current_balance, & &1.currency)
+    minimum_debt_payment_totals = currency_totals(debts, & &1.minimum_payment, & &1.currency)
+    debt_currencies = currency_codes(debts, & &1.currency)
 
     base_assigns = %{
       households: households,
@@ -2345,16 +2370,23 @@ defmodule CoreWeb.FinanceLive do
         accounts: accounts,
         account_summaries: account_summaries,
         account_total_balance: account_total_balance(accounts),
+        account_total_balance_totals: account_total_balance_totals,
         expense_categories: Enum.filter(categories, &(&1.type == "expense")),
         date_window_label: period_window.label,
         period_summary: period_summary,
+        period_summary_totals: period_summary_totals,
+        current_month_summary_totals: current_month_summary_totals,
         transactions: transactions,
         pending_transactions: pending_transactions,
         pending_review_count: length(pending_transactions),
         budget_statuses: budget_statuses,
         event_budget_statuses: event_budget_statuses,
         budget_remaining: budget_remaining(budget_statuses),
+        budget_remaining_totals: budget_remaining_totals,
         debts: debts,
+        debt_total_totals: debt_total_totals,
+        minimum_debt_payment_totals: minimum_debt_payment_totals,
+        debt_currencies: debt_currencies,
         health: health,
         payment_method_breakdown: payment_method_breakdown(confirmed_transactions),
         plans: plans
@@ -2395,6 +2427,7 @@ defmodule CoreWeb.FinanceLive do
 
   defp assign_budget_form(socket) do
     budget = %Budget{
+      currency: @default_currency,
       period: "monthly",
       start_date: Date.beginning_of_month(Date.utc_today()),
       alert_threshold: 80
@@ -2404,7 +2437,8 @@ defmodule CoreWeb.FinanceLive do
   end
 
   defp assign_debt_form(socket) do
-    assign(socket, debt_form: to_form(Finance.change_debt(), as: :debt))
+    debt = %Debt{currency: @default_currency}
+    assign(socket, debt_form: to_form(Finance.change_debt(debt), as: :debt))
   end
 
   defp assign_payment_form(socket) do
@@ -2413,7 +2447,12 @@ defmodule CoreWeb.FinanceLive do
   end
 
   defp assign_account_form(socket) do
-    account = %Account{kind: "checking", currency: "DOP", current_balance: Decimal.new("0")}
+    account = %Account{
+      kind: "checking",
+      currency: @default_currency,
+      current_balance: Decimal.new("0")
+    }
+
     assign(socket, account_form: to_form(Finance.change_account(account), as: :account))
   end
 
@@ -2521,12 +2560,20 @@ defmodule CoreWeb.FinanceLive do
     ]
   end
 
+  defp currency_options do
+    [
+      {"Dominican peso (DOP)", "DOP"},
+      {"US dollar (USD)", "USD"}
+    ]
+  end
+
   defp category_options(categories) do
     [{"Uncategorized", ""}] ++ Enum.map(categories, &{&1.name, &1.id})
   end
 
   defp account_options(accounts) do
-    [{"Not set", ""}] ++ Enum.map(accounts, &{&1.name, &1.id})
+    [{"Not set", ""}] ++
+      Enum.map(accounts, &{"#{&1.name} (#{normalize_currency(&1.currency)})", &1.id})
   end
 
   defp debt_kind_options do
@@ -2560,18 +2607,55 @@ defmodule CoreWeb.FinanceLive do
   defp transaction_submit_label(_id, "pending_review"), do: "Save and confirm"
   defp transaction_submit_label(_id, _status), do: "Save changes"
 
-  defp money(%Decimal{} = amount), do: "$#{Decimal.round(amount, 2)}"
-  defp money(nil), do: "$0.00"
+  defp money(%Decimal{} = amount, currency) do
+    rounded = Decimal.round(amount, 2)
 
-  defp signed_money(%Transaction{type: "income", amount: amount}), do: "+#{money(amount)}"
-  defp signed_money(%Transaction{amount: amount}), do: "-#{money(amount)}"
-
-  defp signed_decimal(%Decimal{} = amount) do
-    case Decimal.compare(amount, Decimal.new("0")) do
-      :lt -> "-#{money(Decimal.abs(amount))}"
-      _ -> "+#{money(amount)}"
+    case Decimal.compare(rounded, Decimal.new("0")) do
+      :lt -> "-#{currency_prefix(currency)}#{Decimal.abs(rounded)}"
+      _ -> "#{currency_prefix(currency)}#{rounded}"
     end
   end
+
+  defp money(nil, currency), do: "#{currency_prefix(currency)}0.00"
+  defp money_totals([]), do: money(nil, @default_currency)
+
+  defp money_totals(totals) do
+    totals
+    |> sort_currency_totals()
+    |> Enum.map_join(" · ", fn %{currency: currency, amount: amount} ->
+      money(amount, currency)
+    end)
+  end
+
+  defp signed_money(%Transaction{type: "income", amount: amount} = transaction),
+    do: "+#{money(amount, transaction_currency(transaction))}"
+
+  defp signed_money(%Transaction{amount: amount} = transaction),
+    do: "-#{money(amount, transaction_currency(transaction))}"
+
+  defp signed_decimal(%Decimal{} = amount, currency) do
+    case Decimal.compare(amount, Decimal.new("0")) do
+      :lt -> "-#{money(Decimal.abs(amount), currency)}"
+      _ -> "+#{money(amount, currency)}"
+    end
+  end
+
+  defp signed_money_totals([]), do: "+#{money(nil, @default_currency)}"
+
+  defp signed_money_totals(totals) do
+    totals
+    |> sort_currency_totals()
+    |> Enum.map_join(" · ", fn %{currency: currency, amount: amount} ->
+      signed_decimal(amount, currency)
+    end)
+  end
+
+  defp plan_money(amount, [currency]), do: money(amount, currency)
+
+  defp plan_money(_amount, currencies) when length(currencies) > 1,
+    do: mixed_currency_label(currencies)
+
+  defp plan_money(amount, _currencies), do: money(amount, @default_currency)
 
   defp apr(nil), do: "Missing"
   defp apr(%Decimal{} = value), do: "#{Decimal.round(value, 2)}%"
@@ -2588,10 +2672,64 @@ defmodule CoreWeb.FinanceLive do
   defp category_name(nil), do: "All spending"
   defp category_name(category), do: category.name
 
+  defp transaction_currency(%Transaction{account: %Account{currency: currency}}),
+    do: normalize_currency(currency)
+
+  defp transaction_currency(_transaction), do: @default_currency
+
   defp account_summary_subtitle(account) do
     [account.institution, format_kind(account.kind), account.currency]
     |> Enum.reject(&is_nil_or_empty/1)
     |> Enum.join(" · ")
+  end
+
+  defp currency_totals(items, amount_fun, currency_fun) do
+    items
+    |> Enum.reduce(%{}, fn item, acc ->
+      amount = amount_fun.(item) || Decimal.new("0")
+      currency = normalize_currency(currency_fun.(item))
+      Map.update(acc, currency, amount, &Decimal.add(&1, amount))
+    end)
+    |> Enum.map(fn {currency, amount} -> %{currency: currency, amount: amount} end)
+    |> sort_currency_totals()
+  end
+
+  defp currency_codes(items, currency_fun) do
+    items
+    |> Enum.map(&(currency_fun.(&1) |> normalize_currency()))
+    |> Enum.uniq()
+    |> Enum.sort_by(&currency_sort_rank/1)
+  end
+
+  defp sort_currency_totals(totals) do
+    Enum.sort_by(totals, fn %{currency: currency} ->
+      {currency_sort_rank(currency), currency}
+    end)
+  end
+
+  defp mixed_currency_label(currencies) do
+    "Mixed currencies (#{Enum.join(Enum.sort_by(currencies, &currency_sort_rank/1), ", ")})"
+  end
+
+  defp currency_prefix(currency) do
+    case normalize_currency(currency) do
+      "DOP" -> "DOP$"
+      "USD" -> "US$"
+      code -> "#{code}$"
+    end
+  end
+
+  defp currency_sort_rank("DOP"), do: 0
+  defp currency_sort_rank("USD"), do: 1
+  defp currency_sort_rank(_currency), do: 2
+
+  defp normalize_currency(nil), do: @default_currency
+
+  defp normalize_currency(currency) do
+    case currency |> to_string() |> String.trim() |> String.upcase() do
+      "" -> @default_currency
+      normalized -> normalized
+    end
   end
 
   defp payoff_order([]), do: "No active balances"

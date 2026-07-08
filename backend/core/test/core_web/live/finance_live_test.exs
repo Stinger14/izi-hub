@@ -58,7 +58,7 @@ defmodule CoreWeb.FinanceLiveTest do
       |> render_submit()
 
     assert html =~ "April salary"
-    assert html =~ "+$3200.00"
+    assert html =~ "+DOP$3200.00"
     assert html =~ "Main checking"
 
     [transaction] = Finance.list_transactions_for_user(user)
@@ -102,8 +102,8 @@ defmodule CoreWeb.FinanceLiveTest do
       )
       |> render_submit()
 
-    assert html =~ "$75.00"
-    assert html =~ "$225.00"
+    assert html =~ "DOP$75.00"
+    assert html =~ "DOP$225.00"
   end
 
   test "review queue confirms a pending transaction", %{conn: conn} do
@@ -259,7 +259,7 @@ defmodule CoreWeb.FinanceLiveTest do
       )
       |> render_submit()
 
-    assert html =~ "$225.00"
+    assert html =~ "DOP$225.00"
     assert html =~ "Recent payments"
 
     updated_debt = Finance.get_debt_for_user!(user, debt.id)
@@ -355,7 +355,7 @@ defmodule CoreWeb.FinanceLiveTest do
       |> render_submit()
 
     assert html =~ "Emergency savings"
-    assert html =~ "$1800.00"
+    assert html =~ "DOP$1800.00"
 
     [account] = Finance.list_accounts_for_user(user)
     assert account.name == "Emergency savings"

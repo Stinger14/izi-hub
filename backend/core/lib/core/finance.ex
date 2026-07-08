@@ -3,6 +3,8 @@ defmodule Core.Finance do
   The Finance context - Manages all financial transactions and budgets.
   """
 
+  @default_currency "DOP"
+
   import Ecto.Query, warn: false
   alias Core.Accounts
   alias Core.Accounts.{Household, User}
@@ -254,6 +256,40 @@ defmodule Core.Finance do
 
   def get_financial_summary(owner, start_date, end_date) do
     get_financial_summary_for_scope(owner, start_date, end_date)
+  end
+
+  def get_currency_summary(owner, start_date, end_date, opts \\ []) do
+    statuses = Keyword.get(opts, :statuses, ["confirmed"])
+    exclude_debt_payment_expenses = Keyword.get(opts, :exclude_debt_payment_expenses, false)
+
+    rows =
+      Transaction
+      |> scope_query(owner)
+      |> join(:left, [transaction], account in assoc(transaction, :account))
+      |> where([transaction, _account], transaction.status in ^statuses)
+      |> where(
+        [transaction, _account],
+        transaction.transaction_date >= ^start_date and transaction.transaction_date <= ^end_date
+      )
+      |> maybe_exclude_debt_payment_expenses(owner, exclude_debt_payment_expenses)
+      |> group_by([transaction, account], [account.currency, transaction.type])
+      |> select([transaction, account], %{
+        currency: fragment("COALESCE(?, ?)", account.currency, ^@default_currency),
+        type: transaction.type,
+        amount: sum(transaction.amount)
+      })
+      |> Repo.all()
+
+    income = currency_totals_for_type(rows, "income")
+    expenses = currency_totals_for_type(rows, "expense")
+
+    %{
+      income: income,
+      expenses: expenses,
+      balance: subtract_currency_totals(income, expenses),
+      start_date: start_date,
+      end_date: end_date
+    }
   end
 
   defp get_financial_summary_for_scope(owner, start_date, end_date) do
@@ -821,15 +857,22 @@ defmodule Core.Finance do
   Checks budget status and returns spending %
   """
   def check_budget_status(%Budget{} = budget) do
+    budget_currency = normalize_currency(budget.currency)
+
     spent =
       Transaction
       |> scope_query(resource_owner(budget))
+      |> join(:left, [transaction], account in assoc(transaction, :account))
       |> where([t], t.status == "confirmed")
       |> where([t], t.type == "expense")
       |> where([t], t.transaction_date >= ^budget.start_date)
       |> maybe_filter_by_end_date(budget.end_date)
       |> maybe_filter_by_category(budget.category_id)
-      |> select([t], sum(t.amount))
+      |> where(
+        [_transaction, account],
+        fragment("COALESCE(?, ?)", account.currency, ^@default_currency) == ^budget_currency
+      )
+      |> select([transaction, _account], sum(transaction.amount))
       |> Repo.one() || Decimal.new(0)
 
     percentage =
@@ -922,6 +965,68 @@ defmodule Core.Finance do
     |> where([transaction], transaction.id not in subquery(debt_payment_transaction_ids))
     |> select([transaction], sum(transaction.amount))
     |> Repo.one() || Decimal.new("0")
+  end
+
+  defp maybe_exclude_debt_payment_expenses(query, _owner, false), do: query
+
+  defp maybe_exclude_debt_payment_expenses(query, owner, true) do
+    debt_payment_transaction_ids =
+      DebtPayment
+      |> scope_query(owner)
+      |> where([payment], not is_nil(payment.transaction_id))
+      |> select([payment], payment.transaction_id)
+
+    where(
+      query,
+      [transaction, _account],
+      transaction.type != "expense" or
+        transaction.id not in subquery(debt_payment_transaction_ids)
+    )
+  end
+
+  defp currency_totals_for_type(rows, type) do
+    rows
+    |> Enum.filter(&(&1.type == type))
+    |> Enum.map(fn row ->
+      %{
+        currency: normalize_currency(row.currency),
+        amount: row.amount || Decimal.new("0")
+      }
+    end)
+    |> sort_currency_totals()
+  end
+
+  defp subtract_currency_totals(left_totals, right_totals) do
+    left_totals
+    |> Enum.reduce(%{}, fn %{currency: currency, amount: amount}, acc ->
+      Map.update(acc, currency, amount, &Decimal.add(&1, amount))
+    end)
+    |> then(fn totals ->
+      Enum.reduce(right_totals, totals, fn %{currency: currency, amount: amount}, acc ->
+        Map.update(acc, currency, Decimal.negate(amount), &Decimal.sub(&1, amount))
+      end)
+    end)
+    |> Enum.map(fn {currency, amount} -> %{currency: currency, amount: amount} end)
+    |> sort_currency_totals()
+  end
+
+  defp sort_currency_totals(totals) do
+    Enum.sort_by(totals, fn %{currency: currency} ->
+      {currency_sort_rank(currency), currency}
+    end)
+  end
+
+  defp currency_sort_rank("DOP"), do: 0
+  defp currency_sort_rank("USD"), do: 1
+  defp currency_sort_rank(_currency), do: 2
+
+  defp normalize_currency(nil), do: @default_currency
+
+  defp normalize_currency(currency) do
+    case currency |> to_string() |> String.trim() |> String.upcase() do
+      "" -> @default_currency
+      normalized -> normalized
+    end
   end
 
   defp recent_debt_payments_query do
