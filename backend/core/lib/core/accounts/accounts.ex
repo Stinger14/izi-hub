@@ -6,7 +6,7 @@ defmodule Core.Accounts do
   import Ecto.Query, warn: false
   alias Core.Repo
 
-  alias Core.Accounts.{User, UserToken, UsernameGenerator}
+  alias Core.Accounts.{Household, HouseholdMember, User, UserToken, UsernameGenerator}
 
   @setup_password_token_ttl_seconds 86_400
   @username_generation_attempts 20
@@ -112,6 +112,138 @@ defmodule Core.Accounts do
   def get_user!(id), do: Repo.get!(User, id)
 
   def get_user(id), do: Repo.get(User, id)
+
+  def create_household(%User{} = owner, attrs) do
+    attrs =
+      attrs
+      |> Map.new()
+      |> Map.put_new(
+        "slug",
+        slugify_household_name(Map.get(attrs, "name") || Map.get(attrs, :name))
+      )
+
+    Repo.transaction(fn ->
+      case %Household{} |> Household.changeset(attrs) |> Repo.insert() do
+        {:ok, household} ->
+          membership_attrs = %{
+            "household_id" => household.id,
+            "user_id" => owner.id,
+            "role" => "owner",
+            "status" => "active"
+          }
+
+          case %HouseholdMember{}
+               |> HouseholdMember.changeset(membership_attrs)
+               |> Repo.insert() do
+            {:ok, _membership} ->
+              household
+
+            {:error, changeset} ->
+              Repo.rollback(changeset)
+          end
+
+        {:error, changeset} ->
+          Repo.rollback(changeset)
+      end
+    end)
+  end
+
+  def add_household_member(
+        %User{} = actor,
+        %Household{} = household,
+        %User{} = member,
+        attrs \\ %{}
+      ) do
+    with :ok <- ensure_household_owner(actor, household) do
+      membership_attrs =
+        attrs
+        |> Map.new()
+        |> Map.put("household_id", household.id)
+        |> Map.put("user_id", member.id)
+        |> Map.put_new("role", "member")
+        |> Map.put_new("status", "active")
+
+      %HouseholdMember{}
+      |> HouseholdMember.changeset(membership_attrs)
+      |> Repo.insert()
+    end
+  end
+
+  def add_household_member_by_email(
+        %User{} = actor,
+        %Household{} = household,
+        email,
+        attrs \\ %{}
+      )
+      when is_binary(email) do
+    email = String.trim(email)
+
+    with %User{} = member <- get_user_by_email(email),
+         {:ok, membership} <- add_household_member(actor, household, member, attrs) do
+      {:ok, membership}
+    else
+      nil -> {:error, :user_not_found}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  def list_households_for_user(%User{} = user) do
+    Household
+    |> join(:inner, [household], membership in HouseholdMember,
+      on: membership.household_id == household.id
+    )
+    |> where(
+      [_household, membership],
+      membership.user_id == ^user.id and membership.status == "active"
+    )
+    |> where([household, _membership], household.status == "active")
+    |> order_by([household, _membership], asc: household.name)
+    |> preload([_household, membership], memberships: ^active_memberships_query())
+    |> distinct(true)
+    |> Repo.all()
+  end
+
+  def get_household_for_user!(%User{} = user, household_id) do
+    Household
+    |> join(:inner, [household], membership in HouseholdMember,
+      on: membership.household_id == household.id
+    )
+    |> where(
+      [household, membership],
+      household.id == ^household_id and membership.user_id == ^user.id
+    )
+    |> where(
+      [household, membership],
+      household.status == "active" and membership.status == "active"
+    )
+    |> preload([_household, _membership], memberships: ^active_memberships_query())
+    |> distinct(true)
+    |> Repo.one!()
+  end
+
+  def user_household?(%User{} = user, household_id) do
+    HouseholdMember
+    |> where(
+      [membership],
+      membership.user_id == ^user.id and membership.household_id == ^household_id
+    )
+    |> where([membership], membership.status == "active")
+    |> Repo.exists?()
+  end
+
+  def user_household_owner?(%User{} = user, household_id) do
+    HouseholdMember
+    |> where(
+      [membership],
+      membership.user_id == ^user.id and membership.household_id == ^household_id
+    )
+    |> where([membership], membership.status == "active" and membership.role == "owner")
+    |> Repo.exists?()
+  end
+
+  def change_household(%Household{} = household \\ %Household{}) do
+    Household.changeset(household, %{})
+  end
 
   @doc """
   Updates user profile
@@ -330,5 +462,27 @@ defmodule Core.Accounts do
 
   defp generate_bootstrap_password do
     "TmpA1a-" <> Base.url_encode64(:crypto.strong_rand_bytes(12), padding: false)
+  end
+
+  defp ensure_household_owner(%User{} = user, %Household{} = household) do
+    if user_household_owner?(user, household.id), do: :ok, else: {:error, :forbidden}
+  end
+
+  defp active_memberships_query do
+    from membership in HouseholdMember,
+      where: membership.status == "active",
+      order_by: [asc: membership.role, asc: membership.inserted_at],
+      preload: [:user]
+  end
+
+  defp slugify_household_name(nil), do: nil
+
+  defp slugify_household_name(name) do
+    name
+    |> to_string()
+    |> String.trim()
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/u, "-")
+    |> String.trim("-")
   end
 end

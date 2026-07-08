@@ -19,6 +19,8 @@ defmodule Core.Accounts.User do
     field :last_login_at, :naive_datetime
 
     has_many :user_tokens, Core.Accounts.UserToken
+    has_many :household_memberships, Core.Accounts.HouseholdMember
+    many_to_many :households, Core.Accounts.Household, join_through: Core.Accounts.HouseholdMember
     has_many :projects, Core.Portfolio.Project
     has_many :posts, Core.Blog.Post
     has_many :transactions, Core.Finance.Transaction

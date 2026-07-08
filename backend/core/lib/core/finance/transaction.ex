@@ -22,7 +22,9 @@ defmodule Core.Finance.Transaction do
     field :receipt_url, :string
     field :notes, :string
 
+    belongs_to :account, Core.Finance.Account
     belongs_to :user, Core.Accounts.User
+    belongs_to :household, Core.Accounts.Household
     belongs_to :category, Core.Finance.Category
     has_many :debt_payments, Core.Finance.DebtPayment
 
@@ -53,7 +55,10 @@ defmodule Core.Finance.Transaction do
       :tags,
       :receipt_url,
       :notes,
-      :category_id
+      :account_id,
+      :category_id,
+      :user_id,
+      :household_id
     ])
     |> normalize_blank_fields([
       :payment_method,
@@ -62,11 +67,12 @@ defmodule Core.Finance.Transaction do
       :raw_description,
       :review_reason
     ])
-    |> validate_required([:amount, :type, :user_id, :transaction_date])
+    |> validate_required([:amount, :type, :transaction_date])
     |> validate_inclusion(:type, @transaction_types)
     |> validate_inclusion(:source, @sources)
     |> validate_inclusion(:status, @statuses)
     |> validate_inclusion(:payment_method, @payment_methods)
+    |> validate_owner_scope()
     |> validate_number(:amount, greater_than: 0)
     |> validate_number(:confidence, greater_than_or_equal_to: 0, less_than_or_equal_to: 1)
     |> validate_length(:description, max: 500)
@@ -75,8 +81,10 @@ defmodule Core.Finance.Transaction do
     |> validate_length(:raw_description, max: 1000)
     |> validate_length(:notes, max: 1000)
     |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:household_id)
+    |> foreign_key_constraint(:account_id)
     |> foreign_key_constraint(:category_id)
-    |> unique_constraint(:external_id, name: :transactions_user_id_external_id_index)
+    |> external_id_scope_constraint()
   end
 
   defp normalize_blank_fields(changeset, fields) do
@@ -86,5 +94,26 @@ defmodule Core.Finance.Transaction do
         value -> value
       end)
     end)
+  end
+
+  defp validate_owner_scope(changeset) do
+    user_id = get_field(changeset, :user_id)
+    household_id = get_field(changeset, :household_id)
+
+    if is_nil(user_id) == is_nil(household_id) do
+      add_error(changeset, :base, "must belong to exactly one owner scope")
+    else
+      changeset
+    end
+  end
+
+  defp external_id_scope_constraint(changeset) do
+    if get_field(changeset, :household_id) do
+      unique_constraint(changeset, :external_id,
+        name: :transactions_household_id_external_id_index
+      )
+    else
+      unique_constraint(changeset, :external_id, name: :transactions_user_id_external_id_index)
+    end
   end
 end

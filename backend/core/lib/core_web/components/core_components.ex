@@ -63,6 +63,61 @@ defmodule CoreWeb.CoreComponents do
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
         </svg>
+      <% "hero-plus" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+      <% "hero-plus-circle" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m11.25 0a8.25 8.25 0 1 1-16.5 0 8.25 8.25 0 0 1 16.5 0Z" />
+        </svg>
+      <% "hero-users" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.75a6 6 0 0 0-12 0M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Zm5.25 12a4.5 4.5 0 0 0-3.75-4.436m-7.5 0a4.5 4.5 0 0 0-3.75 4.436m15-4.436a3.75 3.75 0 0 0-2.25-3.436m-10.5 0a3.75 3.75 0 0 0-2.25 3.436" />
+        </svg>
+      <% "hero-user-plus" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.75a6 6 0 0 0-12 0M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Zm5.25 1.5v4.5m2.25-2.25h-4.5" />
+        </svg>
+      <% "hero-chart-bar-square" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75h16.5v16.5H3.75zM8.25 15V9.75m4.5 5.25V7.5m4.5 7.5v-3" />
+        </svg>
       <% "hero-banknotes" -> %>
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -73,6 +128,61 @@ defmodule CoreWeb.CoreComponents do
           class={@class}
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125h17.25c.621 0 1.125.504 1.125 1.125V6m-19.5 0v9m19.5-9v.75A.75.75 0 0 0 21 7.5h.75m0 0v-.375c0-.621-.504-1.125-1.125-1.125H3.375m18.375 1.5v9m0 0v.375c0 .621-.504 1.125-1.125 1.125H3.375A1.125 1.125 0 0 1 2.25 16.875V16.5m19.5 0h-.75a.75.75 0 0 0-.75.75v.75m-16.5-1.5h.75a.75.75 0 0 1 .75.75v.75m0-12v.75A.75.75 0 0 1 4.5 7.5h-.75m16.5 0h-.75a.75.75 0 0 1-.75-.75V6m-9 6a2.25 2.25 0 1 0 4.5 0 2.25 2.25 0 0 0-4.5 0Z" />
+        </svg>
+      <% "hero-building-library" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 18.75h15m-13.5 0V9.86m0 8.89H4.5m1.5 0h3m-3 0v-3m0-5.89V6.75c0-.621.504-1.125 1.125-1.125h9.75c.621 0 1.125.504 1.125 1.125v3.11m-12 0h12m-12 0h-1.5m13.5 0h1.5m-13.5 0v8.89m12-8.89v8.89m0 0h-3m3 0h1.5m-4.5 0v-3m0-5.89V6.75M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+        </svg>
+      <% "hero-user" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+        </svg>
+      <% "hero-home" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955a1.125 1.125 0 0 1 1.592 0L21.75 12M4.5 9.75V19.5A1.5 1.5 0 0 0 6 21h3.75v-6a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v6H18a1.5 1.5 0 0 0 1.5-1.5V9.75" />
+        </svg>
+      <% "hero-lock-closed" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 0h10.5A2.25 2.25 0 0 1 19.5 12.75v6A2.25 2.25 0 0 1 17.25 21h-10.5A2.25 2.25 0 0 1 4.5 18.75v-6A2.25 2.25 0 0 1 6.75 10.5Z" />
+        </svg>
+      <% "hero-shield-check" -> %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2"
+          stroke="currentColor"
+          class={@class}
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m6 2.25c0 4.97-3.435 9.137-8.062 10.258a.75.75 0 0 1-.376 0C7.935 21.137 4.5 16.97 4.5 12V5.741a.75.75 0 0 1 .449-.688l7.5-3.333a.75.75 0 0 1 .602 0l7.5 3.333a.75.75 0 0 1 .449.688V12Z" />
         </svg>
       <% "hero-wrench-screwdriver" -> %>
         <svg
