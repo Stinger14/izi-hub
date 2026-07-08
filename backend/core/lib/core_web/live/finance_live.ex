@@ -2713,9 +2713,9 @@ defmodule CoreWeb.FinanceLive do
 
   defp currency_prefix(currency) do
     case normalize_currency(currency) do
-      "DOP" -> "DOP$"
-      "USD" -> "US$"
-      code -> "#{code}$"
+      "DOP" -> "DOP$ "
+      "USD" -> "US$ "
+      code -> "#{code}$ "
     end
   end
 
