@@ -99,7 +99,7 @@ func (s *MemoryStore) MarkSucceeded(id string, result contract.IngestionResult, 
 	return nil
 }
 
-func (s *MemoryStore) MarkDuplicate(id string, result contract.IngestionResult, now time.Time) error {
+func (s *MemoryStore) MarkDuplicated(id string, result contract.IngestionResult, now time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
