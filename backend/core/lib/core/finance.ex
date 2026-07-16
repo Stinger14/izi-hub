@@ -21,6 +21,7 @@ defmodule Core.Finance do
     EmailIngestion,
     EmailIngestionAttempt,
     Health,
+    SavingsGoal,
     Transaction
   }
 
@@ -817,6 +818,82 @@ defmodule Core.Finance do
       "target_payoff_date" => plan.target_payoff_date,
       "snapshot" => stringify_plan(plan)
     })
+  end
+
+  # ------ Savings goals ------
+
+  def list_savings_goals_for_user(%User{} = user) do
+    do_list_savings_goals(user)
+  end
+
+  def list_savings_goals(%User{} = actor, owner) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      {:ok, do_list_savings_goals(owner)}
+    end
+  end
+
+  defp do_list_savings_goals(owner) do
+    SavingsGoal
+    |> scope_query(owner)
+    |> where([goal], goal.status in ["active", "achieved"])
+    |> order_by([goal], asc_nulls_last: goal.target_date, asc: goal.name)
+    |> Repo.all()
+  end
+
+  def get_savings_goal!(%User{} = actor, owner, id) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      SavingsGoal
+      |> scope_query(owner)
+      |> Repo.get!(id)
+    end
+  end
+
+  def change_savings_goal(%SavingsGoal{} = goal \\ %SavingsGoal{}) do
+    SavingsGoal.changeset(goal, %{})
+  end
+
+  def create_savings_goal(%User{} = user, attrs \\ %{}) do
+    create_savings_goal(user, user, attrs)
+  end
+
+  def create_savings_goal(%User{} = actor, owner, attrs) do
+    with :ok <- ensure_scope_access(actor, owner),
+         attrs <- scope_attrs(attrs, owner) do
+      %SavingsGoal{}
+      |> SavingsGoal.changeset(attrs)
+      |> Repo.insert()
+    end
+  end
+
+  def update_savings_goal(%User{} = user, %SavingsGoal{} = goal, attrs) do
+    with :ok <- ensure_resource_owner(user, goal) do
+      goal
+      |> SavingsGoal.changeset(attrs)
+      |> Repo.update()
+    end
+  end
+
+  def contribute_to_savings_goal(%User{} = user, %SavingsGoal{} = goal, amount) do
+    with :ok <- ensure_resource_owner(user, goal) do
+      new_saved_amount = Decimal.add(goal.saved_amount || Decimal.new("0"), amount)
+
+      status =
+        if Decimal.compare(new_saved_amount, goal.target_amount) != :lt,
+          do: "achieved",
+          else: goal.status
+
+      goal
+      |> SavingsGoal.changeset(%{"saved_amount" => new_saved_amount, "status" => status})
+      |> Repo.update()
+    end
+  end
+
+  def delete_savings_goal(%User{} = user, %SavingsGoal{} = goal) do
+    with :ok <- ensure_resource_owner(user, goal) do
+      goal
+      |> SavingsGoal.changeset(%{"status" => "archived"})
+      |> Repo.update()
+    end
   end
 
   def get_financial_health(%User{} = user, opts \\ []) do
