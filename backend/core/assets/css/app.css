@@ -1283,4 +1283,70 @@
             filter: blur(13px);
         }
     }
+
+    .font-display {
+        font-weight: 650;
+        letter-spacing: -0.02em;
+    }
+}
+
+/* ---------------------------------------------------------------
+   Finance page - scoped dark glass theme. Deliberately unlayered
+   (outside @layer) so it always wins over the utilities layer;
+   tokens and btn overrides only apply inside dot-finance-shell,
+   so every other page keeps the light theme tokens above intact.
+   --------------------------------------------------------------- */
+.finance-shell {
+    --fin-bg: #0a0d12;
+    --fin-text: #eceef1;
+    --fin-muted: #8a93a3;
+    --fin-glow-purple: rgba(155, 140, 255, 0.1);
+    --fin-glow-green: rgba(111, 207, 151, 0.08);
+    --fin-glass-border: rgba(255, 255, 255, 0.09);
+    --fin-glass-from: rgba(255, 255, 255, 0.06);
+    --fin-glass-to: rgba(255, 255, 255, 0.02);
+    --fin-glass-inset: rgba(255, 255, 255, 0.06);
+    --fin-glass-shadow: rgba(0, 0, 0, 0.6);
+
+    --tone-income: #6fcf97;
+    --tone-expense: #e08585;
+    --tone-budget: #9b8cff;
+    --tone-debt: #e3b15c;
+    --tone-review: #e3b15c;
+
+    --btn-primary-bg: #6d28d9;
+    --btn-primary-hover: #7c3aed;
+    --btn-primary-text: #ffffff;
+    --btn-secondary-bg: rgba(255, 255, 255, 0.06);
+    --btn-secondary-hover: rgba(255, 255, 255, 0.1);
+    --btn-secondary-border: rgba(255, 255, 255, 0.14);
+    --btn-secondary-text: var(--fin-text);
+    --btn-ghost-text: #9b8cff;
+    --btn-accent-border: #9b8cff;
+    --btn-accent-text: #ceb9ff;
+    --btn-accent-hover: rgba(155, 140, 255, 0.14);
+    --btn-danger-bg: #e08585;
+    --btn-danger-hover: #d9706f;
+    --btn-danger-text: #1e0a0a;
+
+    position: relative;
+    isolation: isolate;
+    background-color: var(--fin-bg);
+    color: var(--fin-text);
+}
+
+.finance-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(1200px 600px at 15% -10%, var(--fin-glow-purple), transparent),
+        radial-gradient(1000px 500px at 90% 10%, var(--fin-glow-green), transparent);
+}
+
+.finance-shell > * {
+    position: relative;
+    z-index: 1;
 }
