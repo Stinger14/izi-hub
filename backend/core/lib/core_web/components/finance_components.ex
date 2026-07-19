@@ -19,20 +19,20 @@ defmodule CoreWeb.FinanceComponents do
   def finance_section_header(assigns) do
     ~H"""
     <section>
-      <.glass class="px-5 py-5 sm:px-6">
+      <.fin_card padded={false} class="px-5 py-5 sm:px-6">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div class="space-y-2">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400"><%= greeting_date() %></p>
-            <h1 class="font-display text-[1.55rem] tracking-tight text-white">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]"><%= greeting_date() %></p>
+            <h1 class="font-display text-[1.55rem] tracking-tight text-[color:var(--fin-text)]">
               <%= active_section_title(@active_section, @pending_review_count) %>
             </h1>
-            <p :if={active_section_subtitle(@active_section)} class="max-w-2xl text-sm leading-6 text-slate-400">
+            <p :if={active_section_subtitle(@active_section)} class="max-w-2xl text-sm leading-6 text-[color:var(--fin-muted)]">
               <%= active_section_subtitle(@active_section) %>
             </p>
           </div>
 
           <div class="flex flex-wrap items-center justify-end gap-2.5">
-            <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-1 py-1 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)]">
+            <div class="inline-flex items-center gap-2 rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-1 py-1 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)]">
               <button
                 type="button"
                 phx-click="set_ownership_scope"
@@ -41,8 +41,8 @@ defmodule CoreWeb.FinanceComponents do
                 title="Personal finance scope"
                 class={[
                   "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition",
-                  @ownership_scope == "personal" && "bg-white/10 text-white shadow-sm",
-                  @ownership_scope != "personal" && "text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                  @ownership_scope == "personal" && "bg-[#465fff] text-[#ffffff] shadow-sm",
+                  @ownership_scope != "personal" && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
                 ]}
               >
                 <.icon name="hero-user" class="h-4 w-4" />
@@ -57,65 +57,12 @@ defmodule CoreWeb.FinanceComponents do
                 title={household_scope_title(@households)}
                 class={[
                   "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition",
-                  @ownership_scope == "household" && "bg-white/10 text-white shadow-sm",
-                  @ownership_scope != "household" && "text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                  @ownership_scope == "household" && "bg-[#465fff] text-[#ffffff] shadow-sm",
+                  @ownership_scope != "household" && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
                 ]}
               >
-                <.icon name={if household_scope_available?(@households), do: "hero-home", else: "hero-plus"} class="h-4 w-4" />
-                Household
-              </button>
-            </div>
-
-            <.household_picker :if={@households != []} households={@households} selected_household_id={@selected_household_id} />
-          </div>
-        </div>
-      </.glass>
-    </section>
-    """
-  end
-
-  def finance_dashboard_header(assigns) do
-    ~H"""
-    <section>
-      <.glass class="px-6 py-6 sm:px-8" glow="linear-gradient(120deg, rgba(155,140,255,0.2), rgba(111,207,151,0.14))">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p class="text-[12px] font-semibold uppercase tracking-[0.24em] text-slate-400"><%= greeting_date() %> · this month</p>
-            <h1 class="mt-1 text-xl font-display text-white"><%= greeting_headline(@current_scope.user) %></h1>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2.5">
-            <div class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-1 py-1 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)]">
-              <button
-                type="button"
-                phx-click="set_ownership_scope"
-                phx-value-scope="personal"
-                aria-label="Personal finance scope"
-                title="Personal finance scope"
-                class={[
-                  "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition",
-                  @ownership_scope == "personal" && "bg-white/10 text-white shadow-sm",
-                  @ownership_scope != "personal" && "text-slate-400 hover:bg-white/[0.06] hover:text-white"
-                ]}
-              >
-                <.icon name="hero-user" class="h-4 w-4" />
-                Personal
-              </button>
-              <button
-                type="button"
-                phx-click={household_toggle_event(@households)}
-                phx-value-scope="household"
-                phx-value-panel="household"
-                aria-label={household_scope_aria_label(@households)}
-                title={household_scope_title(@households)}
-                class={[
-                  "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition",
-                  @ownership_scope == "household" && "bg-white/10 text-white shadow-sm",
-                  @ownership_scope != "household" && "text-slate-400 hover:bg-white/[0.06] hover:text-white"
-                ]}
-              >
-                <.icon name={if household_scope_available?(@households), do: "hero-home", else: "hero-plus"} class="h-4 w-4" />
-                Household
+                <.icon :if={household_scope_available?(@households)} name="hero-home" class="h-4 w-4" />
+                <%= if household_scope_available?(@households), do: "Household", else: "+ Household" %>
               </button>
             </div>
 
@@ -123,88 +70,394 @@ defmodule CoreWeb.FinanceComponents do
 
             <button
               type="button"
+              phx-click="open_household_panel"
+              aria-label="Add household"
+              title="Add household"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] text-[color:var(--fin-muted)] transition hover:bg-[color:var(--fin-card)] hover:text-[color:var(--fin-text)]"
+            >
+              <.icon name="hero-plus" class="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </.fin_card>
+    </section>
+    """
+  end
+
+  def finance_dashboard_header(assigns) do
+    ~H"""
+    <section>
+      <.fin_card padded={false} class="px-6 py-6 sm:px-8">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p class="text-[12px] font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]"><%= greeting_date() %> · this month</p>
+            <h1 class="mt-1 text-xl font-display text-[color:var(--fin-text)]"><%= greeting_headline(@current_scope.user) %></h1>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2.5">
+            <div class="inline-flex items-center gap-1 rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-1 py-1 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)]">
+              <button
+                type="button"
+                phx-click="set_ownership_scope"
+                phx-value-scope="personal"
+                aria-label="Personal finance scope"
+                title="Personal finance scope"
+                class={[
+                  "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition",
+                  @ownership_scope == "personal" && "bg-[#465fff] text-[#ffffff] shadow-sm",
+                  @ownership_scope != "personal" && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
+                ]}
+              >
+                <.icon name="hero-user" class="h-4 w-4" />
+                Personal
+              </button>
+              <button
+                type="button"
+                phx-click={household_toggle_event(@households)}
+                phx-value-scope="household"
+                phx-value-panel="household"
+                aria-label={household_scope_aria_label(@households)}
+                title={household_scope_title(@households)}
+                class={[
+                  "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition",
+                  @ownership_scope == "household" && "bg-[#465fff] text-[#ffffff] shadow-sm",
+                  @ownership_scope != "household" && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
+                ]}
+              >
+                <.icon :if={household_scope_available?(@households)} name="hero-home" class="h-4 w-4" />
+                <%= if household_scope_available?(@households), do: "Household", else: "+ Household" %>
+              </button>
+            </div>
+
+            <.household_picker :if={@households != []} households={@households} selected_household_id={@selected_household_id} />
+
+            <button
+              type="button"
+              phx-click="open_household_panel"
+              aria-label="Add household"
+              title="Add household"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] text-[color:var(--fin-muted)] transition hover:bg-[color:var(--fin-card)] hover:text-[color:var(--fin-text)]"
+            >
+              <.icon name="hero-plus" class="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
               phx-click="open_focus_panel"
               phx-value-panel="transaction"
               aria-label="Add transaction"
               title="Add transaction"
-              class="inline-flex h-10 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.06] px-4 text-sm font-semibold text-slate-200 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] transition hover:border-white/15 hover:bg-white/[0.04]"
+              class="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 text-sm font-semibold text-[color:var(--fin-text)] shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] transition hover:border-[color:var(--fin-border)] hover:bg-[color:var(--fin-surface)]"
             >
               <.icon name="hero-plus" class="h-4 w-4" /> Add transaction
             </button>
           </div>
         </div>
 
-        <div class="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(18rem,0.86fr)]">
-          <div class="grid gap-3.5">
-            <div class="grid gap-3.5 sm:grid-cols-2">
-              <.metric_card
-                label="Available cash"
-                value={money_totals(@current_month_summary_totals.balance)}
-                note="This month"
-                tone="cash"
-                icon="hero-banknotes"
-                featured
-              />
-              <.metric_card
-                label="Budget remaining"
-                value={money_totals(@budget_remaining_totals)}
-                note={budget_metric_note(@budget_statuses)}
-                tone="budget"
-                icon="hero-chart-bar-square"
-              />
-            </div>
-
-            <div class="grid gap-3 sm:grid-cols-2">
-              <.metric_card
-                label="Income"
-                value={money_totals(@current_month_summary_totals.income)}
-                note="This month"
-                tone="income"
-                icon="hero-arrow-trending-up"
-                compact
-              />
-              <.metric_card
-                label="Expenses"
-                value={money_totals(@current_month_summary_totals.expenses)}
-                note="This month"
-                tone="expense"
-                icon="hero-arrow-trending-down"
-                compact
-              />
-            </div>
-          </div>
-
-          <div class="rounded-[1.55rem] border border-white/10 bg-white/[0.04] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur-sm">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">This month's budget</p>
-
-            <div class="mt-4 flex items-center justify-between gap-4">
-              <div>
-                <p class="text-xs text-slate-400">Spent</p>
-                <p class="mt-1 text-lg font-mono font-semibold text-[var(--tone-expense)]"><%= money_totals(@budget_spent_totals) %></p>
-              </div>
-              <div class="text-right">
-                <p class="text-xs text-slate-400">Remaining</p>
-                <p class="mt-1 text-lg font-mono font-semibold text-[var(--tone-income)]"><%= money_totals(@budget_remaining_totals) %></p>
-              </div>
-            </div>
-
-            <div class="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/5">
-              <div
-                class={["h-full rounded-full", tone_class(overall_budget_tone(@budget_statuses), :bar)]}
-                style={"width: #{budget_remaining_pct(@budget_usage_pct)}%"}
-              >
-              </div>
-            </div>
-
-            <p class="mt-2.5 text-[11px] text-slate-500">
-              <%= if @budget_statuses == [],
-                do: "No active budgets this month.",
-                else: "#{round(@budget_usage_pct)}% of this month's budgets used." %>
-            </p>
-          </div>
-        </div>
-      </.glass>
+      </.fin_card>
     </section>
+    """
+  end
+
+  @doc """
+  "This month's budget" mini card for the overview bottom row — spent vs
+  remaining with a depleting bar (budget bars deplete; goal bars fill).
+  """
+  attr :budget_statuses, :list, required: true
+  attr :budget_spent_totals, :list, required: true
+  attr :budget_remaining_totals, :list, required: true
+  attr :budget_usage_pct, :any, required: true
+
+  def budget_mini_card(assigns) do
+    ~H"""
+    <.fin_card>
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Budget</p>
+          <h2 class="mt-2 text-lg font-semibold text-[color:var(--fin-text)]">This month</h2>
+        </div>
+        <button
+          type="button"
+          phx-click="open_focus_panel"
+          phx-value-panel="budget"
+          aria-label="Create budget"
+          title="Create budget"
+          class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--fin-accent)] transition hover:text-[color:var(--fin-text)]"
+        >
+          + Budget
+        </button>
+      </div>
+
+      <div class="mt-5 flex items-center justify-between gap-4">
+        <div>
+          <p class="text-xs text-[color:var(--fin-muted)]">Spent</p>
+          <p class="mt-1 text-lg font-mono font-semibold text-[var(--tone-expense)]"><%= money_totals(@budget_spent_totals) %></p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs text-[color:var(--fin-muted)]">Remaining</p>
+          <p class="mt-1 text-lg font-mono font-semibold text-[var(--tone-income)]"><%= money_totals(@budget_remaining_totals) %></p>
+        </div>
+      </div>
+
+      <div class="mt-4 h-2 w-full overflow-hidden rounded-full bg-[color:var(--fin-surface)]">
+        <div
+          class={["h-full rounded-full", tone_class(overall_budget_tone(@budget_statuses), :bar)]}
+          style={"width: #{budget_remaining_pct(@budget_usage_pct)}%"}
+        >
+        </div>
+      </div>
+
+      <p class="mt-2.5 text-[11px] text-[color:var(--fin-muted)]">
+        <%= if @budget_statuses == [],
+          do: "No active budgets this month.",
+          else: "#{round(@budget_usage_pct)}% of this month's budgets used." %>
+      </p>
+    </.fin_card>
+    """
+  end
+
+  @doc """
+  TailAdmin "Total Balance" hero card: currency + month selectors, big
+  balance with a "than last month" delta, sparkline, primary-account line,
+  and Transfer / Received / + actions.
+  """
+  attr :hero, :map, required: true
+
+  def balance_hero_card(assigns) do
+    sparkline_payload =
+      chart_payload(%{
+        chart: %{
+          type: "area",
+          height: 90,
+          sparkline: %{enabled: true},
+          fontFamily: "inherit"
+        },
+        series: [%{name: "Balance", data: Enum.map(assigns.hero.sparkline, &Float.round(&1, 2))}],
+        colors: ["#465fff"],
+        stroke: %{curve: "smooth", width: 2},
+        fill: %{
+          type: "gradient",
+          gradient: %{opacityFrom: 0.25, opacityTo: 0.02, shadeIntensity: 0}
+        },
+        tooltip: %{enabled: false}
+      })
+
+    assigns = assign(assigns, :sparkline_payload, sparkline_payload)
+
+    ~H"""
+    <.fin_card class="flex h-full flex-col">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">Total Balance</h2>
+          <p class="mt-1 text-sm text-[color:var(--fin-muted)]">Overview of your current funds</p>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <form phx-change="select_hero_currency">
+            <select
+              name="currency"
+              class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-2 py-1 text-[11px] font-semibold text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)]"
+            >
+              <option :for={currency <- @hero.currencies} value={currency} selected={currency == @hero.currency}>
+                <%= currency %>
+              </option>
+            </select>
+          </form>
+          <form phx-change="select_hero_month">
+            <select
+              name="month"
+              class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-2 py-1 text-[11px] font-semibold text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)]"
+            >
+              <option :for={{label, value} <- @hero.month_options} value={value} selected={value == @hero.month}>
+                <%= label %>
+              </option>
+            </select>
+          </form>
+        </div>
+      </div>
+
+      <div class="mt-6">
+        <p class="font-mono text-[2.1rem] font-semibold leading-none tracking-[-0.03em] text-[color:var(--fin-text)]">
+          <%= money(@hero.balance, @hero.currency) %>
+        </p>
+        <.delta_line delta={@hero.balance_delta} class="mt-2.5" />
+      </div>
+
+      <div id="hero-sparkline" phx-hook="ApexChart" data-chart={@sparkline_payload} class="mt-4" style="min-height: 90px">
+        <div data-chart-target phx-update="ignore" id="hero-sparkline-target"></div>
+      </div>
+
+      <div class="mt-5 flex items-center justify-between gap-2 border-t border-dashed border-[color:var(--fin-border)] pt-4">
+        <p class="min-w-0 truncate text-sm text-[color:var(--fin-muted)]">
+          Primary Account:
+          <span :if={@hero.primary_account} class="ml-1 font-mono font-semibold text-[color:var(--fin-text)]">
+            •••• <%= account_card_mask(@hero.primary_account) %>
+          </span>
+          <span :if={!@hero.primary_account} class="ml-1 text-[color:var(--fin-muted)]">none yet</span>
+        </p>
+        <div class="flex shrink-0 items-center gap-1.5">
+          <button
+            :if={@hero.primary_account}
+            type="button"
+            id="hero-copy-account"
+            phx-hook="CopyToClipboard"
+            data-copy-value={"#{@hero.primary_account.name} •••• #{account_card_mask(@hero.primary_account)}"}
+            data-copy-title="Copy account"
+            aria-label="Copy account"
+            title="Copy account"
+            class="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] text-[color:var(--fin-muted)] transition hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)] data-[copied]:border-[var(--fin-accent)] data-[copied]:text-[var(--fin-accent)]"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5">
+              <rect x="9" y="9" width="11" height="12" rx="2" />
+              <path d="M5 15V5a2 2 0 0 1 2-2h8" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            phx-click="show_section"
+            phx-value-section="accounts"
+            class="whitespace-nowrap rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-2.5 py-1 text-[11px] font-semibold text-[color:var(--fin-text)] transition hover:bg-[color:var(--fin-surface)]"
+          >
+            See Details
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-5 flex flex-wrap items-center gap-2.5">
+        <button
+          type="button"
+          phx-click="open_focus_panel"
+          phx-value-panel="transfer"
+          aria-label="Record transfer"
+          title="Record transfer"
+          class="btn btn-primary btn-sm inline-flex items-center gap-1.5"
+        >
+          <.icon name="hero-arrow-trending-up" class="h-4 w-4" /> Transfer
+        </button>
+        <button
+          type="button"
+          phx-click="open_received"
+          aria-label="Record received income"
+          title="Record received income"
+          class="btn btn-secondary btn-sm inline-flex items-center gap-1.5"
+        >
+          <.icon name="hero-arrow-trending-down" class="h-4 w-4" /> Received
+        </button>
+        <button
+          type="button"
+          phx-click="open_focus_panel"
+          phx-value-panel="transaction"
+          aria-label="Quick add transaction"
+          title="Quick add transaction"
+          class="btn btn-secondary btn-sm"
+        >
+          <.icon name="hero-plus" class="h-4 w-4" />
+        </button>
+      </div>
+    </.fin_card>
+    """
+  end
+
+  attr :delta, :any, required: true
+  attr :class, :any, default: nil
+
+  defp delta_line(assigns) do
+    ~H"""
+    <p :if={@delta} class={["flex items-center gap-1.5 text-sm font-medium", @class]}>
+      <span class={[
+        "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold",
+        @delta >= 0 && tone_class("income", :soft),
+        @delta < 0 && tone_class("expense", :soft)
+      ]}>
+        <%= if @delta >= 0, do: "↑", else: "↓" %> <%= Float.round(abs(@delta / 1), 1) %>%
+      </span>
+      <span class="text-[color:var(--fin-muted)]">than last month</span>
+    </p>
+    <p :if={!@delta} class={["text-sm text-[color:var(--fin-muted)]", @class]}>No prior month to compare</p>
+    """
+  end
+
+  @doc """
+  TailAdmin stat tile: label, soft icon chip top-right, big value, and a
+  "than last month" delta row (or a custom inner block, e.g. the saving-rate
+  radial).
+
+  `value` accepts either a pre-formatted string (single-currency values, e.g.
+  `money/2`) or a raw list of `%{currency, amount}` totals (multi-currency,
+  e.g. `net_worth_summary.net`). Multi-currency values render one currency per
+  line instead of joining them into one string — a joined string wraps
+  wherever the browser finds space, which lands mid-value (a stray currency
+  symbol stranded before its own number); one `<p>` per currency means any
+  wrap only ever falls between currencies, never inside one.
+  """
+  attr :label, :string, required: true
+  attr :value, :any, required: true
+  attr :icon, :string, required: true
+  attr :tone, :string, default: "muted"
+  attr :delta, :any, default: nil
+  attr :show_delta, :boolean, default: true
+  slot :inner_block
+
+  def stat_tile(assigns) do
+    ~H"""
+    <.fin_card class="flex h-full flex-col p-4">
+      <div class="flex items-start justify-between gap-3">
+        <p class="text-xs font-medium text-[color:var(--fin-muted)]"><%= @label %></p>
+        <span class={["inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", tone_class(@tone, :soft)]}>
+          <.icon name={@icon} class="h-4 w-4" />
+        </span>
+      </div>
+      <div class="mt-2.5 space-y-0.5 font-mono text-[1.35rem] font-semibold leading-tight tracking-[-0.03em] text-[color:var(--fin-text)]">
+        <p :for={line <- stat_tile_value_lines(@value)} class="whitespace-nowrap"><%= line %></p>
+      </div>
+      <div class="mt-auto pt-3">
+        <.delta_line :if={@show_delta} delta={@delta} />
+        <%= render_slot(@inner_block) %>
+      </div>
+    </.fin_card>
+    """
+  end
+
+  defp stat_tile_value_lines(value) when is_binary(value), do: [value]
+  defp stat_tile_value_lines([]), do: [money(nil, @default_currency)]
+
+  defp stat_tile_value_lines(totals) when is_list(totals) do
+    totals
+    |> sort_currency_totals()
+    |> Enum.map(&money(&1.amount, &1.currency))
+  end
+
+  @doc """
+  Small conic-gradient ring for the saving-rate tile — progress toward the
+  saving goal (fills up, per the goal-bar convention).
+  """
+  attr :rate, :any, required: true
+  attr :goal, :float, required: true
+
+  def saving_rate_radial(assigns) do
+    progress =
+      case assigns.rate do
+        nil -> 0.0
+        rate -> min(max(rate / assigns.goal * 100, 0.0), 100.0)
+      end
+
+    note =
+      case assigns.rate do
+        nil -> "No income this month"
+        rate when rate >= assigns.goal -> "Goal: #{round(assigns.goal)}% – met"
+        rate -> "Goal: #{round(assigns.goal)}% – #{Float.round(assigns.goal - rate, 1)}% to go"
+      end
+
+    assigns = assign(assigns, progress: progress, note: note)
+
+    ~H"""
+    <div class="flex items-center gap-2.5">
+      <span
+        class="inline-block h-8 w-8 shrink-0 rounded-full"
+        style={"background: conic-gradient(var(--fin-accent) #{@progress}%, var(--fin-surface) 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));"}
+      >
+      </span>
+      <span class="text-sm text-[color:var(--fin-muted)]"><%= @note %></span>
+    </div>
     """
   end
 
@@ -221,10 +474,10 @@ defmodule CoreWeb.FinanceComponents do
       class={[
         @bubble && "rounded-full px-3 py-1.5 text-xs font-semibold transition",
         !@bubble && "rounded-full px-3 py-1.5 text-xs font-semibold transition",
-        @current == @scope && @bubble && "bg-[var(--tone-budget)] text-white shadow-[0_10px_20px_-16px_rgba(109,40,217,0.55)]",
-        @current != @scope && @bubble && "text-slate-400 hover:bg-white/[0.04] hover:text-white",
-        @current == @scope && !@bubble && "bg-white/10 text-white shadow-sm",
-        @current != @scope && !@bubble && "text-slate-400 hover:bg-white/[0.06] hover:text-white"
+        @current == @scope && @bubble && "bg-[#465fff] text-[#ffffff] shadow-[0_10px_20px_-16px_rgba(70,95,255,0.35)]",
+        @current != @scope && @bubble && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]",
+        @current == @scope && !@bubble && "bg-[#465fff] text-[#ffffff] shadow-sm",
+        @current != @scope && !@bubble && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
       ]}
     >
       <%= time_scope_title(@scope) %>
@@ -242,7 +495,7 @@ defmodule CoreWeb.FinanceComponents do
       <select
         id="household_id"
         name="household_id"
-        class="rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-2 text-sm font-semibold text-slate-300 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)]"
+        class="rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3.5 py-2 text-sm font-semibold text-[color:var(--fin-text)] shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)]"
       >
         <option :for={household <- @households} value={household.id} selected={household.id == @selected_household_id}>
           <%= household.name %>
@@ -255,11 +508,11 @@ defmodule CoreWeb.FinanceComponents do
   def household_panel(assigns) do
     ~H"""
     <section class="grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
-      <div class="rounded-xl border border-white/10 bg-white/[0.04] p-5">
+      <div class="rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5">
         <div>
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Households</p>
-            <h3 class="mt-2 text-xl font-semibold tracking-tight text-white">Create or switch scope</h3>
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Households</p>
+            <h3 class="mt-2 text-xl font-semibold tracking-tight text-[color:var(--fin-text)]">Create or switch scope</h3>
           </div>
         </div>
 
@@ -282,15 +535,15 @@ defmodule CoreWeb.FinanceComponents do
         </.form>
       </div>
 
-      <div class="rounded-xl border border-white/10 bg-white/[0.06] p-5 shadow-sm">
+      <div class="rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Active scope</p>
-            <h3 class="mt-2 text-xl font-semibold tracking-tight text-white">
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Active scope</p>
+            <h3 class="mt-2 text-xl font-semibold tracking-tight text-[color:var(--fin-text)]">
               <%= selected_household_name(@selected_household) %>
             </h3>
           </div>
-          <span class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-[var(--tone-budget)]">
+          <span class="rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1 text-xs font-semibold text-[var(--fin-accent)]">
             <%= household_role_label(@current_scope.user, @selected_household) %>
           </span>
         </div>
@@ -298,17 +551,17 @@ defmodule CoreWeb.FinanceComponents do
         <div class="mt-5 space-y-3">
           <div
             :for={member <- household_member_summaries(@selected_household)}
-            class="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-4"
+            class="flex items-center justify-between gap-3 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4"
           >
             <div>
-              <p class="font-semibold text-white"><%= member.name %></p>
-              <p class="mt-1 text-xs text-slate-400"><%= member.label %></p>
+              <p class="font-semibold text-[color:var(--fin-text)]"><%= member.name %></p>
+              <p class="mt-1 text-xs text-[color:var(--fin-muted)]"><%= member.label %></p>
             </div>
-            <span class="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-semibold text-slate-400">
+            <span class="rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1 text-xs font-semibold text-[color:var(--fin-muted)]">
               <%= member.role %>
             </span>
           </div>
-          <div :if={@selected_household == nil} class="rounded-xl border border-dashed border-white/10 p-4 text-sm text-slate-400">
+          <div :if={@selected_household == nil} class="rounded-xl border border-dashed border-[color:var(--fin-border)] p-4 text-sm text-[color:var(--fin-muted)]">
             Create a household to start shared tracking.
           </div>
         </div>
@@ -317,7 +570,7 @@ defmodule CoreWeb.FinanceComponents do
           :if={household_owner?(@current_scope.user, @selected_household)}
           for={@member_form}
           phx-submit="add_household_member"
-          class="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-4"
+          class="mt-5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4"
         >
           <div class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
             <.finance_input form={@member_form} field={:email} label="Add member by email" placeholder="teammate@example.com" />
@@ -336,243 +589,6 @@ defmodule CoreWeb.FinanceComponents do
     """
   end
 
-  def budget_overview_panel(assigns) do
-    ~H"""
-    <section class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Budget overview</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white">Planned spending and event envelopes</h2>
-        </div>
-        <button type="button" phx-click="show_section" phx-value-section="budgets" class="btn btn-secondary btn-xs">
-          Open budgets
-        </button>
-      </div>
-
-      <div class="mt-5 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <div class="space-y-3">
-          <.budget_status_card :for={status <- Enum.take(@budget_statuses, 3)} status={status} />
-          <div :if={@budget_statuses == []} class="rounded-xl border border-dashed border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
-            Create your first personal budget to start tracking daily, weekly, monthly, or yearly targets.
-          </div>
-        </div>
-
-        <div class="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Event budgets</p>
-              <h3 class="mt-2 text-lg font-semibold text-white">Event budgets</h3>
-            </div>
-            <span class="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-semibold text-slate-400">
-              <%= length(@event_budget_statuses) %> active
-            </span>
-          </div>
-
-          <div class="mt-4 space-y-3">
-            <div :for={status <- Enum.take(@event_budget_statuses, 3)} class="rounded-xl border border-white/10 bg-white/[0.06] p-4">
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <p class="font-semibold text-white"><%= status.budget.name %></p>
-                  <p class="mt-1 text-xs text-slate-400">
-                    <%= format_date(status.budget.start_date) %> to <%= format_date(status.budget.end_date) %>
-                  </p>
-                </div>
-                <span class={["rounded-full px-2.5 py-1 text-xs font-semibold", tone_class(budget_state_tone(status), :soft)]}>
-                  <%= budget_state_label(status) %>
-                </span>
-              </div>
-              <div class="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.04]">
-                <div class={["h-full rounded-full", tone_class(budget_state_tone(status), :bar)]} style={"width: #{budget_remaining_pct(status.percentage)}%"} />
-              </div>
-              <div class="mt-3 flex items-center justify-between text-xs">
-                <span class="text-slate-400">Spent <%= money(status.spent, status.budget.currency) %></span>
-                <span class="font-semibold text-white">Remaining <%= money(status.remaining, status.budget.currency) %></span>
-              </div>
-            </div>
-
-            <div :if={@event_budget_statuses == []} class="rounded-xl border border-dashed border-white/10 bg-white/[0.06] p-4 text-sm text-slate-400">
-              Use a custom budget period for trips, repairs, or other one-off spending windows.
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-    """
-  end
-
-  def signals_panel(assigns) do
-    ~H"""
-    <section class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Signals</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white">Cash picture, visibility, and rules</h2>
-        </div>
-        <button type="button" phx-click="show_section" phx-value-section="insights" class="btn btn-secondary btn-xs">
-          Insights
-        </button>
-      </div>
-
-      <div class="mt-5 grid gap-3 sm:grid-cols-2">
-        <div class="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Net flow</p>
-          <p class={["mt-2 text-2xl font-semibold tracking-tight", tone_class("cash")]}>
-            <%= money_totals(@period_summary_totals.balance) %>
-          </p>
-          <p class="mt-2 text-sm text-slate-400">Income minus expenses for <%= String.downcase(time_scope_title(@time_scope)) %>.</p>
-        </div>
-        <div class="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Tracked balances</p>
-          <p class="mt-2 text-2xl font-semibold tracking-tight text-white">
-            <%= money_totals(@account_total_balance_totals) %>
-          </p>
-          <p class="mt-2 text-sm leading-6 text-slate-400"><%= length(@accounts) %> tracked in this scope.</p>
-        </div>
-      </div>
-
-      <div class="mt-5 grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
-        <div class="space-y-3">
-          <div :for={summary <- @account_summaries} class="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.06] p-4">
-            <div>
-              <p class="font-semibold text-white"><%= summary.account.name %></p>
-              <p class="mt-1 text-xs text-slate-400">
-                <%= account_summary_subtitle(summary.account) %> · <%= summary.transaction_count %> linked transactions in view
-              </p>
-            </div>
-            <div class="text-right">
-              <p class="text-sm font-semibold text-white"><%= money(summary.account.current_balance, summary.account.currency) %></p>
-              <p class="mt-1 text-xs text-slate-400"><%= signed_decimal(summary.net, summary.account.currency) %> net in range</p>
-            </div>
-          </div>
-
-          <div :if={@account_summaries == []} class="rounded-xl border border-dashed border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
-            Add accounts to track balances and tie transactions to a real ledger source.
-          </div>
-        </div>
-
-        <div class="space-y-3">
-          <div :for={warning <- @health.warnings} class="rounded-xl border border-white/10 bg-[color-mix(in_srgb,var(--tone-review)_14%,transparent)] p-4 text-sm text-[var(--tone-review)]">
-            <%= warning %>
-          </div>
-          <div :if={@health.warnings == []} class="rounded-xl border border-white/10 bg-[color-mix(in_srgb,var(--tone-income)_14%,transparent)] p-4 text-sm text-[var(--tone-income)]">
-            No warnings in the current view.
-          </div>
-          <div class="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm leading-6 text-slate-400">
-            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Scope</p>
-            <p class="mt-3">Personal data stays isolated per user. Household mode only shows shared household data.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-    """
-  end
-
-  def activity_panel(assigns) do
-    ~H"""
-    <section class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Activity</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white">Recent movements and review queue</h2>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button type="button" phx-click="show_section" phx-value-section="transactions" class="btn btn-secondary btn-xs">
-            Transactions
-          </button>
-          <button type="button" phx-click="show_section" phx-value-section="review" class="btn btn-secondary btn-xs">
-            <%= review_section_label(@pending_review_count) %>
-          </button>
-        </div>
-      </div>
-
-      <div class="mt-5 space-y-3">
-        <.transaction_row :for={transaction <- Enum.take(@transactions, 4)} transaction={transaction} compact />
-        <div :if={@transactions == []} class="rounded-xl border border-dashed border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
-          No transactions recorded for this period.
-        </div>
-      </div>
-
-      <div class="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-4">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Pending review</p>
-            <h3 class="mt-2 text-lg font-semibold text-white">Imported suggestions</h3>
-          </div>
-          <span class="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-semibold text-slate-400">
-            <%= @pending_review_count %> waiting
-          </span>
-        </div>
-
-        <div class="mt-4 space-y-3">
-          <.review_row :for={transaction <- Enum.take(@pending_transactions, 2)} transaction={transaction} compact />
-          <div :if={@pending_transactions == []} class="rounded-xl border border-dashed border-white/10 bg-white/[0.06] p-4 text-sm text-slate-400">
-            No personal transactions are waiting for review.
-          </div>
-        </div>
-      </div>
-    </section>
-    """
-  end
-
-  def obligations_panel(assigns) do
-    ~H"""
-    <section class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Obligations</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white">Debt commitments and payoff planning</h2>
-        </div>
-        <button type="button" phx-click="show_section" phx-value-section="debts" class="btn btn-secondary btn-xs">
-          Open debts
-        </button>
-      </div>
-
-      <div class="mt-5 grid gap-4 lg:grid-cols-[1fr_0.92fr]">
-        <div class="space-y-3">
-          <div :for={debt <- Enum.take(@debts, 4)} class="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="font-semibold text-white"><%= debt.name %></p>
-                <p class="mt-1 text-xs text-slate-400">
-                  <%= format_kind(debt.kind) %><%= if debt.provider, do: " with #{debt.provider}" %>
-                </p>
-              </div>
-              <span class="text-sm font-semibold text-white"><%= money(debt.minimum_payment, debt.currency) %></span>
-            </div>
-            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <span class="text-slate-400"><%= due_day_label(debt.due_day) %></span>
-              <span class="font-semibold text-white">Balance <%= money(debt.current_balance, debt.currency) %></span>
-            </div>
-          </div>
-
-          <div :if={@debts == []} class="rounded-xl border border-dashed border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
-            No active debts yet. Add one if you want repayment planning and obligations on the dashboard.
-          </div>
-        </div>
-
-        <div class="rounded-xl border border-white/10 bg-white/[0.06] p-4">
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Saved plans</p>
-          <div class="mt-4 space-y-3">
-            <div :for={plan <- Enum.take(@plans, 3)} class="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-              <div class="flex items-center justify-between gap-3">
-                <p class="font-semibold text-white"><%= plan.name %></p>
-                <span class="text-xs font-semibold text-slate-400"><%= format_date(plan.target_payoff_date) %></span>
-              </div>
-              <p class="mt-2 text-xs text-slate-400">
-                <%= String.capitalize(plan.strategy) %> · <%= plan_money(plan.monthly_amount, @debt_currencies) %>
-              </p>
-            </div>
-
-            <div :if={@plans == []} class="rounded-xl border border-dashed border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
-              Generate and save debt payoff plans to keep them visible here.
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-    """
-  end
-
   attr :panel, :string, required: true
 
   def focus_panel_modal(assigns) do
@@ -581,16 +597,16 @@ defmodule CoreWeb.FinanceComponents do
       <button
         type="button"
         phx-click="close_focus_panel"
-        class="absolute inset-0 bg-slate-900/70 backdrop-blur-md"
+        class="absolute inset-0 bg-[#101828]/40 backdrop-blur-sm"
         aria-label="Close detail panel"
       >
       </button>
 
-      <div class="relative z-10 w-full max-w-5xl overflow-hidden rounded-2xl border border-white/10 bg-white/[0.06] shadow-2xl backdrop-blur-xl">
-        <div class="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
+      <div class="relative z-10 w-full max-w-5xl overflow-hidden rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] shadow-2xl">
+        <div class="flex items-center justify-between gap-4 border-b border-[color:var(--fin-border)] px-5 py-4 sm:px-6">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Detail panel</p>
-            <h3 class="mt-2 text-2xl font-semibold tracking-tight text-white">
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Detail panel</p>
+            <h3 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
               <%= focus_panel_title(@panel) %>
             </h3>
           </div>
@@ -599,15 +615,13 @@ defmodule CoreWeb.FinanceComponents do
           </button>
         </div>
 
-        <div class="max-h-[80vh] overflow-y-auto bg-white/[0.05] p-5 sm:p-6">
+        <div class="max-h-[80vh] overflow-y-auto p-5 sm:p-6">
           <.household_panel :if={@panel == "household"} {assigns} />
           <.transaction_panel :if={@panel == "transaction"} {assigns} />
+          <.transfer_panel :if={@panel == "transfer"} {assigns} />
+          <.account_panel :if={@panel == "account"} {assigns} />
           <.budget_panel :if={@panel == "budget"} {assigns} />
           <.debt_panel :if={@panel == "debt"} {assigns} />
-          <.budget_overview_panel :if={@panel == "budget_overview"} {assigns} />
-          <.activity_panel :if={@panel == "activity"} {assigns} />
-          <.signals_panel :if={@panel == "signals"} {assigns} />
-          <.obligations_panel :if={@panel == "obligations"} {assigns} />
         </div>
       </div>
     </div>
@@ -616,75 +630,191 @@ defmodule CoreWeb.FinanceComponents do
 
   def accounts_panel(assigns) do
     ~H"""
-    <section class="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-      <div class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Account setup</p>
-        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white">Track balances by scope</h2>
+    <section class="space-y-5">
+      <div :if={@accounts != []} class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <.account_card :for={account <- @accounts} account={account} />
+      </div>
+
+      <div class="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+      <.fin_card>
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Account setup</p>
+        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Track balances by scope</h2>
 
         <.form for={@account_form} phx-submit="create_account" class="mt-5 space-y-4">
-          <div class="grid gap-3 sm:grid-cols-2">
-            <.finance_input form={@account_form} field={:name} label="Account name" placeholder="Main checking" />
-            <.finance_input form={@account_form} field={:institution} label="Institution" placeholder="Popular Bank" />
-            <.finance_select form={@account_form} field={:kind} label="Kind" options={account_kind_options()} />
-            <.finance_select form={@account_form} field={:currency} label="Currency" options={currency_options()} />
-            <.finance_input form={@account_form} field={:current_balance} label="Current balance" type="number" step="0.01" placeholder="2400.00" />
-            <.finance_input form={@account_form} field={:available_balance} label="Available balance" type="number" step="0.01" placeholder="2200.00" />
-          </div>
-
-          <.finance_input form={@account_form} field={:notes} label="Notes" placeholder="Optional note" />
+          <.account_form_fields form={@account_form} />
 
           <div class="flex justify-end">
             <button type="submit" class="btn btn-primary btn-sm">Save account</button>
           </div>
         </.form>
-      </div>
+      </.fin_card>
 
-      <div class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm">
-        <div class="flex items-start justify-between gap-4">
+      <.fin_card>
+        <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Tracked accounts</p>
-            <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white">Scope balances and activity</h2>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Tracked accounts</p>
+            <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Scope balances and activity</h2>
           </div>
-          <span class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-[var(--tone-budget)]">
+          <span class="whitespace-nowrap rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1 text-xs font-semibold text-[var(--fin-accent)]">
             <%= money_totals(@account_total_balance_totals) %>
           </span>
         </div>
 
         <div class="mt-5 space-y-3">
-          <div :for={summary <- @account_summaries} class="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+          <div :for={summary <- @account_summaries} class="rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
             <div class="flex items-start justify-between gap-3">
               <div>
-                <p class="font-semibold text-white"><%= summary.account.name %></p>
-                <p class="mt-1 text-xs text-slate-400"><%= account_summary_subtitle(summary.account) %></p>
+                <p class="font-semibold text-[color:var(--fin-text)]"><%= summary.account.name %></p>
+                <p class="mt-1 text-xs text-[color:var(--fin-muted)]"><%= account_summary_subtitle(summary.account) %></p>
               </div>
               <div class="text-right">
-                <p class="font-semibold text-white"><%= money(summary.account.current_balance, summary.account.currency) %></p>
-                <p class="mt-1 text-xs text-slate-400"><%= signed_decimal(summary.net, summary.account.currency) %> this range</p>
+                <p class="font-semibold text-[color:var(--fin-text)]"><%= money(summary.account.current_balance, summary.account.currency) %></p>
+                <p class="mt-1 text-xs text-[color:var(--fin-muted)]"><%= signed_decimal(summary.net, summary.account.currency) %> this range</p>
               </div>
             </div>
 
-            <div class="mt-3 grid gap-2 text-sm text-slate-400 sm:grid-cols-3">
+            <div class="mt-3 grid gap-2 text-sm text-[color:var(--fin-muted)] sm:grid-cols-3">
               <.status_row label="Income" value={money(summary.income, summary.account.currency)} />
               <.status_row label="Expenses" value={money(summary.expenses, summary.account.currency)} />
               <.status_row label="Linked tx" value={Integer.to_string(summary.transaction_count)} />
             </div>
           </div>
 
-          <div :if={@account_summaries == []} class="rounded-xl border border-dashed border-white/10 p-4 text-sm text-slate-400">
+          <div :if={@account_summaries == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] p-4 text-sm text-[color:var(--fin-muted)]">
             No accounts yet for this scope.
           </div>
         </div>
+      </.fin_card>
       </div>
     </section>
+    """
+  end
+
+  def transfer_panel(assigns) do
+    ~H"""
+    <section class="mx-auto max-w-xl">
+      <div :if={length(@accounts) < 2} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 text-sm text-[color:var(--fin-muted)]">
+        You need at least two accounts in this scope to move money between them.
+      </div>
+
+      <form :if={length(@accounts) >= 2} phx-submit="create_transfer" class="space-y-4">
+        <.transfer_form_fields accounts={@accounts} />
+
+        <p class="text-xs leading-5 text-[color:var(--fin-muted)]">
+          Both accounts must use the same currency. Transfers move balances without counting as income or spending.
+        </p>
+
+        <div class="flex justify-end">
+          <button type="submit" aria-label="Record transfer" class="btn btn-primary btn-sm">
+            Transfer
+          </button>
+        </div>
+      </form>
+    </section>
+    """
+  end
+
+  # Shared From/To account selects + amount input for account-to-account
+  # transfers. Caller owns the surrounding <form phx-submit="create_transfer">
+  # and its own submit/disclaimer content, since the modal and the dashboard's
+  # Quick Send card each want different chrome around the same fields.
+  attr :accounts, :list, required: true
+
+  defp transfer_form_fields(assigns) do
+    ~H"""
+    <div class="space-y-3">
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label class="block">
+          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">From</span>
+          <select name="transfer[from_account_id]" class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-3 py-2.5 text-sm text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--fin-accent)_25%,transparent)]">
+            <option :for={account <- @accounts} value={account.id}><%= account.name %> (<%= account.currency %>)</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">To</span>
+          <select name="transfer[to_account_id]" class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-3 py-2.5 text-sm text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--fin-accent)_25%,transparent)]">
+            <option :for={account <- transfer_to_options(@accounts)} value={account.id}><%= account.name %> (<%= account.currency %>)</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="block">
+        <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Amount</span>
+        <input
+          type="number"
+          name="transfer[amount]"
+          step="0.01"
+          min="0.01"
+          required
+          placeholder="500.00"
+          class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-3 py-2.5 text-sm text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--fin-accent)_25%,transparent)]"
+        />
+      </label>
+    </div>
+    """
+  end
+
+  # Orders the "To" options so the default selection (the first option, since
+  # none carry a `selected` attribute) is a same-currency account other than
+  # the default "From" (always the first account) — otherwise the untouched
+  # defaults are a guaranteed-to-fail cross-currency pair. Falls back to the
+  # old "next account in list" order when no same-currency match exists.
+  defp transfer_to_options([]), do: []
+
+  defp transfer_to_options([from | rest]) do
+    case Enum.split_with(rest, &(&1.currency == from.currency)) do
+      {[], others} -> others ++ [from]
+      {matches, others} -> matches ++ others ++ [from]
+    end
+  end
+
+  @doc """
+  Quick-add focus panel for a new account, opened from the dashboard's
+  "+ Add Card" button — mirrors the "budget"/"debt" quick-add panels so all
+  three dashboard "+" actions behave the same way (inline modal, no
+  navigation away from the overview).
+  """
+  def account_panel(assigns) do
+    ~H"""
+    <section class="mx-auto max-w-xl">
+      <.form for={@account_form} phx-submit="create_account" class="space-y-4">
+        <.account_form_fields form={@account_form} />
+
+        <div class="flex justify-end">
+          <button type="submit" class="btn btn-primary btn-sm">Save account</button>
+        </div>
+      </.form>
+    </section>
+    """
+  end
+
+  # Shared account fields for both the full Accounts section form and the
+  # quick-add focus panel.
+  attr :form, :any, required: true
+
+  defp account_form_fields(assigns) do
+    ~H"""
+    <div class="space-y-4">
+      <div class="grid gap-3 sm:grid-cols-2">
+        <.finance_input form={@form} field={:name} label="Account name" placeholder="Main checking" />
+        <.finance_input form={@form} field={:institution} label="Institution" placeholder="Popular Bank" />
+        <.finance_select form={@form} field={:kind} label="Kind" options={account_kind_options()} />
+        <.finance_select form={@form} field={:currency} label="Currency" options={currency_options()} />
+        <.finance_input form={@form} field={:current_balance} label="Current balance" type="number" step="0.01" placeholder="2400.00" />
+        <.finance_input form={@form} field={:available_balance} label="Available balance" type="number" step="0.01" placeholder="2200.00" />
+      </div>
+
+      <.finance_input form={@form} field={:notes} label="Notes" placeholder="Optional note" />
+    </div>
     """
   end
 
   def transaction_panel(assigns) do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[0.82fr_1.18fr]">
-      <div class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Manual capture</p>
-        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white"><%= transaction_form_title(@editing_transaction_id) %></h2>
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Manual capture</p>
+        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]"><%= transaction_form_title(@editing_transaction_id) %></h2>
 
         <.form for={@transaction_form} phx-submit={transaction_submit(@editing_transaction_id)} class="mt-5 space-y-4">
           <div class="grid gap-3 sm:grid-cols-2">
@@ -708,18 +838,18 @@ defmodule CoreWeb.FinanceComponents do
         </.form>
       </div>
 
-      <div class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm">
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Ledger</p>
-            <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white">Recent transactions</h2>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Ledger</p>
+            <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Recent transactions</h2>
           </div>
-          <span class="text-xs font-semibold text-slate-400"><%= length(@transactions) %> shown</span>
+          <span class="text-xs font-semibold text-[color:var(--fin-muted)]"><%= length(@transactions) %> shown</span>
         </div>
 
         <div class="mt-5 space-y-3">
           <.transaction_row :for={transaction <- Enum.take(@transactions, 6)} transaction={transaction} compact />
-          <div :if={@transactions == []} class="rounded-xl border border-dashed border-white/10 p-4 text-sm text-slate-400">
+          <div :if={@transactions == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] p-4 text-sm text-[color:var(--fin-muted)]">
             Add income and expenses to start tracking cash flow.
           </div>
         </div>
@@ -732,9 +862,9 @@ defmodule CoreWeb.FinanceComponents do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[0.82fr_1.18fr]">
       <div class="space-y-5">
-        <div class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Spending plan</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white">Create budget</h2>
+        <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Spending plan</p>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Create budget</h2>
 
           <.form for={@budget_form} phx-submit="create_budget" class="mt-5 space-y-4">
             <.finance_input form={@budget_form} field={:name} label="Name" placeholder="Groceries, rent, subscriptions..." />
@@ -754,9 +884,9 @@ defmodule CoreWeb.FinanceComponents do
           </.form>
         </div>
 
-        <div class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Categories</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white">Add category</h2>
+        <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Categories</p>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Add category</h2>
 
           <.form for={@category_form} phx-submit="create_category" class="mt-5 space-y-4">
             <div class="grid gap-3 sm:grid-cols-2">
@@ -774,18 +904,18 @@ defmodule CoreWeb.FinanceComponents do
         </div>
       </div>
 
-      <div class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm">
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Active budgets</p>
-            <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white">Budget status</h2>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Active budgets</p>
+            <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Budget status</h2>
           </div>
-          <span class="text-xs font-semibold text-slate-400"><%= money_totals(@budget_remaining_totals) %> remaining</span>
+          <span class="text-xs font-semibold text-[color:var(--fin-muted)]"><%= money_totals(@budget_remaining_totals) %> remaining</span>
         </div>
 
         <div class="mt-5 space-y-3">
           <.budget_status_card :for={status <- @budget_statuses} status={status} />
-          <div :if={@budget_statuses == []} class="rounded-xl border border-dashed border-white/10 p-4 text-sm text-slate-400">
+          <div :if={@budget_statuses == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] p-4 text-sm text-[color:var(--fin-muted)]">
             No active budgets yet.
           </div>
         </div>
@@ -797,13 +927,13 @@ defmodule CoreWeb.FinanceComponents do
   def debt_panel(assigns) do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-      <div class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm">
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Debt setup</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white">Add debt</h2>
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Debt setup</p>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Add debt</h2>
         </div>
 
-        <.form for={@debt_form} phx-submit="create_debt" class="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-4">
+        <.form for={@debt_form} phx-submit="create_debt" class="mt-5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
           <div class="grid gap-3 md:grid-cols-2">
             <.finance_input form={@debt_form} field={:name} label="Name" placeholder="Visa, auto loan..." />
             <.finance_input form={@debt_form} field={:provider} label="Provider" placeholder="Bank or lender" />
@@ -822,7 +952,7 @@ defmodule CoreWeb.FinanceComponents do
         </.form>
 
         <div class="mt-5 space-y-3">
-          <div :if={@debts == []} class="rounded-xl border border-dashed border-white/10 p-4 text-sm text-slate-400">
+          <div :if={@debts == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] p-4 text-sm text-[color:var(--fin-muted)]">
             Add debts to compare payoff strategies.
           </div>
 
@@ -830,18 +960,18 @@ defmodule CoreWeb.FinanceComponents do
         </div>
       </div>
 
-      <div class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm">
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Payoff comparison</p>
-                <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white">Snowball vs avalanche</h2>
+                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Payoff comparison</p>
+                <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Snowball vs avalanche</h2>
               </div>
           <button type="button" phx-click="generate_plans" class="btn btn-primary btn-xs">Refresh</button>
         </div>
 
         <div class="mt-5 grid gap-4 lg:grid-cols-2">
           <.plan_card :for={plan <- @comparison} plan={plan} debt_currencies={@debt_currencies} />
-          <div :if={@comparison == []} class="rounded-lg border border-dashed border-white/10 p-4 text-sm text-slate-400 lg:col-span-2">
+          <div :if={@comparison == []} class="rounded-lg border border-dashed border-[color:var(--fin-border)] p-4 text-sm text-[color:var(--fin-muted)] lg:col-span-2">
             Generate plans to compare payoff order, payoff month, and estimated interest.
           </div>
         </div>
@@ -853,9 +983,9 @@ defmodule CoreWeb.FinanceComponents do
   def goal_panel(assigns) do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[0.82fr_1.18fr]">
-      <div class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Savings goals</p>
-        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white">Create goal</h2>
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Savings goals</p>
+        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Create goal</h2>
 
         <.form for={@goal_form} phx-submit="create_goal" class="mt-5 space-y-4">
           <.finance_input form={@goal_form} field={:name} label="Goal name" placeholder="Emergency fund, vacation..." />
@@ -873,20 +1003,20 @@ defmodule CoreWeb.FinanceComponents do
         </.form>
       </div>
 
-      <div class="rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-sm">
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Progress</p>
-            <h2 class="mt-2 text-2xl font-semibold tracking-tight text-white">Active goals</h2>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Progress</p>
+            <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Active goals</h2>
           </div>
-          <span class="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-[var(--tone-budget)]">
+          <span class="rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1 text-xs font-semibold text-[var(--fin-accent)]">
             <%= length(@savings_goals) %> tracked
           </span>
         </div>
 
         <div class="mt-5 space-y-3">
           <.savings_goal_card :for={goal <- @savings_goals} goal={goal} />
-          <div :if={@savings_goals == []} class="rounded-xl border border-dashed border-white/10 p-4 text-sm text-slate-400">
+          <div :if={@savings_goals == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] p-4 text-sm text-[color:var(--fin-muted)]">
             Create your first savings goal to start tracking progress.
           </div>
         </div>
@@ -901,11 +1031,11 @@ defmodule CoreWeb.FinanceComponents do
     assigns = assign(assigns, :pct, savings_goal_percentage(assigns.goal))
 
     ~H"""
-    <div class="rounded-lg border border-white/10 bg-white/[0.06] p-4">
+    <div class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p class="font-semibold text-white"><%= @goal.name %></p>
-          <p class="mt-1 text-xs text-slate-400">
+          <p class="font-semibold text-[color:var(--fin-text)]"><%= @goal.name %></p>
+          <p class="mt-1 text-xs text-[color:var(--fin-muted)]">
             <%= if @goal.target_date, do: "Target #{format_date(@goal.target_date)}", else: "No target date" %>
           </p>
         </div>
@@ -914,22 +1044,22 @@ defmodule CoreWeb.FinanceComponents do
         </span>
       </div>
 
-      <div class="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.04]">
+      <div class="mt-4 h-2 overflow-hidden rounded-full bg-[color:var(--fin-surface)]">
         <div class={["h-full rounded-full", tone_class(savings_goal_tone(@goal), :bar)]} style={"width: #{min(@pct, 100)}%"} />
       </div>
 
       <div class="mt-3 grid grid-cols-3 gap-2 text-xs">
         <div>
-          <p class="text-slate-400">Saved</p>
-          <p class="mt-1 font-semibold text-white"><%= money(@goal.saved_amount, @goal.currency) %></p>
+          <p class="text-[color:var(--fin-muted)]">Saved</p>
+          <p class="mt-1 font-semibold text-[color:var(--fin-text)]"><%= money(@goal.saved_amount, @goal.currency) %></p>
         </div>
         <div>
-          <p class="text-slate-400">Target</p>
-          <p class="mt-1 font-semibold text-white"><%= money(@goal.target_amount, @goal.currency) %></p>
+          <p class="text-[color:var(--fin-muted)]">Target</p>
+          <p class="mt-1 font-semibold text-[color:var(--fin-text)]"><%= money(@goal.target_amount, @goal.currency) %></p>
         </div>
         <div>
-          <p class="text-slate-400">Progress</p>
-          <p class="mt-1 font-semibold text-white"><%= Float.round(@pct, 1) %>%</p>
+          <p class="text-[color:var(--fin-muted)]">Progress</p>
+          <p class="mt-1 font-semibold text-[color:var(--fin-text)]"><%= Float.round(@pct, 1) %>%</p>
         </div>
       </div>
 
@@ -950,10 +1080,10 @@ defmodule CoreWeb.FinanceComponents do
     ~H"""
     <div>
       <div class="flex items-center justify-between gap-4 text-sm">
-        <span class="truncate font-medium text-white"><%= @goal.name %></span>
-        <span class="font-mono text-[12px] text-slate-400"><%= @pct |> min(100) |> trunc() %>%</span>
+        <span class="truncate font-medium text-[color:var(--fin-text)]"><%= @goal.name %></span>
+        <span class="font-mono text-[12px] text-[color:var(--fin-muted)]"><%= @pct |> min(100) |> trunc() %>%</span>
       </div>
-      <div class="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+      <div class="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[color:var(--fin-surface)]">
         <div class={["h-full rounded-full", tone_class(savings_goal_tone(@goal), :bar)]} style={"width: #{min(@pct, 100)}%"} />
       </div>
     </div>
@@ -962,110 +1092,271 @@ defmodule CoreWeb.FinanceComponents do
 
   def overview_section(assigns) do
     ~H"""
-    <section class="relative overflow-hidden rounded-[2.45rem] border border-white/10 bg-white/[0.03] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] sm:p-6 xl:p-7">
-      <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(155,140,255,0.12),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(111,207,151,0.1),transparent_30%)]" />
+    <section class="space-y-5">
+      <div class="relative overflow-hidden rounded-[2rem] border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-3 shadow-[0_24px_48px_-32px_var(--fin-glass-shadow)] sm:p-4">
+        <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_15%_0%,color-mix(in_srgb,var(--fin-accent)_10%,transparent),transparent)]"></div>
+        <div class="relative grid gap-5 xl:grid-cols-12">
+          <div class="xl:col-span-6">
+            <.balance_hero_card hero={@hero} />
+          </div>
 
-      <div class="relative grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
-        <.overview_glass_pane>
-          <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="grid gap-5 sm:grid-cols-2 xl:col-span-6">
+            <.stat_tile
+              label="Total Balance"
+              value={money(@hero.balance, @hero.currency)}
+              icon="hero-banknotes"
+              tone="budget"
+              delta={@hero.balance_delta}
+            />
+            <.stat_tile
+              label="Monthly Income"
+              value={money(@hero.income, @hero.currency)}
+              icon="hero-arrow-trending-up"
+              tone="income"
+              delta={@hero.income_delta}
+            />
+            <.stat_tile
+              label="Total Spent"
+              value={money(@hero.spent, @hero.currency)}
+              icon="hero-arrow-trending-down"
+              tone="expense"
+              delta={@hero.spent_delta}
+            />
+            <.stat_tile
+              label="Saving Rate"
+              value={hero_rate_value(@hero.saving_rate)}
+              icon="hero-shield-check"
+              tone="debt"
+              show_delta={false}
+            >
+              <.saving_rate_radial rate={@hero.saving_rate} goal={@hero.saving_goal} />
+            </.stat_tile>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-5 xl:grid-cols-3">
+        <.budget_mini_card
+          budget_statuses={@budget_statuses}
+          budget_spent_totals={@budget_spent_totals}
+          budget_remaining_totals={@budget_remaining_totals}
+          budget_usage_pct={@budget_usage_pct}
+        />
+
+        <.fin_card>
+          <div class="flex items-center justify-between gap-3">
             <div>
-              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Flow</p>
-              <h2 class="mt-2 text-[1.65rem] font-semibold tracking-tight text-white">Income vs. spending</h2>
+              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Review</p>
+              <h2 class="mt-2 text-lg font-semibold text-[color:var(--fin-text)]">Pending queue</h2>
+            </div>
+            <button type="button" phx-click="show_section" phx-value-section="review" class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--fin-muted)] transition hover:text-[color:var(--fin-text)]">
+              Open review queue
+            </button>
+          </div>
+
+          <div class="mt-5 space-y-2.5">
+            <div :for={transaction <- Enum.take(@pending_transactions, 3)} class="rounded-[1.05rem] border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-3.5">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="truncate font-medium text-[color:var(--fin-text)]"><%= review_title(transaction) %></p>
+                  <p class="mt-1 text-xs text-[color:var(--fin-muted)]"><%= format_date(transaction.transaction_date) %></p>
+                </div>
+                <span class="rounded-full bg-[color-mix(in_srgb,var(--tone-review)_16%,transparent)] px-2 py-1 text-[11px] font-semibold text-[var(--tone-review)]">Review</span>
+              </div>
             </div>
 
-            <div class="flex flex-wrap items-center justify-end gap-2">
-              <span class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-slate-400 backdrop-blur-sm">
-                <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white/10 px-1 text-[11px] font-semibold text-[var(--tone-budget)]">
-                  <%= length(@accounts) %>
-                </span>
-                Accounts
-              </span>
-              <span class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-slate-400 backdrop-blur-sm">
-                <.icon name="hero-banknotes" class="h-3.5 w-3.5 text-[var(--tone-income)]" />
-                <%= money_totals(@current_month_summary_totals.balance) %>
-              </span>
-              <div class="flex items-center gap-4 text-[11px] text-slate-400">
-                <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-full bg-[var(--tone-income)]"></span>Income</span>
-                <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-full bg-[var(--tone-expense)]"></span>Spending</span>
-              </div>
+            <div :if={@pending_transactions == []} class="rounded-[1rem] border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-4 text-sm text-[color:var(--fin-muted)]">
+              Queue clear.
+            </div>
+          </div>
+        </.fin_card>
+
+        <.fin_card>
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Obligations</p>
+              <h2 class="mt-2 text-lg font-semibold text-[color:var(--fin-text)]">Debts</h2>
+            </div>
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                phx-click="open_focus_panel"
+                phx-value-panel="debt"
+                aria-label="Add debt"
+                title="Add debt"
+                class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--fin-accent)] transition hover:text-[color:var(--fin-text)]"
+              >
+                + Debt
+              </button>
+              <button type="button" phx-click="show_section" phx-value-section="debts" class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--fin-muted)] transition hover:text-[color:var(--fin-text)]">
+                Details
+              </button>
             </div>
           </div>
 
-          <div class="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.12fr)_0.88fr]">
-            <div class="rounded-[1.55rem] border border-white/10 bg-white/[0.04] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur-sm">
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Cashflow · last 6 months</p>
-                <div class="flex items-center gap-3 text-[11px] text-slate-400">
-                  <span class="flex items-center gap-1.5">
-                    <span class="inline-block h-2.5 w-2.5 rounded-full bg-[var(--tone-income)]"></span>Net positive
-                  </span>
-                  <span class="flex items-center gap-1.5">
-                    <span class="inline-block h-2.5 w-2.5 rounded-full bg-[var(--tone-expense)]"></span>Net negative
-                  </span>
+          <div class="mt-5 space-y-2.5">
+            <div :for={debt <- Enum.take(@debts, 3)} class="rounded-[1.05rem] border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-3.5">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <p class="font-medium text-[color:var(--fin-text)]"><%= debt.name %></p>
+                  <p class="mt-1 text-xs text-[color:var(--fin-muted)]"><%= due_day_label(debt.due_day) %></p>
+                </div>
+                <div class="text-right">
+                  <p class="font-mono text-sm font-semibold text-[color:var(--fin-text)]"><%= money(debt.current_balance, debt.currency) %></p>
+                  <p class="mt-1 text-xs text-[color:var(--fin-muted)]"><%= money(debt.minimum_payment, debt.currency) %> min</p>
                 </div>
               </div>
-              <div class="mt-6 flex h-[15rem] items-center justify-center">
-                <.cashflow_grid months={@cashflow_months} />
-              </div>
             </div>
 
-            <div class="grid gap-4">
-              <div class="rounded-[1.55rem] border border-white/10 bg-white/[0.04] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur-sm">
-                <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Scope balance</p>
-                <p class="mt-4 text-[2.3rem] font-semibold tracking-tight text-white"><%= money_totals(@account_total_balance_totals) %></p>
-                <p class={["mt-3 text-sm font-medium", Decimal.compare(@period_summary.balance, Decimal.new("0")) == :lt && "text-[var(--tone-expense)]", Decimal.compare(@period_summary.balance, Decimal.new("0")) != :lt && "text-[var(--tone-income)]"]}>
-                  <%= signed_money_totals(@period_summary_totals.balance) %> in <%= String.downcase(time_scope_title(@time_scope)) %> view
-                </p>
-              </div>
-
-              <div class="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  phx-click="open_focus_panel"
-                  phx-value-panel="accounts"
-                  class="flex min-h-[6.4rem] flex-col justify-between rounded-[1.45rem] border border-white/10 bg-white/[0.04] p-4 text-left shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur-sm transition hover:bg-white/[0.08]"
-                >
-                  <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-[var(--tone-budget)]">
-                    <.icon name="hero-building-library" class="h-4 w-4" />
-                  </span>
-                  <div>
-                    <p class="font-semibold text-white">Accounts</p>
-                    <p class="mt-1 text-xs text-slate-400"><%= money_totals(@account_total_balance_totals) %></p>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  phx-click="show_section"
-                  phx-value-section="review"
-                  class="flex min-h-[6.4rem] flex-col justify-between rounded-[1.45rem] border border-white/10 bg-white/[0.04] p-4 text-left shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur-sm transition hover:bg-white/[0.08]"
-                >
-                  <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--tone-review)_16%,transparent)] text-[var(--tone-review)]">
-                    <.icon name="hero-shield-check" class="h-4 w-4" />
-                  </span>
-                  <div>
-                    <p class="font-semibold text-white">Review</p>
-                    <p class="mt-1 text-xs text-slate-400"><%= pending_review_note(@pending_review_count) %></p>
-                  </div>
-                </button>
-              </div>
+            <div :if={@debts == []} class="rounded-[1rem] border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-4 text-sm text-[color:var(--fin-muted)]">
+              No debts tracked.
             </div>
           </div>
-        </.overview_glass_pane>
+        </.fin_card>
+      </div>
 
-        <.overview_glass_pane>
+      <div class="grid gap-5 xl:grid-cols-12">
+        <.fin_card class="xl:col-span-8">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <h2 class="text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">Cashflow Overview</h2>
+            <div class="flex items-center gap-1.5">
+              <form phx-change="select_cashflow_year">
+                <select
+                  name="year"
+                  class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-2 py-1 text-[11px] font-semibold text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)]"
+                >
+                  <option :for={year <- @cashflow.year_options} value={year} selected={year == @cashflow_year}>
+                    <%= year %>
+                  </option>
+                </select>
+              </form>
+              <form phx-change="select_cashflow_window">
+                <select
+                  name="window"
+                  class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-2 py-1 text-[11px] font-semibold text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)]"
+                >
+                  <option :for={window <- [3, 6, 12]} value={window} selected={window == @cashflow_window}>
+                    <%= window %> Month
+                  </option>
+                </select>
+              </form>
+            </div>
+          </div>
+
+          <div class="mt-4 flex flex-wrap items-center gap-3">
+            <div>
+              <p class="text-xs font-medium text-[color:var(--fin-muted)]">Total Revenue</p>
+              <p class="mt-1 font-mono text-[1.45rem] font-semibold leading-none tracking-[-0.03em] text-[color:var(--fin-text)]">
+                <%= money(@cashflow.revenue, @cashflow.currency) %>
+              </p>
+            </div>
+            <span
+              :if={@cashflow.revenue_delta}
+              class={[
+                "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold",
+                @cashflow.revenue_delta >= 0 && tone_class("income", :soft),
+                @cashflow.revenue_delta < 0 && tone_class("expense", :soft)
+              ]}
+            >
+              <%= if @cashflow.revenue_delta >= 0, do: "+", else: "" %><%= Float.round(@cashflow.revenue_delta / 1, 2) %>%
+            </span>
+          </div>
+
+          <.cashflow_chart id="overview-cashflow" cashflow_months={@cashflow_months} class="mt-2" />
+        </.fin_card>
+
+        <.fin_card class="xl:col-span-4">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">My Cards</h2>
+              <p class="mt-1 text-sm text-[color:var(--fin-muted)]"><%= money_totals(@account_total_balance_totals) %></p>
+            </div>
+            <button
+              type="button"
+              phx-click="open_focus_panel"
+              phx-value-panel="account"
+              aria-label="Add account"
+              title="Add account"
+              class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-3 py-1.5 text-xs font-semibold text-[color:var(--fin-text)] transition hover:bg-[color:var(--fin-surface)]"
+            >
+              + Add Card
+            </button>
+          </div>
+
+          <div class="mt-5 space-y-3.5">
+            <.account_card :for={account <- Enum.take(@accounts, 2)} account={account} />
+
+            <div :if={@accounts == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-8 text-center text-sm text-[color:var(--fin-muted)]">
+              No accounts yet. Add one from the Accounts section.
+            </div>
+
+            <button
+              :if={length(@accounts) > 2}
+              type="button"
+              phx-click="show_section"
+              phx-value-section="accounts"
+              class="w-full rounded-xl border border-dashed border-[color:var(--fin-border)] px-4 py-2.5 text-sm font-semibold text-[color:var(--fin-muted)] transition hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
+            >
+              View all <%= length(@accounts) %> accounts
+            </button>
+          </div>
+        </.fin_card>
+      </div>
+
+      <div class="grid gap-5 xl:grid-cols-12">
+        <.fin_card class="xl:col-span-8">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Spending</p>
+              <h2 class="mt-1 text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">By category · this month</h2>
+            </div>
+            <button type="button" phx-click="show_section" phx-value-section="budgets" class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--fin-muted)] transition hover:text-[color:var(--fin-text)]">
+              Open budgets
+            </button>
+          </div>
+
+          <.spending_donut :if={@spending_breakdown != []} id="overview-spending" breakdown={@spending_breakdown} class="mt-4" />
+          <div :if={@spending_breakdown == []} class="mt-5 rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-8 text-center text-sm text-[color:var(--fin-muted)]">
+            No spending recorded this month.
+          </div>
+        </.fin_card>
+
+        <.fin_card class="xl:col-span-4">
+          <div>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Payment & transfer</p>
+            <h2 class="mt-1 text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">Quick Send</h2>
+          </div>
+
+          <div :if={length(@accounts) < 2} class="mt-4 rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-6 text-center text-sm text-[color:var(--fin-muted)]">
+            Add a second account to send money between your own accounts.
+          </div>
+
+          <form :if={length(@accounts) >= 2} phx-submit="create_transfer" class="mt-4 space-y-3">
+            <.transfer_form_fields accounts={@accounts} />
+            <p class="text-xs leading-5 text-[color:var(--fin-muted)]">
+              Both accounts must use the same currency.
+            </p>
+            <button type="submit" aria-label="Send transfer" class="btn btn-primary btn-sm w-full">
+              Send
+            </button>
+          </form>
+        </.fin_card>
+      </div>
+
+      <div class="grid gap-5">
+        <.fin_card>
           <div class="flex items-center justify-between gap-4">
             <div>
-              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Activity</p>
-              <h2 class="mt-2 text-xl font-semibold tracking-tight text-white">Recent transactions</h2>
+              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Activity</p>
+              <h2 class="mt-2 text-xl font-semibold tracking-tight text-[color:var(--fin-text)]">Recent transactions</h2>
             </div>
-            <button type="button" phx-click="show_section" phx-value-section="transactions" class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 transition hover:text-slate-300">
+            <button type="button" phx-click="show_section" phx-value-section="transactions" class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--fin-muted)] transition hover:text-[color:var(--fin-text)]">
               View all
             </button>
           </div>
 
           <div class="mt-5 space-y-2.5">
-            <div :for={transaction <- @recent_transactions} class="flex items-center gap-3 rounded-[1.12rem] border border-white/10 bg-white/[0.06] px-4 py-3.5 backdrop-blur-sm">
+            <div :for={transaction <- @recent_transactions} class="flex items-center gap-3 rounded-[1.12rem] border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-3.5">
               <span class={["inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", tone_class(transaction.type, :soft)]}>
                 <.icon
                   name={if transaction.type == "income", do: "hero-arrow-trending-up", else: "hero-arrow-trending-down"}
@@ -1073,10 +1364,11 @@ defmodule CoreWeb.FinanceComponents do
                 />
               </span>
               <div class="min-w-0 flex-1">
-                <p class="truncate font-medium text-white"><%= transaction.description || review_title(transaction) %></p>
-                <div class="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                <p class="truncate font-medium text-[color:var(--fin-text)]"><%= transaction.description || review_title(transaction) %></p>
+                <div class="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[color:var(--fin-muted)]">
                   <span><%= format_date(transaction.transaction_date) %></span>
-                  <span :if={transaction.account} class="rounded-full bg-white/[0.04] px-2 py-1"><%= transaction.account.name %></span>
+                  <span :if={transaction.account} class="rounded-full bg-[color:var(--fin-surface)] px-2 py-1"><%= transaction.account.name %></span>
+                  <.fin_badge :if={transaction.counterpart_transaction_id} tone="muted">Transfer</.fin_badge>
                 </div>
               </div>
               <p class={["shrink-0 pt-0.5 font-mono text-sm font-semibold", tone_class(transaction.type)]}>
@@ -1084,90 +1376,11 @@ defmodule CoreWeb.FinanceComponents do
               </p>
             </div>
 
-            <div :if={@recent_transactions == []} class="rounded-[1.1rem] border border-dashed border-white/10 bg-white/[0.06] px-4 py-5 text-sm text-slate-400 backdrop-blur-sm">
+            <div :if={@recent_transactions == []} class="rounded-[1.1rem] border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-5 text-sm text-[color:var(--fin-muted)]">
               No transactions yet.
             </div>
           </div>
-        </.overview_glass_pane>
-
-        <.overview_glass_pane class="xl:col-span-2">
-          <div class="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Spending</p>
-              <h2 class="mt-2 text-lg font-semibold text-white">By category · this month</h2>
-            </div>
-            <button type="button" phx-click="show_section" phx-value-section="budgets" class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 transition hover:text-slate-300">
-              Open budgets
-            </button>
-          </div>
-
-          <div class="mt-5">
-            <.spending_breakdown_card breakdown={@spending_breakdown} />
-          </div>
-        </.overview_glass_pane>
-
-        <.overview_glass_pane class="xl:col-span-2">
-          <div class="grid gap-4 xl:grid-cols-2">
-            <div class="rounded-[1.55rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur-sm">
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Review</p>
-                  <h2 class="mt-2 text-lg font-semibold text-white">Pending queue</h2>
-                </div>
-                <button type="button" phx-click="show_section" phx-value-section="review" class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 transition hover:text-slate-300">
-                  Open review queue
-                </button>
-              </div>
-
-              <div class="mt-5 space-y-2.5">
-                <div :for={transaction <- Enum.take(@pending_transactions, 3)} class="rounded-[1.05rem] border border-white/10 bg-white/[0.06] p-3.5 backdrop-blur-sm">
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                      <p class="truncate font-medium text-white"><%= review_title(transaction) %></p>
-                      <p class="mt-1 text-xs text-slate-400"><%= format_date(transaction.transaction_date) %></p>
-                    </div>
-                    <span class="rounded-full bg-[color-mix(in_srgb,var(--tone-review)_16%,transparent)] px-2 py-1 text-[11px] font-semibold text-[var(--tone-review)]">Review</span>
-                  </div>
-                </div>
-
-                <div :if={@pending_transactions == []} class="rounded-[1rem] border border-dashed border-white/10 bg-white/[0.06] px-4 py-4 text-sm text-slate-400 backdrop-blur-sm">
-                  Queue clear.
-                </div>
-              </div>
-            </div>
-
-            <div class="rounded-[1.55rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur-sm">
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Obligations</p>
-                  <h2 class="mt-2 text-lg font-semibold text-white">Debts</h2>
-                </div>
-                <button type="button" phx-click="show_section" phx-value-section="debts" class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400 transition hover:text-slate-300">
-                  Details
-                </button>
-              </div>
-
-              <div class="mt-5 space-y-2.5">
-                <div :for={debt <- Enum.take(@debts, 3)} class="rounded-[1.05rem] border border-white/10 bg-white/[0.06] px-4 py-3.5 backdrop-blur-sm">
-                  <div class="flex items-start justify-between gap-4">
-                    <div>
-                      <p class="font-medium text-white"><%= debt.name %></p>
-                      <p class="mt-1 text-xs text-slate-400"><%= due_day_label(debt.due_day) %></p>
-                    </div>
-                    <div class="text-right">
-                      <p class="font-mono text-sm font-semibold text-white"><%= money(debt.current_balance, debt.currency) %></p>
-                      <p class="mt-1 text-xs text-slate-400"><%= money(debt.minimum_payment, debt.currency) %> min</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div :if={@debts == []} class="rounded-[1rem] border border-dashed border-white/10 bg-white/[0.06] px-4 py-4 text-sm text-slate-400 backdrop-blur-sm">
-                  No debts tracked.
-                </div>
-              </div>
-            </div>
-          </div>
-        </.overview_glass_pane>
+        </.fin_card>
       </div>
     </section>
     """
@@ -1181,56 +1394,39 @@ defmodule CoreWeb.FinanceComponents do
         net_worth_visible_items(assigns.net_worth_items, assigns.net_worth_filter)
       )
       |> assign(:net_worth_max_amount, net_worth_max_amount(assigns.net_worth_items))
+      |> assign(:net_worth_donut, net_worth_donut_breakdown(assigns.net_worth_allocation))
 
     ~H"""
     <section>
-      <.glass glow="linear-gradient(120deg, rgba(155,140,255,0.32), rgba(111,207,151,0.22))" class="p-6 sm:p-7 xl:p-8">
+      <.fin_card padded={false} class="p-6 sm:p-7 xl:p-8">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Patrimonio neto</p>
-            <h2 class="mt-2 text-[1.65rem] font-semibold tracking-tight text-white">Net worth</h2>
-            <p class="mt-1 max-w-xl text-sm leading-6 text-slate-400">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Overview</p>
+            <h2 class="mt-2 text-[1.65rem] font-semibold tracking-tight text-[color:var(--fin-text)]">Net worth</h2>
+            <p class="mt-1 max-w-xl text-sm leading-6 text-[color:var(--fin-muted)]">
               Everything you own minus everything you owe, pulled live from your tracked accounts and debts.
             </p>
           </div>
-          <span class="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-slate-400 backdrop-blur-sm">
+          <span class="rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1.5 text-xs font-medium text-[color:var(--fin-muted)]">
             <%= length(@net_worth_items) %> tracked items
           </span>
         </div>
 
         <div class="mt-6 grid gap-4 sm:grid-cols-3">
-          <div class="rounded-[1.55rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur-sm">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Net worth</p>
-            <p class="mt-3 font-display text-3xl tracking-tight text-white tabular-nums"><%= money_totals(@net_worth_summary.net) %></p>
-          </div>
-          <div class="rounded-[1.55rem] border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Assets</p>
-            <p class="mt-3 text-xl font-mono font-semibold text-[var(--tone-income)]"><%= money_totals(@net_worth_summary.assets) %></p>
-          </div>
-          <div class="rounded-[1.55rem] border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Liabilities</p>
-            <p class="mt-3 text-xl font-mono font-semibold text-[var(--tone-expense)]"><%= money_totals(@net_worth_summary.liabilities) %></p>
-          </div>
+          <.stat_tile label="Net worth" value={@net_worth_summary.net} icon="hero-banknotes" tone="budget" show_delta={false} />
+          <.stat_tile label="Assets" value={@net_worth_summary.assets} icon="hero-arrow-trending-up" tone="income" show_delta={false} />
+          <.stat_tile label="Liabilities" value={@net_worth_summary.liabilities} icon="hero-arrow-trending-down" tone="expense" show_delta={false} />
         </div>
 
-        <div :if={@net_worth_allocation != []} class="mt-6 space-y-4">
-          <div :for={row <- @net_worth_allocation} :if={Decimal.compare(row.total, Decimal.new("0")) != :eq}>
-            <p class="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400"><%= row.currency %> allocation</p>
-            <div class="flex h-2.5 w-full overflow-hidden rounded-full bg-white/5">
-              <div
-                :for={segment <- row.segments}
-                :if={segment.pct > 0}
-                class={tone_class(segment.tone, :bar)}
-                style={"width: #{Float.round(segment.pct, 1)}%"}
-                title={networth_category_meta(segment.key).label}
-              >
-              </div>
-            </div>
-          </div>
+        <div :if={@net_worth_donut != []} class="mt-6 rounded-[1.55rem] border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--fin-muted)]">
+            <%= net_worth_donut_currency(@net_worth_allocation) %> composition
+          </p>
+          <.spending_donut id="networth-donut" breakdown={@net_worth_donut} class="mt-2" />
         </div>
 
         <div class="mt-7 flex flex-wrap items-center justify-between gap-3">
-          <h3 class="text-sm font-semibold text-white">Accounts &amp; debts</h3>
+          <h3 class="text-sm font-semibold text-[color:var(--fin-text)]">Accounts &amp; debts</h3>
           <div class="flex flex-wrap gap-1.5">
             <.net_worth_filter_pill category="all" label="All" active={@net_worth_filter == "all"} />
             <.net_worth_filter_pill
@@ -1242,20 +1438,20 @@ defmodule CoreWeb.FinanceComponents do
           </div>
         </div>
 
-        <div class="mt-3 divide-y divide-white/5">
+        <div class="mt-3 divide-y divide-[color:var(--fin-border)]">
           <.net_worth_row
             :for={item <- @visible_net_worth_items}
             item={item}
             meta={networth_category_meta(item.category)}
             max_amount={@net_worth_max_amount}
           />
-          <div :if={@visible_net_worth_items == []} class="rounded-xl border border-dashed border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
+          <div :if={@visible_net_worth_items == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4 text-sm text-[color:var(--fin-muted)]">
             <%= if @net_worth_items == [],
               do: "Add an account or a debt to see your net worth here.",
               else: "No items in this category yet." %>
           </div>
         </div>
-      </.glass>
+      </.fin_card>
     </section>
     """
   end
@@ -1272,8 +1468,8 @@ defmodule CoreWeb.FinanceComponents do
       phx-value-category={@category}
       class={[
         "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
-        @active && "border-white/10 bg-white/10 text-white shadow-sm",
-        !@active && "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06] hover:text-white"
+        @active && "border-[#465fff] bg-[#465fff] text-white shadow-sm",
+        !@active && "border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
       ]}
     >
       <%= @label %>
@@ -1292,11 +1488,11 @@ defmodule CoreWeb.FinanceComponents do
         <.icon name={@meta.icon} class="h-[18px] w-[18px]" />
       </div>
       <div class="min-w-0 flex-1">
-        <p class="truncate text-sm font-medium text-white"><%= @item.name %></p>
-        <p class="text-xs text-slate-400"><%= @item.subtitle %> · <%= @meta.label %></p>
+        <p class="truncate text-sm font-medium text-[color:var(--fin-text)]"><%= @item.name %></p>
+        <p class="text-xs text-[color:var(--fin-muted)]"><%= @item.subtitle %> · <%= @meta.label %></p>
       </div>
       <div class="hidden w-28 md:block">
-        <div class="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+        <div class="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--fin-surface)]">
           <div
             class={["h-full rounded-full", tone_class(@meta.tone, :bar)]}
             style={"width: #{min(100, round(abs(decimal_to_float(@item.amount)) / @max_amount * 100))}%"}
@@ -1307,7 +1503,7 @@ defmodule CoreWeb.FinanceComponents do
       <p class={[
         "w-32 shrink-0 text-right font-mono text-sm tabular-nums",
         Decimal.compare(@item.amount, Decimal.new("0")) == :lt && "text-[var(--tone-expense)]",
-        Decimal.compare(@item.amount, Decimal.new("0")) != :lt && "text-white"
+        Decimal.compare(@item.amount, Decimal.new("0")) != :lt && "text-[color:var(--fin-text)]"
       ]}>
         <%= money(@item.amount, @item.currency) %>
       </p>
@@ -1317,69 +1513,186 @@ defmodule CoreWeb.FinanceComponents do
 
   def transactions_section(assigns) do
     ~H"""
-    <section class="grid gap-5 xl:grid-cols-[0.72fr_1.28fr]">
-      <div class="rounded-[1.75rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur sm:p-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Capture</p>
-        <h2 class="mt-1 text-xl font-semibold text-white">Transactions</h2>
-        <div class="mt-5">
-          <button type="button" phx-click="open_focus_panel" phx-value-panel="transaction" class="btn btn-primary btn-sm">
-            + Add transaction
-          </button>
-        </div>
-      </div>
-
-      <div class="rounded-[1.75rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur sm:p-6">
+    <section class="space-y-5">
+      <.fin_card>
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Ledger · <%= @date_window_label %></p>
-            <h2 class="mt-1 text-xl font-semibold text-white">Recent transactions</h2>
+            <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Ledger · <%= @date_window_label %></p>
+            <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Transactions</h2>
           </div>
           <div class="flex flex-wrap items-center gap-2.5">
-            <div class="inline-flex flex-wrap items-center gap-1 rounded-full border border-white/10 bg-white/[0.06] px-1.5 py-1.5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)]">
+            <div class="inline-flex flex-wrap items-center gap-1 rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-1.5 py-1.5">
               <.time_scope_button current={@time_scope} scope="day" bubble />
               <.time_scope_button current={@time_scope} scope="week" bubble />
               <.time_scope_button current={@time_scope} scope="month" bubble />
               <.time_scope_button current={@time_scope} scope="year" bubble />
             </div>
-            <span class="text-xs font-semibold text-slate-400"><%= length(@transactions) %> shown</span>
+            <button type="button" phx-click="open_focus_panel" phx-value-panel="transaction" class="btn btn-primary btn-sm">
+              + Add transaction
+            </button>
           </div>
         </div>
 
-        <div class="mt-4 space-y-3">
-          <.transaction_row :for={transaction <- @transactions} transaction={transaction} />
-          <div :if={@transactions == []} class="rounded-xl border border-dashed border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
-            Add income and expenses to start tracking cash flow.
+        <form phx-change="filter_transactions" class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <.txn_filter_select name="filters[type]" label="Type" value={@txn_filters["type"]} options={[{"All types", ""}, {"Income", "income"}, {"Expense", "expense"}]} />
+          <.txn_filter_select name="filters[status]" label="Status" value={@txn_filters["status"]} options={[{"Confirmed + pending", ""}, {"Confirmed", "confirmed"}, {"Pending review", "pending_review"}, {"Ignored", "ignored"}]} />
+          <.txn_filter_select name="filters[category_id]" label="Category" value={@txn_filters["category_id"]} options={[{"All categories", ""} | Enum.map(@categories, &{&1.name, &1.id})]} />
+          <.txn_filter_select name="filters[account_id]" label="Account" value={@txn_filters["account_id"]} options={[{"All accounts", ""} | Enum.map(@accounts, &{&1.name, &1.id})]} />
+        </form>
+
+        <div class="mt-5 overflow-x-auto">
+          <table class="w-full min-w-[44rem] text-left text-sm">
+            <thead>
+              <tr class="border-b border-[color:var(--fin-border)]">
+                <.txn_sort_th field="transaction_date" label="Date" sort={@txn_sort} />
+                <th class="px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--fin-muted)]">Description</th>
+                <th class="hidden px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--fin-muted)] lg:table-cell">Category</th>
+                <th class="hidden px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--fin-muted)] lg:table-cell">Account</th>
+                <th class="px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--fin-muted)]">Status</th>
+                <.txn_sort_th field="amount" label="Amount" sort={@txn_sort} class="text-right" />
+                <th class="px-3 py-3"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[color:var(--fin-border)]">
+              <tr :for={transaction <- @txn_rows} class="transition hover:bg-[color:var(--fin-surface)]">
+                <td class="whitespace-nowrap px-3 py-3.5 text-[color:var(--fin-muted)]"><%= format_date(transaction.transaction_date) %></td>
+                <td class="max-w-[16rem] px-3 py-3.5">
+                  <p class="truncate font-medium text-[color:var(--fin-text)]"><%= transaction.description || review_title(transaction) %></p>
+                  <p :if={transaction.merchant} class="mt-0.5 truncate text-xs text-[color:var(--fin-muted)]"><%= transaction.merchant %></p>
+                </td>
+                <td class="hidden px-3 py-3.5 text-[color:var(--fin-muted)] lg:table-cell"><%= category_name(transaction.category) %></td>
+                <td class="hidden px-3 py-3.5 text-[color:var(--fin-muted)] lg:table-cell"><%= (transaction.account && transaction.account.name) || "—" %></td>
+                <td class="px-3 py-3.5">
+                  <.fin_badge :if={transaction.counterpart_transaction_id} tone="muted">Transfer</.fin_badge>
+                  <.fin_badge :if={!transaction.counterpart_transaction_id} tone={transaction_status_tone(transaction.status)}>
+                    <%= transaction_status_label(transaction.status) %>
+                  </.fin_badge>
+                </td>
+                <td class={["whitespace-nowrap px-3 py-3.5 text-right font-mono font-semibold", tone_class(transaction.type)]}>
+                  <%= signed_money(transaction) %>
+                </td>
+                <td class="whitespace-nowrap px-3 py-3.5 text-right">
+                  <button type="button" phx-click="open_edit_transaction" phx-value-id={transaction.id} class="btn btn-secondary btn-xs">
+                    Edit
+                  </button>
+                  <button type="button" phx-click="delete_transaction" phx-value-id={transaction.id} class="btn btn-ghost btn-xs text-[var(--tone-expense)]">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div :if={@txn_rows == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-6 text-center text-sm text-[color:var(--fin-muted)]">
+            No transactions match these filters.
           </div>
         </div>
-      </div>
+
+        <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--fin-border)] pt-4">
+          <p class="text-xs text-[color:var(--fin-muted)]">
+            <%= @txn_total %> transactions · page <%= @txn_page %> of <%= @txn_pages %>
+          </p>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              phx-click="paginate_transactions"
+              phx-value-page={@txn_page - 1}
+              disabled={@txn_page <= 1}
+              class="btn btn-secondary btn-xs disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              phx-click="paginate_transactions"
+              phx-value-page={@txn_page + 1}
+              disabled={@txn_page >= @txn_pages}
+              class="btn btn-secondary btn-xs disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </.fin_card>
     </section>
+    """
+  end
+
+  attr :name, :string, required: true
+  attr :label, :string, required: true
+  attr :value, :string, default: nil
+  attr :options, :list, required: true
+
+  defp txn_filter_select(assigns) do
+    ~H"""
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]"><%= @label %></span>
+      <select
+        name={@name}
+        class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-3 py-2 text-sm text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--fin-accent)_25%,transparent)]"
+      >
+        <option :for={{label, value} <- @options} value={value} selected={to_string(@value) == to_string(value)}>
+          <%= label %>
+        </option>
+      </select>
+    </label>
+    """
+  end
+
+  attr :field, :string, required: true
+  attr :label, :string, required: true
+  attr :sort, :any, required: true
+  attr :class, :any, default: nil
+
+  defp txn_sort_th(assigns) do
+    {sort_field, sort_direction} = assigns.sort
+    active? = to_string(sort_field) == assigns.field
+
+    assigns = assign(assigns, active?: active?, direction: sort_direction)
+
+    ~H"""
+    <th class={["px-3 py-3", @class]}>
+      <button
+        type="button"
+        phx-click="sort_transactions"
+        phx-value-field={@field}
+        class={[
+          "inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] transition",
+          @active? && "text-[var(--fin-accent)]",
+          !@active? && "text-[color:var(--fin-muted)] hover:text-[color:var(--fin-text)]"
+        ]}
+      >
+        <%= @label %>
+        <span :if={@active?}><%= if @direction == :desc, do: "▼", else: "▲" %></span>
+      </button>
+    </th>
     """
   end
 
   def review_section(assigns) do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-      <div class="rounded-[1.75rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur sm:p-6">
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Pending review</p>
-            <h2 class="mt-1 text-xl font-semibold text-white">Imported transaction suggestions</h2>
+            <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Pending review</p>
+            <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Imported transaction suggestions</h2>
           </div>
-          <span class="text-xs font-semibold text-slate-400"><%= @pending_review_count %> waiting</span>
+          <span class="text-xs font-semibold text-[color:var(--fin-muted)]"><%= @pending_review_count %> waiting</span>
         </div>
 
         <div class="mt-4 space-y-3">
           <.review_row :for={transaction <- @pending_transactions} transaction={transaction} />
-          <div :if={@pending_transactions == []} class="rounded-xl border border-dashed border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
+          <div :if={@pending_transactions == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4 text-sm text-[color:var(--fin-muted)]">
             No pending items right now.
           </div>
         </div>
       </div>
 
-      <div class="rounded-[1.75rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur sm:p-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Review cadence</p>
-        <h2 class="mt-1 text-xl font-semibold text-white">What happens here</h2>
-        <div class="mt-5 space-y-3 text-sm leading-6 text-slate-400">
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
+        <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Review cadence</p>
+        <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">What happens here</h2>
+        <div class="mt-5 space-y-3 text-sm leading-6 text-[color:var(--fin-muted)]">
           <p>Imported candidates wait here before they affect balances and budgets.</p>
           <p>Confirm keeps the item in the ledger. Ignore removes the suggestion.</p>
           <p>Edit lets you correct the details before confirming.</p>
@@ -1392,34 +1705,41 @@ defmodule CoreWeb.FinanceComponents do
   def budgets_section(assigns) do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[0.72fr_1.28fr]">
-      <div class="rounded-[1.75rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur sm:p-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Planning</p>
-        <h2 class="mt-1 text-xl font-semibold text-white">Budgets</h2>
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
+        <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Planning</p>
+        <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Budgets</h2>
         <div class="mt-5">
-          <button type="button" phx-click="open_focus_panel" phx-value-panel="budget" class="btn btn-primary btn-sm">
+          <button
+            type="button"
+            phx-click="open_focus_panel"
+            phx-value-panel="budget"
+            aria-label="Create budget"
+            title="Create budget"
+            class="btn btn-primary btn-sm"
+          >
             + Budget
           </button>
         </div>
       </div>
 
-      <div class="rounded-[1.75rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur sm:p-6">
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Active budgets</p>
-            <h2 class="mt-1 text-xl font-semibold text-white">Budget status</h2>
+            <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Active budgets</p>
+            <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Budget status</h2>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <span class="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-slate-400">
+            <span class="inline-flex items-center rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1 text-[11px] font-medium text-[color:var(--fin-muted)]">
               <%= current_month_range_label() %>
             </span>
-            <span class="text-xs font-semibold text-slate-400"><%= money_totals(@budget_remaining_totals) %> remaining</span>
+            <span class="text-xs font-semibold text-[color:var(--fin-muted)]"><%= money_totals(@budget_remaining_totals) %> remaining</span>
           </div>
         </div>
-        <p class="mt-1.5 text-[11px] text-slate-500">Each budget tracks its own period — this shows the current calendar month for reference.</p>
+        <p class="mt-1.5 text-[11px] text-[color:var(--fin-muted)]">Each budget tracks its own period — this shows the current calendar month for reference.</p>
 
         <div class="mt-4 space-y-3">
           <.budget_status_card :for={status <- @budget_statuses} status={status} />
-          <div :if={@budget_statuses == []} class="rounded-xl border border-dashed border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
+          <div :if={@budget_statuses == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4 text-sm text-[color:var(--fin-muted)]">
             No active budgets yet.
           </div>
         </div>
@@ -1431,17 +1751,24 @@ defmodule CoreWeb.FinanceComponents do
   def debts_section(assigns) do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[0.72fr_1.28fr]">
-      <div class="rounded-[1.75rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur sm:p-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Obligations</p>
-        <h2 class="mt-1 text-xl font-semibold text-white">Debts</h2>
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
+        <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Obligations</p>
+        <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Debts</h2>
         <div class="mt-5">
-          <button type="button" phx-click="open_focus_panel" phx-value-panel="debt" class="btn btn-primary btn-sm">
+          <button
+            type="button"
+            phx-click="open_focus_panel"
+            phx-value-panel="debt"
+            aria-label="Add debt"
+            title="Add debt"
+            class="btn btn-primary btn-sm"
+          >
             + Debt
           </button>
         </div>
 
         <div class="mt-5 space-y-3">
-          <div :if={@debts == []} class="rounded-xl border border-dashed border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
+          <div :if={@debts == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4 text-sm text-[color:var(--fin-muted)]">
             Add debts to compare payoff strategies.
           </div>
 
@@ -1449,32 +1776,32 @@ defmodule CoreWeb.FinanceComponents do
         </div>
       </div>
 
-      <div class="rounded-[1.75rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur sm:p-6">
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Payoff comparison</p>
-            <h2 class="mt-1 text-xl font-semibold text-white">Snowball vs avalanche</h2>
+            <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Payoff comparison</p>
+            <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Snowball vs avalanche</h2>
           </div>
           <button type="button" phx-click="generate_plans" class="btn btn-primary btn-xs">Refresh</button>
         </div>
 
         <div class="mt-5 grid gap-4 lg:grid-cols-2">
           <.plan_card :for={plan <- @comparison} plan={plan} debt_currencies={@debt_currencies} />
-          <div :if={@comparison == []} class="rounded-xl border border-dashed border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400 lg:col-span-2">
+          <div :if={@comparison == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4 text-sm text-[color:var(--fin-muted)] lg:col-span-2">
             Generate plans to compare payoff order, payoff month, and estimated interest.
           </div>
         </div>
 
         <div class="mt-6">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Saved plans</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Saved plans</p>
           <div class="mt-3 space-y-2">
-            <div :if={@plans == []} class="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
+            <div :if={@plans == []} class="rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4 text-sm text-[color:var(--fin-muted)]">
               No saved payoff plans yet.
             </div>
-            <div :for={plan <- @plans} class="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.06] p-4">
+            <div :for={plan <- @plans} class="flex items-center justify-between gap-4 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
               <div>
-                <p class="font-semibold text-white"><%= plan.name %></p>
-                <p class="mt-1 text-xs text-slate-400">
+                <p class="font-semibold text-[color:var(--fin-text)]"><%= plan.name %></p>
+                <p class="mt-1 text-xs text-[color:var(--fin-muted)]">
                   <%= String.capitalize(plan.strategy) %> · <%= plan_money(plan.monthly_amount, @debt_currencies) %>
                 </p>
               </div>
@@ -1490,9 +1817,9 @@ defmodule CoreWeb.FinanceComponents do
   def insights_section(assigns) do
     ~H"""
     <section class="grid gap-5 lg:grid-cols-2">
-      <div class="rounded-[1.75rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur sm:p-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Signals</p>
-        <h2 class="mt-1 text-xl font-semibold text-white">Financial health</h2>
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
+        <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Signals</p>
+        <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Financial health</h2>
 
         <div class="mt-5 space-y-3">
           <.status_row label="Debt-to-income" value={"#{@health.debt_to_income_ratio}%"} />
@@ -1502,22 +1829,22 @@ defmodule CoreWeb.FinanceComponents do
         </div>
       </div>
 
-      <div class="rounded-[1.75rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur sm:p-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Reading guide</p>
-        <h2 class="mt-1 text-xl font-semibold text-white">How to read this snapshot</h2>
-        <div class="mt-5 space-y-3 text-sm leading-6 text-slate-400">
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
+        <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Reading guide</p>
+        <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">How to read this snapshot</h2>
+        <div class="mt-5 space-y-3 text-sm leading-6 text-[color:var(--fin-muted)]">
           <p>Health metrics reflect confirmed transactions in the active scope.</p>
           <p>Warnings call out pressure points worth reviewing before they become problems.</p>
         </div>
       </div>
 
-      <div class="rounded-[1.75rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] backdrop-blur sm:p-6 lg:col-span-2">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Warnings</p>
+      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6 lg:col-span-2">
+        <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Warnings</p>
         <div class="mt-4 space-y-2">
-          <div :for={warning <- @health.warnings} class="rounded-lg border border-white/10 bg-[color-mix(in_srgb,var(--tone-review)_14%,transparent)] p-3 text-sm text-[var(--tone-review)]">
+          <div :for={warning <- @health.warnings} class="rounded-lg border border-[color:var(--fin-border)] bg-[color-mix(in_srgb,var(--tone-review)_14%,transparent)] p-3 text-sm text-[var(--tone-review)]">
             <%= warning %>
           </div>
-          <div :if={@health.warnings == []} class="rounded-lg border border-white/10 bg-[color-mix(in_srgb,var(--tone-income)_14%,transparent)] p-3 text-sm text-[var(--tone-income)]">
+          <div :if={@health.warnings == []} class="rounded-lg border border-[color:var(--fin-border)] bg-[color-mix(in_srgb,var(--tone-income)_14%,transparent)] p-3 text-sm text-[var(--tone-income)]">
             No warnings in the current snapshot.
           </div>
         </div>
@@ -1526,87 +1853,285 @@ defmodule CoreWeb.FinanceComponents do
     """
   end
 
-  attr :label, :string, required: true
-  attr :value, :string, required: true
-  attr :tone, :string, default: "cash"
-  attr :note, :any, default: nil
-  attr :featured, :boolean, default: false
-  attr :compact, :boolean, default: false
-  attr :icon, :string, default: nil
+  @doc """
+  Flat light card — the Finance 2.0 surface. Ivory background, hairline
+  border, soft walnut shadow. Replaces the glass panel across finance.
+  """
+  attr :class, :any, default: nil
+  attr :padded, :boolean, default: true
+  slot :inner_block, required: true
 
-  def metric_card(assigns) do
+  def fin_card(assigns) do
     ~H"""
-    <div
-      class={[
-        "rounded-[1.15rem] border transition duration-200 hover:-translate-y-0.5",
-        @compact && "p-3",
-        !@compact && "p-4",
-        @featured && "border-white/15 bg-[linear-gradient(160deg,rgba(155,140,255,0.9)_0%,rgba(124,58,237,0.82)_48%,rgba(111,207,151,0.5)_100%)] text-white shadow-[0_18px_40px_-26px_rgba(109,40,217,0.34)]",
-        !@featured && "border-white/10 bg-white/[0.04] shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)]"
-      ]}
-    >
-      <div class="flex items-start justify-between gap-2">
-        <p class={["text-[10px] font-semibold uppercase tracking-[0.2em]", @featured && "text-white/55", !@featured && "text-slate-400"]}>
-          <%= @label %>
-        </p>
-        <span
-          :if={@icon}
-          class={[
-            "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
-            @featured && "bg-white/15 text-white",
-            !@featured && tone_class(@tone, :soft)
-          ]}
-        >
-          <.icon name={@icon} class="h-3.5 w-3.5" />
-        </span>
-      </div>
-      <p class={["font-mono font-semibold leading-none tracking-[-0.035em]", @compact && "mt-2 text-[1.12rem]", !@compact && "mt-3 text-[1.42rem]", @featured && "text-white", !@featured && tone_class(@tone)]}>
-        <%= @value %>
-      </p>
-      <p :if={@note} class={["text-[10px] leading-4", @compact && "mt-1.5", !@compact && "mt-2.5", @featured && "text-white/70", !@featured && "text-slate-400"]}>
-        <%= @note %>
-      </p>
+    <div class={[
+      "rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)]",
+      @padded && "p-5 sm:p-6",
+      @class
+    ]}>
+      <%= render_slot(@inner_block) %>
     </div>
+    """
+  end
+
+  attr :tone, :string, default: "muted"
+  attr :class, :any, default: nil
+  slot :inner_block, required: true
+
+  def fin_badge(assigns) do
+    ~H"""
+    <span class={[
+      "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+      tone_class(@tone, :soft),
+      @class
+    ]}>
+      <%= render_slot(@inner_block) %>
+    </span>
     """
   end
 
   @doc """
-  Layered glass panel: a soft blurred glow behind a crisper translucent sheet
-  in front. This double-surface stack is what makes it read as physically
-  layered glass instead of a flat card with a blur filter on it.
+  TailAdmin-style stat card: icon chip, muted label, large value, optional
+  delta badge and footnote.
   """
-  attr :class, :any, default: nil
-  attr :glow, :string, default: nil
-  slot :inner_block, required: true
+  attr :label, :string, required: true
+  attr :value, :string, required: true
+  attr :tone, :string, default: "muted"
+  attr :icon, :string, default: nil
+  attr :delta, :string, default: nil
+  attr :delta_tone, :string, default: "muted"
+  attr :note, :any, default: nil
+  slot :inner_block
 
-  def glass(assigns) do
+  def fin_stat_card(assigns) do
     ~H"""
-    <div class="relative">
-      <div
-        :if={@glow}
-        class="absolute -inset-1 rounded-[22px] opacity-40 blur-xl"
-        style={"background: #{@glow};"}
-      >
+    <.fin_card class="p-5">
+      <div class="flex items-start justify-between gap-3">
+        <span
+          :if={@icon}
+          class={["inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", tone_class(@tone, :soft)]}
+        >
+          <.icon name={@icon} class="h-5 w-5" />
+        </span>
+        <.fin_badge :if={@delta} tone={@delta_tone}><%= @delta %></.fin_badge>
       </div>
-      <div class={[
-        "relative rounded-[20px] border border-[var(--fin-glass-border)] bg-[linear-gradient(160deg,var(--fin-glass-from)_0%,var(--fin-glass-to)_100%)] shadow-[0_1px_0_var(--fin-glass-inset)_inset,0_20px_40px_-20px_var(--fin-glass-shadow)] backdrop-blur-xl",
-        @class
-      ]}>
-        <%= render_slot(@inner_block) %>
+      <p class="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--fin-muted)]"><%= @label %></p>
+      <p class="mt-1 font-mono text-[1.45rem] font-semibold leading-none tracking-[-0.03em] text-[color:var(--fin-text)]">
+        <%= @value %>
+      </p>
+      <p :if={@note} class="mt-2 text-xs leading-5 text-[color:var(--fin-muted)]"><%= @note %></p>
+      <%= render_slot(@inner_block) %>
+    </.fin_card>
+    """
+  end
+
+  @doc """
+  TailAdmin-style table. Columns via `:col` slots with a `label`; rows is any
+  enumerable. Wrap in `fin_card` (padded={false}) or use standalone.
+  """
+  attr :rows, :list, required: true
+  attr :row_id, :any, default: nil
+  attr :class, :any, default: nil
+
+  slot :col, required: true do
+    attr :label, :string
+    attr :class, :string
+  end
+
+  slot :empty
+
+  def fin_table(assigns) do
+    ~H"""
+    <div class={["overflow-x-auto", @class]}>
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="border-b border-[color:var(--fin-border)]">
+            <th
+              :for={col <- @col}
+              class={["px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--fin-muted)]", col[:class]]}
+            >
+              <%= col[:label] %>
+            </th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[color:var(--fin-border)]">
+          <tr
+            :for={row <- @rows}
+            id={@row_id && @row_id.(row)}
+            class="transition hover:bg-[color:var(--fin-surface)]"
+          >
+            <td :for={col <- @col} class={["px-4 py-3 align-middle text-[color:var(--fin-text)]", col[:class]]}>
+              <%= render_slot(col, row) %>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div :if={@rows == [] && @empty != []} class="px-4 py-8 text-center text-sm text-[color:var(--fin-muted)]">
+        <%= render_slot(@empty) %>
       </div>
     </div>
     """
   end
 
-  attr :class, :string, default: nil
-  slot :inner_block, required: true
+  @chart_income_color "#12b76a"
+  @chart_expense_color "#f04438"
+  @chart_budget_color "#465fff"
+  @chart_review_color "#f79009"
+  @chart_muted_color "#667085"
+  @chart_border_color "#e4e7ec"
+  @chart_fallback_palette ["#465fff", "#f79009", "#12b76a", "#f04438", "#98a2b3", "#7a5af8"]
 
-  def overview_glass_pane(assigns) do
+  attr :id, :string, required: true
+  attr :cashflow_months, :list, required: true
+  attr :class, :any, default: nil
+
+  def cashflow_chart(assigns) do
+    options = %{
+      chart: %{
+        type: "bar",
+        height: 320,
+        stacked: true,
+        fontFamily: "inherit",
+        toolbar: %{show: false},
+        zoom: %{enabled: false},
+        foreColor: @chart_muted_color
+      },
+      series: [
+        %{name: "Income", data: Enum.map(assigns.cashflow_months, &chart_number(&1.income))},
+        %{name: "Expense", data: Enum.map(assigns.cashflow_months, &chart_number(&1.expenses))}
+      ],
+      colors: [@chart_income_color, @chart_expense_color],
+      plotOptions: %{
+        bar: %{columnWidth: "36%", borderRadius: 5, borderRadiusApplication: "end"}
+      },
+      dataLabels: %{enabled: false},
+      grid: %{borderColor: @chart_border_color, strokeDashArray: 4},
+      xaxis: %{
+        categories: Enum.map(assigns.cashflow_months, & &1.label),
+        axisBorder: %{show: false},
+        axisTicks: %{show: false}
+      },
+      legend: %{show: true, position: "top", horizontalAlign: "right", markers: %{size: 5}},
+      tooltip: %{theme: "light"}
+    }
+
+    assigns = assign(assigns, :payload, chart_payload(options))
+
     ~H"""
-    <.glass class={["p-5 sm:p-6", @class]}>
-      <%= render_slot(@inner_block) %>
-    </.glass>
+    <div id={@id} phx-hook="ApexChart" data-chart={@payload} class={@class} style="min-height: 320px">
+      <div data-chart-target phx-update="ignore" id={@id <> "-target"}></div>
+    </div>
     """
+  end
+
+  attr :id, :string, required: true
+  attr :breakdown, :list, required: true
+  attr :class, :any, default: nil
+
+  def spending_donut(assigns) do
+    colors =
+      assigns.breakdown
+      |> Enum.with_index()
+      |> Enum.map(fn {slice, idx} ->
+        slice.color || Enum.at(@chart_fallback_palette, rem(idx, length(@chart_fallback_palette)))
+      end)
+
+    options = %{
+      chart: %{type: "donut", height: 300, fontFamily: "inherit", foreColor: @chart_muted_color},
+      series: Enum.map(assigns.breakdown, &chart_number(&1.amount)),
+      labels: Enum.map(assigns.breakdown, & &1.name),
+      colors: colors,
+      stroke: %{colors: ["#ffffff"], width: 2},
+      dataLabels: %{enabled: false},
+      plotOptions: %{pie: %{donut: %{size: "72%"}}},
+      legend: %{show: true, position: "bottom", markers: %{size: 5}},
+      tooltip: %{theme: "light"}
+    }
+
+    assigns = assign(assigns, :payload, chart_payload(options))
+
+    ~H"""
+    <div id={@id} phx-hook="ApexChart" data-chart={@payload} class={@class} style="min-height: 300px">
+      <div data-chart-target phx-update="ignore" id={@id <> "-target"}></div>
+    </div>
+    """
+  end
+
+  defp chart_payload(options), do: Jason.encode!(options)
+
+  defp chart_number(%Decimal{} = value), do: value |> Decimal.round(2) |> Decimal.to_float()
+  defp chart_number(value) when is_number(value), do: value
+  defp chart_number(_), do: 0
+
+  defp tone_chart_color("income"), do: @chart_income_color
+  defp tone_chart_color("expense"), do: @chart_expense_color
+  defp tone_chart_color("budget"), do: @chart_budget_color
+  defp tone_chart_color("debt"), do: @chart_review_color
+  defp tone_chart_color("review"), do: @chart_review_color
+  defp tone_chart_color(_tone), do: @chart_muted_color
+
+  def hero_rate_value(nil), do: "—"
+  def hero_rate_value(rate), do: "#{Float.round(rate / 1, 1)}%"
+
+  @doc """
+  "My Cards" visual, TailAdmin card-face anatomy adapted to real account
+  data: contactless mark + status badge + brand line on top, account name as
+  the cardholder line, and a Number / Currency / Kind field row. No fake
+  card details — everything comes from finance_accounts.
+  """
+  attr :account, :map, required: true
+
+  def account_card(assigns) do
+    ~H"""
+    <div class="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#1d2939_0%,#101828_55%,#0c111d_100%)] p-5 text-[#ffffff] shadow-[0_20px_36px_-24px_rgba(12,17,29,0.55)]">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" class="h-5 w-5 text-[#d0d5dd]/90">
+            <path d="M6.5 9a7.5 7.5 0 0 1 0 6" />
+            <path d="M10 6.8a12 12 0 0 1 0 10.4" />
+            <path d="M13.5 4.8a16.5 16.5 0 0 1 0 14.4" />
+          </svg>
+          <span class={[
+            "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+            @account.status == "active" && "bg-[#12b76a]/20 text-[#6ce9a6]",
+            @account.status != "active" && "bg-[#ffffff]/15 text-[#ffffff]/70"
+          ]}>
+            <%= if @account.status == "active", do: "Active", else: "Archived" %>
+          </span>
+        </div>
+        <span class="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-[#ffffff]/65">
+          <%= @account.institution || "IziHub" %>
+        </span>
+      </div>
+
+      <p class="mt-7 truncate text-base font-semibold"><%= @account.name %></p>
+      <p class="mt-1.5 font-mono text-xl font-semibold tracking-tight">
+        <%= money(@account.current_balance, @account.currency) %>
+      </p>
+
+      <div class="mt-5 grid grid-cols-3 gap-3 text-[11px]">
+        <div>
+          <p class="uppercase tracking-wide text-[#ffffff]/55">Number</p>
+          <p class="mt-1 font-mono font-semibold tracking-[0.14em]">•••• <%= account_card_mask(@account) %></p>
+        </div>
+        <div>
+          <p class="uppercase tracking-wide text-[#ffffff]/55">Currency</p>
+          <p class="mt-1 font-mono font-semibold"><%= @account.currency %></p>
+        </div>
+        <div>
+          <p class="uppercase tracking-wide text-[#ffffff]/55">Kind</p>
+          <p class="mt-1 font-semibold"><%= account_kind_label(@account.kind) %></p>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp account_card_mask(%{id: id}), do: id |> to_string() |> String.slice(-4, 4)
+
+  def account_kind_label(kind) do
+    Enum.find_value(account_kind_options(), kind, fn {label, value} ->
+      value == kind && label
+    end)
   end
 
   attr :active_section, :string, required: true
@@ -1621,8 +2146,8 @@ defmodule CoreWeb.FinanceComponents do
       phx-value-section={@section}
       class={[
         "shrink-0 rounded-2xl px-3.5 py-2 text-sm font-semibold transition xl:flex xl:w-full xl:items-center xl:justify-start xl:px-4 xl:py-3",
-        @active_section == @section && "bg-[var(--tone-budget)] text-white shadow-sm xl:bg-white/[0.04] xl:text-[var(--tone-budget)]",
-        @active_section != @section && "border border-white/10 bg-white/[0.06] text-slate-400 hover:bg-white/[0.04] hover:text-white xl:border-transparent"
+        @active_section == @section && "bg-[#465fff] text-[#ffffff] shadow-sm xl:bg-[color-mix(in_srgb,var(--fin-accent)_12%,transparent)] xl:text-[var(--fin-accent)]",
+        @active_section != @section && "border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)] xl:border-transparent"
       ]}
     >
       <%= @label %>
@@ -1643,8 +2168,8 @@ defmodule CoreWeb.FinanceComponents do
       phx-value-section={@section}
       class={[
         "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition",
-        @active_section == @section && "border border-white/10 bg-white/10 text-white shadow-sm",
-        @active_section != @section && "text-slate-400 hover:bg-white/[0.04] hover:text-white"
+        @active_section == @section && "bg-[color-mix(in_srgb,var(--fin-accent)_12%,transparent)] font-semibold text-[var(--fin-accent)]",
+        @active_section != @section && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
       ]}
     >
       <.icon name={@icon} class="h-[17px] w-[17px]" />
@@ -1658,9 +2183,9 @@ defmodule CoreWeb.FinanceComponents do
 
   def month_card(assigns) do
     ~H"""
-    <div class="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-      <p class="text-sm font-semibold text-white"><%= @title %></p>
-      <p class="mt-1 text-xs text-slate-400"><%= format_date(@month.start_date) %> to <%= format_date(@month.end_date) %></p>
+    <div class="rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
+      <p class="text-sm font-semibold text-[color:var(--fin-text)]"><%= @title %></p>
+      <p class="mt-1 text-xs text-[color:var(--fin-muted)]"><%= format_date(@month.start_date) %> to <%= format_date(@month.end_date) %></p>
       <div class="mt-4 space-y-2 text-sm">
         <.status_row label="Income" value={money(@month.income, @default_currency)} />
         <.status_row label="Expenses" value={money(@month.expenses, @default_currency)} />
@@ -1692,87 +2217,7 @@ defmodule CoreWeb.FinanceComponents do
         <div class="w-5 rounded-t-[0.9rem] bg-[var(--tone-income)]" style={"height: #{@left_height}px"} />
         <div class="w-5 rounded-t-[0.9rem] bg-[var(--tone-expense)]" style={"height: #{@right_height}px"} />
       </div>
-      <span class={["text-xs", @active && "font-semibold text-white", !@active && "text-slate-400"]}><%= @label %></span>
-    </div>
-    """
-  end
-
-  @doc """
-  Six-month cashflow trend as a grid of tone-colored squares (green = net
-  positive, red = net negative), intensity scaled to the largest swing in
-  the window. Derived fields (tone/opacity/tooltip) are computed here in
-  plain Elixir before the template runs, same pattern as `savings_goal_card`.
-  """
-  attr :months, :list, required: true
-
-  def cashflow_grid(assigns) do
-    months =
-      Enum.map(assigns.months, fn month ->
-        month
-        |> Map.put(:tone, cashflow_tone(month.balance))
-        |> Map.put(:opacity, cashflow_opacity(month.intensity))
-        |> Map.put(:tooltip, "#{month.label}: #{signed_decimal(month.balance, @default_currency)}")
-      end)
-
-    assigns = assign(assigns, :months, months)
-
-    ~H"""
-    <div class="grid grid-cols-6 gap-2.5">
-      <div :for={month <- @months} class="flex flex-col items-center gap-2">
-        <div
-          class={["h-11 w-11 rounded-lg sm:h-12 sm:w-12", tone_class(month.tone, :bar)]}
-          style={"opacity: #{month.opacity}"}
-          title={month.tooltip}
-        >
-        </div>
-        <span class="text-[11px] font-medium text-slate-400"><%= month.label %></span>
-      </div>
-    </div>
-    """
-  end
-
-  def cashflow_tone(balance) do
-    if Decimal.compare(balance, Decimal.new("0")) == :lt, do: "expense", else: "income"
-  end
-
-  @doc """
-  Zero-activity months still get a visible floor opacity so the grid never
-  shows fully-invisible squares.
-  """
-  def cashflow_opacity(intensity) do
-    Float.round(0.22 + intensity / 100 * 0.78, 2)
-  end
-
-  @doc """
-  Horizontal segmented bar + dot legend for a category spending breakdown.
-  Category colors are user-chosen (set on the category itself), unlike
-  status/tone indicators elsewhere, so they're rendered directly rather than
-  through `tone_class/2`.
-  """
-  attr :breakdown, :list, required: true
-
-  def spending_breakdown_card(assigns) do
-    ~H"""
-    <div>
-      <div class="flex h-3 w-full overflow-hidden rounded-full bg-white/5">
-        <div
-          :for={segment <- @breakdown}
-          :if={segment.pct > 0}
-          class="h-full first:rounded-l-full last:rounded-r-full"
-          style={"width: #{Float.round(segment.pct, 1)}%; background-color: #{segment.color};"}
-          title={"#{segment.name} · #{Float.round(segment.pct, 1)}%"}
-        >
-        </div>
-      </div>
-
-      <div class="mt-4 flex flex-wrap gap-x-5 gap-y-2.5">
-        <div :for={segment <- @breakdown} class="flex items-center gap-2 text-xs text-slate-400">
-          <span class="inline-block h-2.5 w-2.5 rounded-full" style={"background-color: #{segment.color};"}></span>
-          <span class="text-slate-300"><%= segment.name %></span>
-          <span class="font-mono text-slate-500"><%= round(segment.pct) %>%</span>
-        </div>
-        <div :if={@breakdown == []} class="text-sm text-slate-500">No spending recorded this month.</div>
-      </div>
+      <span class={["text-xs", @active && "font-semibold text-[color:var(--fin-text)]", !@active && "text-[color:var(--fin-muted)]"]}><%= @label %></span>
     </div>
     """
   end
@@ -1783,15 +2228,15 @@ defmodule CoreWeb.FinanceComponents do
     ~H"""
     <div class="grid grid-cols-[minmax(0,1.2fr)_auto_auto] items-center gap-3 px-5 py-4">
       <div class="min-w-0">
-        <p class="truncate font-medium text-white"><%= @transaction.description || review_title(@transaction) %></p>
-        <p class="mt-1 text-xs text-slate-400">
+        <p class="truncate font-medium text-[color:var(--fin-text)]"><%= @transaction.description || review_title(@transaction) %></p>
+        <p class="mt-1 text-xs text-[color:var(--fin-muted)]">
           <%= category_name(@transaction.category) %> · <%= format_date(@transaction.transaction_date) %>
         </p>
       </div>
       <p class={["text-right font-mono text-sm font-semibold", tone_class(@transaction.type)]}>
         <%= signed_money(@transaction) %>
       </p>
-      <p class="truncate text-right font-mono text-sm text-slate-400">
+      <p class="truncate text-right font-mono text-sm text-[color:var(--fin-muted)]">
         <%= @transaction.account && @transaction.account.name || "Unassigned" %>
       </p>
     </div>
@@ -1804,10 +2249,10 @@ defmodule CoreWeb.FinanceComponents do
     ~H"""
     <div>
       <div class="flex items-center justify-between gap-4 text-sm">
-        <span class="font-medium text-white"><%= @status.budget.name %></span>
-        <span class="font-mono text-[12px] text-slate-400"><%= money(@status.spent, @status.budget.currency) %> / <%= money(@status.budget.amount, @status.budget.currency) %></span>
+        <span class="font-medium text-[color:var(--fin-text)]"><%= @status.budget.name %></span>
+        <span class="font-mono text-[12px] text-[color:var(--fin-muted)]"><%= money(@status.spent, @status.budget.currency) %> / <%= money(@status.budget.amount, @status.budget.currency) %></span>
       </div>
-      <div class="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+      <div class="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[color:var(--fin-surface)]">
         <div class={["h-full rounded-full", tone_class(budget_state_tone(@status), :bar)]} style={"width: #{budget_remaining_pct(@status.percentage)}%"} />
       </div>
     </div>
@@ -1819,15 +2264,15 @@ defmodule CoreWeb.FinanceComponents do
 
   def transaction_row(assigns) do
     ~H"""
-    <div class="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.06] p-3">
+    <div class="flex items-center justify-between gap-3 rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-3">
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-2">
           <span class={["text-sm font-semibold", tone_class(@transaction.type)]}>
             <%= signed_money(@transaction) %>
           </span>
-          <span class="text-sm font-semibold text-white"><%= @transaction.description || "Transaction" %></span>
+          <span class="text-sm font-semibold text-[color:var(--fin-text)]"><%= @transaction.description || "Transaction" %></span>
         </div>
-        <p class="mt-1 text-xs text-slate-400">
+        <p class="mt-1 text-xs text-[color:var(--fin-muted)]">
           <%= format_date(@transaction.transaction_date) %>
           <%= if @transaction.category, do: " · #{@transaction.category.name}" %>
           <%= if @transaction.account, do: " · #{@transaction.account.name}" %>
@@ -1860,24 +2305,24 @@ defmodule CoreWeb.FinanceComponents do
 
   def review_row(assigns) do
     ~H"""
-    <div class="rounded-lg border border-white/10 bg-white/[0.06] p-4">
+    <div class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             <span class={["text-sm font-semibold", tone_class(@transaction.type)]}>
               <%= signed_money(@transaction) %>
             </span>
-            <span class="text-sm font-semibold text-white"><%= review_title(@transaction) %></span>
+            <span class="text-sm font-semibold text-[color:var(--fin-text)]"><%= review_title(@transaction) %></span>
             <span class="rounded-full bg-[color-mix(in_srgb,var(--tone-review)_16%,transparent)] px-2 py-1 text-[11px] font-semibold text-[var(--tone-review)]">
               <%= source_label(@transaction.source) %>
             </span>
           </div>
-          <p class="mt-1 text-xs text-slate-400">
+          <p class="mt-1 text-xs text-[color:var(--fin-muted)]">
             <%= format_date(@transaction.transaction_date) %>
             <%= if @transaction.merchant, do: " · #{@transaction.merchant}" %>
             <%= if @transaction.review_reason, do: " · #{@transaction.review_reason}" %>
           </p>
-          <p :if={@transaction.raw_description} class="mt-2 text-sm text-slate-400"><%= @transaction.raw_description %></p>
+          <p :if={@transaction.raw_description} class="mt-2 text-sm text-[color:var(--fin-muted)]"><%= @transaction.raw_description %></p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -1905,11 +2350,11 @@ defmodule CoreWeb.FinanceComponents do
 
   def budget_status_card(assigns) do
     ~H"""
-    <div class="rounded-lg border border-white/10 bg-white/[0.06] p-4">
+    <div class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p class="font-semibold text-white"><%= @status.budget.name %></p>
-          <p class="mt-1 text-xs text-slate-400">
+          <p class="font-semibold text-[color:var(--fin-text)]"><%= @status.budget.name %></p>
+          <p class="mt-1 text-xs text-[color:var(--fin-muted)]">
             <%= category_name(@status.budget.category) %> · <%= String.capitalize(@status.budget.period) %>
           </p>
         </div>
@@ -1918,22 +2363,22 @@ defmodule CoreWeb.FinanceComponents do
         </span>
       </div>
 
-      <div class="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.04]">
+      <div class="mt-4 h-2 overflow-hidden rounded-full bg-[color:var(--fin-surface)]">
         <div class={["h-full rounded-full", tone_class(budget_state_tone(@status), :bar)]} style={"width: #{budget_remaining_pct(@status.percentage)}%"} />
       </div>
 
       <div class="mt-3 grid grid-cols-3 gap-2 text-xs">
         <div>
-          <p class="text-slate-400">Spent</p>
-          <p class="mt-1 font-semibold text-white"><%= money(@status.spent, @status.budget.currency) %></p>
+          <p class="text-[color:var(--fin-muted)]">Spent</p>
+          <p class="mt-1 font-semibold text-[color:var(--fin-text)]"><%= money(@status.spent, @status.budget.currency) %></p>
         </div>
         <div>
-          <p class="text-slate-400">Remaining</p>
-          <p class="mt-1 font-semibold text-white"><%= money(@status.remaining, @status.budget.currency) %></p>
+          <p class="text-[color:var(--fin-muted)]">Remaining</p>
+          <p class="mt-1 font-semibold text-[color:var(--fin-text)]"><%= money(@status.remaining, @status.budget.currency) %></p>
         </div>
         <div>
-          <p class="text-slate-400">Used</p>
-          <p class="mt-1 font-semibold text-white"><%= Float.round(@status.percentage, 1) %>%</p>
+          <p class="text-[color:var(--fin-muted)]">Used</p>
+          <p class="mt-1 font-semibold text-[color:var(--fin-text)]"><%= Float.round(@status.percentage, 1) %>%</p>
         </div>
       </div>
     </div>
@@ -1946,11 +2391,11 @@ defmodule CoreWeb.FinanceComponents do
 
   def debt_card(assigns) do
     ~H"""
-    <div class="rounded-lg border border-white/10 bg-white/[0.06] p-4">
+    <div class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <p class="font-semibold text-white"><%= @debt.name %></p>
-          <p class="mt-1 text-xs text-slate-400">
+          <p class="font-semibold text-[color:var(--fin-text)]"><%= @debt.name %></p>
+          <p class="mt-1 text-xs text-[color:var(--fin-muted)]">
             <%= format_kind(@debt.kind) %><%= if @debt.provider, do: " with #{@debt.provider}" %>
           </p>
         </div>
@@ -1966,28 +2411,28 @@ defmodule CoreWeb.FinanceComponents do
 
       <div class="mt-4 grid grid-cols-3 gap-3 text-sm">
         <div>
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Balance</p>
-          <p class="mt-1 font-semibold text-white"><%= money(@debt.current_balance, @debt.currency) %></p>
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Balance</p>
+          <p class="mt-1 font-semibold text-[color:var(--fin-text)]"><%= money(@debt.current_balance, @debt.currency) %></p>
         </div>
         <div>
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Minimum</p>
-          <p class="mt-1 font-semibold text-white"><%= money(@debt.minimum_payment, @debt.currency) %></p>
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Minimum</p>
+          <p class="mt-1 font-semibold text-[color:var(--fin-text)]"><%= money(@debt.minimum_payment, @debt.currency) %></p>
         </div>
         <div>
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">APR</p>
-          <p class="mt-1 font-semibold text-white"><%= apr(@debt.apr) %></p>
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">APR</p>
+          <p class="mt-1 font-semibold text-[color:var(--fin-text)]"><%= apr(@debt.apr) %></p>
         </div>
       </div>
 
-      <.form :if={@payment_form_debt_id == @debt.id} for={@payment_form} phx-submit="record_payment" class="mt-4 rounded-lg border border-white/10 bg-white/[0.04] p-4">
+      <.form :if={@payment_form_debt_id == @debt.id} for={@payment_form} phx-submit="record_payment" class="mt-4 rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
         <input type="hidden" name="debt_id" value={@debt.id} />
         <div class="grid gap-3 md:grid-cols-2">
           <.finance_input form={@payment_form} field={:amount} label="Payment amount" placeholder="100.00" type="number" step="0.01" />
           <.finance_input form={@payment_form} field={:payment_date} label="Payment date" type="date" />
           <.finance_select form={@payment_form} field={:kind} label="Kind" options={payment_kind_options()} />
-          <label class="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-slate-300">
+          <label class="flex items-center gap-2 rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-3 text-sm font-semibold text-[color:var(--fin-text)]">
             <input type="hidden" name="payment[create_expense_transaction]" value="false" />
-            <input type="checkbox" name="payment[create_expense_transaction]" value="true" checked class="h-4 w-4 rounded border-white/20 text-white" />
+            <input type="checkbox" name="payment[create_expense_transaction]" value="true" checked class="h-4 w-4 rounded border-[color:var(--fin-border)] text-[color:var(--fin-text)]" />
             Create expense transaction
           </label>
           <div class="md:col-span-2">
@@ -2001,14 +2446,14 @@ defmodule CoreWeb.FinanceComponents do
         </div>
       </.form>
 
-      <div :if={@debt.payments != []} class="mt-4 rounded-lg bg-white/[0.04] p-3">
-        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Recent payments</p>
+      <div :if={@debt.payments != []} class="mt-4 rounded-lg bg-[color:var(--fin-surface)] p-3">
+        <p class="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Recent payments</p>
         <div class="mt-2 space-y-2">
           <div :for={payment <- @debt.payments} class="flex items-center justify-between gap-3 text-sm">
-            <span class="text-slate-400">
+            <span class="text-[color:var(--fin-muted)]">
               <%= format_date(payment.payment_date) %> · <%= format_kind(payment.kind) %>
             </span>
-            <span class="font-semibold text-white"><%= money(payment.amount, @debt.currency) %></span>
+            <span class="font-semibold text-[color:var(--fin-text)]"><%= money(payment.amount, @debt.currency) %></span>
           </div>
         </div>
       </div>
@@ -2021,9 +2466,9 @@ defmodule CoreWeb.FinanceComponents do
 
   def status_row(assigns) do
     ~H"""
-    <div class="flex items-center justify-between gap-4 border-b border-white/10 py-2 last:border-b-0">
-      <span class="text-sm text-slate-400"><%= @label %></span>
-      <span class="text-sm font-semibold text-white"><%= @value %></span>
+    <div class="flex items-center justify-between gap-4 border-b border-[color:var(--fin-border)] py-2 last:border-b-0">
+      <span class="text-sm text-[color:var(--fin-muted)]"><%= @label %></span>
+      <span class="text-sm font-semibold text-[color:var(--fin-text)]"><%= @value %></span>
     </div>
     """
   end
@@ -2041,7 +2486,7 @@ defmodule CoreWeb.FinanceComponents do
 
     ~H"""
     <div>
-      <label for={@field_data.id} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+      <label for={@field_data.id} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">
         <%= @label %>
       </label>
       <input
@@ -2051,7 +2496,7 @@ defmodule CoreWeb.FinanceComponents do
         type={@type}
         placeholder={@placeholder}
         step={@step}
-        class="w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[var(--tone-income)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--tone-income)_25%,transparent)]"
+        class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-2.5 text-sm text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--fin-accent)_25%,transparent)]"
       />
       <p :for={error <- @field_data.errors} class="mt-1 text-xs text-[var(--tone-expense)]"><%= translate_error(error) %></p>
     </div>
@@ -2069,13 +2514,13 @@ defmodule CoreWeb.FinanceComponents do
 
     ~H"""
     <div>
-      <label for={@field_data.id} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+      <label for={@field_data.id} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">
         <%= @label %>
       </label>
       <select
         id={@field_data.id}
         name={@field_data.name}
-        class="w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[var(--tone-income)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--tone-income)_25%,transparent)]"
+        class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-2.5 text-sm text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--fin-accent)_25%,transparent)]"
       >
         <option :for={{label, value} <- @options} value={value} selected={selected?(@field_data.value, value)}>
           <%= label %>
@@ -2091,11 +2536,11 @@ defmodule CoreWeb.FinanceComponents do
 
   def plan_card(assigns) do
     ~H"""
-    <div class="rounded-lg border border-white/10 bg-white/[0.06] p-4 shadow-sm">
+    <div class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4 shadow-sm">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <p class="text-lg font-semibold text-white"><%= String.capitalize(@plan.strategy) %></p>
-          <p class="mt-1 text-xs text-slate-400"><%= if @plan.feasible?, do: "Feasible with current cash flow", else: "Needs more cash flow" %></p>
+          <p class="text-lg font-semibold text-[color:var(--fin-text)]"><%= String.capitalize(@plan.strategy) %></p>
+          <p class="mt-1 text-xs text-[color:var(--fin-muted)]"><%= if @plan.feasible?, do: "Feasible with current cash flow", else: "Needs more cash flow" %></p>
         </div>
         <button type="button" phx-click="save_plan" phx-value-strategy={@plan.strategy} class="btn btn-secondary btn-xs">
           Save
@@ -2109,9 +2554,9 @@ defmodule CoreWeb.FinanceComponents do
         <.status_row label="Payoff date" value={format_date(@plan.target_payoff_date)} />
       </div>
 
-      <div class="mt-4 rounded-lg bg-white/[0.04] p-3">
-        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Order</p>
-        <p class="mt-1 text-sm text-slate-300"><%= payoff_order(@plan.payoff_order) %></p>
+      <div class="mt-4 rounded-lg bg-[color:var(--fin-surface)] p-3">
+        <p class="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Order</p>
+        <p class="mt-1 text-sm text-[color:var(--fin-text)]"><%= payoff_order(@plan.payoff_order) %></p>
       </div>
     </div>
     """
@@ -2205,12 +2650,27 @@ defmodule CoreWeb.FinanceComponents do
     rounded = Decimal.round(amount, 2)
 
     case Decimal.compare(rounded, Decimal.new("0")) do
-      :lt -> "-#{currency_prefix(currency)}#{Decimal.abs(rounded)}"
-      _ -> "#{currency_prefix(currency)}#{rounded}"
+      :lt -> "-#{currency_prefix(currency)}#{group_thousands(Decimal.abs(rounded))}"
+      _ -> "#{currency_prefix(currency)}#{group_thousands(rounded)}"
     end
   end
 
   def money(nil, currency), do: "#{currency_prefix(currency)}0.00"
+
+  defp group_thousands(%Decimal{} = amount) do
+    [int_part, dec_part] = amount |> Decimal.to_string() |> String.split(".", parts: 2)
+
+    grouped_int =
+      int_part
+      |> String.reverse()
+      |> String.graphemes()
+      |> Enum.chunk_every(3)
+      |> Enum.map_join(",", &Enum.join/1)
+      |> String.reverse()
+
+    grouped_int <> "." <> dec_part
+  end
+
   def money_totals([]), do: money(nil, @default_currency)
 
   def money_totals(totals) do
@@ -2320,6 +2780,40 @@ defmodule CoreWeb.FinanceComponents do
     |> max(1.0)
   end
 
+  # The currency with the largest gross total (assets + liabilities) drives
+  # the net worth donut — mirrors the hero card's dominant-currency pick, so
+  # a single chart stays representative without needing one per currency.
+  defp net_worth_dominant_allocation([]), do: nil
+
+  defp net_worth_dominant_allocation(allocation) do
+    Enum.max_by(allocation, &decimal_to_float(&1.total), fn -> nil end)
+  end
+
+  def net_worth_donut_currency(allocation) do
+    case net_worth_dominant_allocation(allocation) do
+      nil -> @default_currency
+      %{currency: currency} -> currency
+    end
+  end
+
+  defp net_worth_donut_breakdown(allocation) do
+    case net_worth_dominant_allocation(allocation) do
+      nil ->
+        []
+
+      %{segments: segments} ->
+        segments
+        |> Enum.filter(&(Decimal.compare(&1.amount, Decimal.new("0")) == :gt))
+        |> Enum.map(fn segment ->
+          %{
+            name: networth_category_meta(segment.key).label,
+            color: tone_chart_color(segment.tone),
+            amount: segment.amount
+          }
+        end)
+    end
+  end
+
   def currency_prefix(currency) do
     case normalize_currency(currency) do
       "DOP" -> "DOP$ "
@@ -2369,7 +2863,7 @@ defmodule CoreWeb.FinanceComponents do
     do: "bg-[color-mix(in_srgb,var(--tone-expense)_14%,transparent)] text-[var(--tone-expense)]"
 
   def tone_class("budget", :soft),
-    do: "bg-[color-mix(in_srgb,var(--tone-budget)_14%,transparent)] text-[var(--tone-budget)]"
+    do: "bg-[color-mix(in_srgb,var(--fin-accent)_14%,transparent)] text-[var(--fin-accent)]"
 
   def tone_class("debt", :soft),
     do: "bg-[color-mix(in_srgb,var(--tone-debt)_14%,transparent)] text-[var(--tone-debt)]"
@@ -2600,11 +3094,9 @@ defmodule CoreWeb.FinanceComponents do
     |> max(12)
   end
 
-  def focus_panel_title("budget_overview"), do: "Budget overview"
-  def focus_panel_title("activity"), do: "Recent activity"
-  def focus_panel_title("signals"), do: "Signals and visibility"
-  def focus_panel_title("obligations"), do: "Obligations and payoff plans"
   def focus_panel_title("transaction"), do: "Add transaction"
+  def focus_panel_title("transfer"), do: "Transfer between accounts"
+  def focus_panel_title("account"), do: "Add account"
   def focus_panel_title("budget"), do: "Budget setup"
   def focus_panel_title("debt"), do: "Debt setup"
   def focus_panel_title("household"), do: "Household setup"

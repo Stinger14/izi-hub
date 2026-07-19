@@ -20,16 +20,17 @@ defmodule CoreWeb.FinanceLive do
     "insights"
   ]
   @time_scopes ["day", "week", "month", "year", "event"]
+  @txn_page_size 25
+  @txn_sort_fields ~w(transaction_date amount merchant)
   @focus_panels [
-    "budget_overview",
-    "activity",
-    "signals",
-    "obligations",
     "transaction",
+    "transfer",
     "budget",
     "debt",
-    "household"
+    "household",
+    "account"
   ]
+  @saving_rate_goal 30.0
 
   def mount(_params, _session, socket) do
     {:ok,
@@ -49,7 +50,14 @@ defmodule CoreWeb.FinanceLive do
        editing_transaction_id: nil,
        debt_form_open: false,
        payment_form_debt_id: nil,
-       comparison: []
+       comparison: [],
+       txn_filters: %{},
+       txn_sort: {:transaction_date, :desc},
+       txn_page: 1,
+       hero_currency: nil,
+       hero_month: nil,
+       cashflow_year: nil,
+       cashflow_window: 6
      )
      |> assign_forms()
      |> assign_finance_data()}
@@ -63,6 +71,113 @@ defmodule CoreWeb.FinanceLive do
 
   def handle_event("filter_net_worth", %{"category" => category}, socket) do
     {:noreply, assign(socket, :net_worth_filter, category)}
+  end
+
+  def handle_event("select_hero_currency", %{"currency" => currency}, socket) do
+    {:noreply,
+     socket
+     |> assign(hero_currency: currency)
+     |> assign_finance_data()}
+  end
+
+  def handle_event("select_hero_month", %{"month" => month}, socket) do
+    {:noreply,
+     socket
+     |> assign(hero_month: month)
+     |> assign_finance_data()}
+  end
+
+  def handle_event("select_cashflow_year", %{"year" => year}, socket) do
+    year =
+      case Integer.parse(to_string(year)) do
+        {parsed, _} -> parsed
+        _ -> Date.utc_today().year
+      end
+
+    {:noreply,
+     socket
+     |> assign(cashflow_year: year)
+     |> assign_finance_data()}
+  end
+
+  def handle_event("select_cashflow_window", %{"window" => window}, socket)
+      when window in ~w(3 6 12) do
+    {:noreply,
+     socket
+     |> assign(cashflow_window: String.to_integer(window))
+     |> assign_finance_data()}
+  end
+
+  def handle_event("select_cashflow_window", _params, socket), do: {:noreply, socket}
+
+  def handle_event("open_received", _params, socket) do
+    {:noreply,
+     socket
+     |> open_action_surface("transaction")
+     |> assign(editing_transaction_id: nil)
+     |> assign_transaction_form(%Transaction{
+       transaction_date: Date.utc_today(),
+       type: "income",
+       source: "manual",
+       status: "confirmed"
+     })}
+  end
+
+  def handle_event("create_transfer", %{"transfer" => params}, socket) do
+    user = current_actor(socket)
+    owner = current_finance_owner(socket)
+
+    case Finance.create_account_transfer(user, owner, params) do
+      {:ok, _legs} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Transfer recorded")
+         |> close_action_surface()
+         |> assign_finance_data()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, transfer_error_message(reason))}
+    end
+  end
+
+  def handle_event("filter_transactions", %{"filters" => filters}, socket) do
+    {:noreply,
+     socket
+     |> assign(txn_filters: filters, txn_page: 1)
+     |> assign_finance_data()}
+  end
+
+  def handle_event("sort_transactions", %{"field" => field}, socket)
+      when field in @txn_sort_fields do
+    field = String.to_existing_atom(field)
+    {current_field, current_direction} = socket.assigns.txn_sort
+
+    sort =
+      if current_field == field do
+        {field, if(current_direction == :desc, do: :asc, else: :desc)}
+      else
+        {field, :desc}
+      end
+
+    {:noreply,
+     socket
+     |> assign(txn_sort: sort, txn_page: 1)
+     |> assign_finance_data()}
+  end
+
+  def handle_event("sort_transactions", _params, socket), do: {:noreply, socket}
+
+  def handle_event("paginate_transactions", %{"page" => page}, socket) do
+    page =
+      case Integer.parse(to_string(page)) do
+        {parsed, _} when parsed >= 1 -> parsed
+        _ -> 1
+      end
+
+    {:noreply,
+     socket
+     |> assign(txn_page: page)
+     |> assign_finance_data()}
   end
 
   def handle_event("set_time_scope", %{"scope" => scope}, socket) when scope in @time_scopes do
@@ -296,7 +411,7 @@ defmodule CoreWeb.FinanceLive do
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply,
          socket
-         |> open_action_surface("accounts")
+         |> open_action_surface("account")
          |> assign(account_form: to_form(changeset, as: :account))}
     end
   end
@@ -536,15 +651,15 @@ defmodule CoreWeb.FinanceLive do
       <div class="finance-shell min-h-screen">
         <div class="mx-auto grid min-h-screen max-w-[118rem] gap-6 px-4 py-6 sm:px-6 xl:grid-cols-[17rem_minmax(0,1fr)] xl:px-8">
           <aside class="hidden xl:flex xl:flex-col xl:gap-6">
-            <.glass class="flex min-h-[calc(100vh-3rem)] flex-col" glow="linear-gradient(160deg, rgba(155,140,255,0.25), rgba(111,207,151,0.15))">
+            <.fin_card padded={false} class="flex min-h-[calc(100vh-3rem)] flex-col">
               <div class="flex h-full flex-col px-5 py-6">
                 <div class="flex items-center gap-3">
-                  <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#9B8CFF] via-[#7c6cf0] to-[#6FCF97] text-base font-semibold text-white">
+                  <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#465fff] text-base font-semibold text-[#ffffff]">
                     IZ
                   </div>
                   <div>
-                    <p class="font-display text-lg tracking-tight text-white">IziHub Finance</p>
-                    <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Dashboard</p>
+                    <p class="font-display text-lg tracking-tight text-[color:var(--fin-text)]">IziHub Finance</p>
+                    <p class="text-xs uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Dashboard</p>
                   </div>
                 </div>
 
@@ -560,17 +675,17 @@ defmodule CoreWeb.FinanceLive do
                   <.side_nav_button active_section={@active_section} section="insights" label="Insights" icon="hero-wrench-screwdriver" />
                 </nav>
 
-                <div class="mt-auto flex items-center gap-3 border-t border-white/10 pt-5">
-                  <div class="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--tone-income)] text-sm font-semibold text-[#0A0D12]">
+                <div class="mt-auto flex items-center gap-3 border-t border-[color:var(--fin-border)] pt-5">
+                  <div class="flex h-11 w-11 items-center justify-center rounded-full bg-[#465fff] text-sm font-semibold text-[#ffffff]">
                     <%= initials(@current_scope.user) %>
                   </div>
                   <div class="min-w-0">
-                    <p class="truncate text-sm font-semibold text-white"><%= current_scope_name(@current_scope.user) %></p>
-                    <p class="truncate text-xs text-slate-400"><%= if @ownership_scope == "household" and @selected_household, do: @selected_household.name, else: "Personal scope" %></p>
+                    <p class="truncate text-sm font-semibold text-[color:var(--fin-text)]"><%= current_scope_name(@current_scope.user) %></p>
+                    <p class="truncate text-xs text-[color:var(--fin-muted)]"><%= if @ownership_scope == "household" and @selected_household, do: @selected_household.name, else: "Personal scope" %></p>
                   </div>
                 </div>
               </div>
-            </.glass>
+            </.fin_card>
           </aside>
 
           <div class="min-w-0 space-y-6 lg:max-w-[92rem]">
@@ -688,8 +803,29 @@ defmodule CoreWeb.FinanceLive do
     net_worth_groups = net_worth_groups(net_worth_items)
     net_worth_currencies = currency_codes(net_worth_items, & &1.currency)
 
-    cashflow_months = cashflow_months(owner, today)
+    cashflow_year = socket.assigns[:cashflow_year] || today.year
+    cashflow_window = socket.assigns[:cashflow_window] || 6
+    {cashflow_months, cashflow} = build_cashflow(owner, today, cashflow_year, cashflow_window)
     spending_breakdown = category_spending_breakdown(user, owner, today)
+
+    hero_currency = resolve_hero_currency(socket.assigns[:hero_currency], accounts)
+    hero_month = socket.assigns[:hero_month] || month_iso(today)
+    hero = build_hero(owner, accounts, hero_currency, hero_month, cashflow_months)
+
+    txn_sort = socket.assigns[:txn_sort] || {:transaction_date, :desc}
+    txn_filters = socket.assigns[:txn_filters] || %{}
+    txn_base_opts = transaction_table_opts(txn_filters, period_window)
+    {:ok, txn_total} = Finance.count_transactions(user, owner, txn_base_opts)
+    txn_pages = txn_total |> Kernel./(@txn_page_size) |> Float.ceil() |> trunc() |> max(1)
+    txn_page = min(socket.assigns[:txn_page] || 1, txn_pages)
+
+    {:ok, txn_rows} =
+      Finance.list_transactions(
+        user,
+        owner,
+        txn_base_opts ++
+          [sort: txn_sort, limit: @txn_page_size, offset: (txn_page - 1) * @txn_page_size]
+      )
 
     base_assigns = %{
       households: households,
@@ -732,7 +868,19 @@ defmodule CoreWeb.FinanceLive do
         net_worth_summary: net_worth_summary(net_worth_items),
         net_worth_allocation: net_worth_allocation(net_worth_groups, net_worth_currencies),
         cashflow_months: cashflow_months,
+        cashflow: cashflow,
+        cashflow_year: cashflow_year,
+        cashflow_window: cashflow_window,
         spending_breakdown: spending_breakdown,
+        hero_currency: hero_currency,
+        hero_month: hero_month,
+        hero: hero,
+        txn_rows: txn_rows,
+        txn_total: txn_total,
+        txn_pages: txn_pages,
+        txn_page: txn_page,
+        txn_sort: txn_sort,
+        txn_filters: txn_filters,
         health: health,
         payment_method_breakdown: payment_method_breakdown(confirmed_transactions),
         plans: plans
@@ -840,6 +988,12 @@ defmodule CoreWeb.FinanceLive do
     |> assign_household_form()
     |> assign_member_form()
     |> open_action_surface("household")
+  end
+
+  defp prepare_focus_panel(socket, "account") do
+    socket
+    |> assign_account_form()
+    |> open_action_surface("account")
   end
 
   defp prepare_focus_panel(socket, panel), do: open_action_surface(socket, panel)
@@ -1023,7 +1177,9 @@ defmodule CoreWeb.FinanceLive do
         balance = account.current_balance || Decimal.new("0")
 
         amount =
-          if category == "liabilities", do: balance |> Decimal.abs() |> Decimal.negate(), else: balance
+          if category == "liabilities",
+            do: balance |> Decimal.abs() |> Decimal.negate(),
+            else: balance
 
         %{
           id: "account-#{account.id}",
@@ -1132,42 +1288,212 @@ defmodule CoreWeb.FinanceLive do
   # collapses currencies) since this is an at-a-glance trend widget, not a
   # precise ledger.
 
-  defp cashflow_months(owner, today) do
-    current_month_start = Date.beginning_of_month(today)
+  defp transfer_error_message(:missing_transfer_account), do: "Pick both accounts"
+  defp transfer_error_message(:invalid_account_scope), do: "Choose accounts from the active scope"
+  defp transfer_error_message(:same_account), do: "Pick two different accounts"
 
-    0..5
-    |> Enum.map(fn offset ->
-      month_start = shift_months(current_month_start, offset - 5)
-      month_end = Date.end_of_month(month_start)
-      summary = Finance.get_financial_summary(owner, month_start, month_end)
+  defp transfer_error_message(:currency_mismatch),
+    do: "Transfers between different currencies aren't supported yet"
 
-      %{
-        label: Calendar.strftime(month_start, "%b"),
-        income: summary.income,
-        expenses: summary.expenses,
-        balance: summary.balance
-      }
+  defp transfer_error_message(:invalid_transfer_amount), do: "Enter an amount above zero"
+  defp transfer_error_message(:invalid_transfer_date), do: "Enter a valid date"
+  defp transfer_error_message(_reason), do: "Could not record the transfer"
+
+  # Builds the filter keyword list for the transactions table from the raw
+  # filter form params. Blank selections fall away; when no status is chosen
+  # the table defaults to confirmed + pending (ignored stays opt-in).
+  defp transaction_table_opts(filters, period_window) do
+    opts =
+      Enum.reduce(filters, [], fn
+        {_key, value}, acc when value in [nil, ""] -> acc
+        {"type", value}, acc -> [{:type, value} | acc]
+        {"status", value}, acc -> [{:status, value} | acc]
+        {"category_id", value}, acc -> [{:category_id, value} | acc]
+        {"account_id", value}, acc -> [{:account_id, value} | acc]
+        _entry, acc -> acc
+      end)
+
+    opts =
+      if Keyword.has_key?(opts, :status),
+        do: opts,
+        else: [{:status, ["confirmed", "pending_review"]} | opts]
+
+    opts ++ [start_date: period_window.start_date, end_date: period_window.end_date]
+  end
+
+  # --- TailAdmin dashboard hero + stat grid ----------------------------------
+  #
+  # The hero card and the 2x2 stat grid read a single currency at a time
+  # (selected via the hero currency dropdown) for a single month (hero month
+  # dropdown), with "than last month" deltas against the previous month.
+
+  defp resolve_hero_currency(selected, accounts) do
+    currencies = hero_currencies(accounts)
+
+    cond do
+      selected in currencies -> selected
+      currencies != [] -> dominant_currency(accounts) || hd(currencies)
+      true -> @default_currency
+    end
+  end
+
+  defp hero_currencies(accounts) do
+    accounts |> Enum.map(& &1.currency) |> Enum.uniq() |> Enum.sort()
+  end
+
+  defp dominant_currency(accounts) do
+    accounts
+    |> Enum.filter(&(&1.status == "active"))
+    |> Enum.group_by(& &1.currency)
+    |> Enum.max_by(
+      fn {_currency, accs} ->
+        accs
+        |> Enum.map(&decimal_to_float(&1.current_balance || Decimal.new("0")))
+        |> Enum.sum()
+      end,
+      fn -> nil end
+    )
+    |> case do
+      {currency, _} -> currency
+      nil -> nil
+    end
+  end
+
+  defp month_iso(%Date{} = date), do: Calendar.strftime(date, "%Y-%m")
+
+  defp month_start(month_iso) do
+    case Date.from_iso8601(month_iso <> "-01") do
+      {:ok, start} -> start
+      _ -> Date.beginning_of_month(Date.utc_today())
+    end
+  end
+
+  defp build_hero(owner, accounts, currency, hero_month, cashflow_months) do
+    start = month_start(hero_month)
+    prev_start = shift_months(start, -1)
+
+    summary = Finance.get_currency_summary(owner, start, Date.end_of_month(start))
+
+    prev_summary =
+      Finance.get_currency_summary(owner, prev_start, Date.end_of_month(prev_start))
+
+    active_in_currency =
+      Enum.filter(accounts, &(&1.currency == currency && &1.status == "active"))
+
+    balance =
+      Enum.reduce(active_in_currency, Decimal.new("0"), fn account, acc ->
+        Decimal.add(acc, account.current_balance || Decimal.new("0"))
+      end)
+
+    income = currency_amount(summary.income, currency)
+    expenses = currency_amount(summary.expenses, currency)
+    net = Decimal.sub(income, expenses)
+    prev_income = currency_amount(prev_summary.income, currency)
+    prev_expenses = currency_amount(prev_summary.expenses, currency)
+
+    income_f = decimal_to_float(income)
+    saving_rate = if income_f > 0, do: (income_f - decimal_to_float(expenses)) / income_f * 100
+
+    %{
+      currency: currency,
+      currencies: hero_currencies(accounts),
+      month: hero_month,
+      month_options: hero_month_options(),
+      balance: balance,
+      balance_delta: pct_delta(balance, Decimal.sub(balance, net)),
+      income: income,
+      income_delta: pct_delta(income, prev_income),
+      spent: expenses,
+      spent_delta: pct_delta(expenses, prev_expenses),
+      saving_rate: saving_rate,
+      saving_goal: @saving_rate_goal,
+      sparkline: balance_sparkline(balance, cashflow_months),
+      primary_account: List.first(active_in_currency)
+    }
+  end
+
+  defp hero_month_options do
+    current = Date.beginning_of_month(Date.utc_today())
+
+    for offset <- 0..-11//-1 do
+      month = shift_months(current, offset)
+      {Calendar.strftime(month, "%B %Y"), month_iso(month)}
+    end
+  end
+
+  defp currency_amount(totals, currency) do
+    Enum.find_value(totals, Decimal.new("0"), fn total ->
+      total.currency == currency && total.amount
     end)
-    |> with_cashflow_intensity()
+  end
+
+  # Percentage change of current vs previous; nil when there is no baseline.
+  defp pct_delta(current, previous) do
+    previous_f = decimal_to_float(previous)
+
+    if previous_f != 0.0 do
+      (decimal_to_float(current) - previous_f) / abs(previous_f) * 100
+    end
+  end
+
+  # Trailing balance series reconstructed backwards from today's balance
+  # minus each month's net flow — an approximation for the hero sparkline,
+  # not exact account history.
+  defp balance_sparkline(balance, cashflow_months) do
+    cashflow_months
+    |> Enum.reverse()
+    |> Enum.reduce([decimal_to_float(balance)], fn month, [latest | _] = acc ->
+      net = decimal_to_float(month.income) - decimal_to_float(month.expenses)
+      [latest - net | acc]
+    end)
+    |> Enum.drop(1)
+  end
+
+  # Builds `window` months of cashflow ending at the selected year's last
+  # month (or the current month when the selected year is the current one),
+  # plus the preceding window so Total Revenue gets a comparison delta.
+  defp build_cashflow(owner, today, year, window) do
+    end_month =
+      if year == today.year,
+        do: Date.beginning_of_month(today),
+        else: Date.new!(year, 12, 1)
+
+    months =
+      (2 * window - 1)..0//-1
+      |> Enum.map(fn offset ->
+        month_start = shift_months(end_month, -offset)
+        month_end = Date.end_of_month(month_start)
+        summary = Finance.get_financial_summary(owner, month_start, month_end)
+
+        %{
+          label: Calendar.strftime(month_start, "%b"),
+          income: summary.income,
+          expenses: summary.expenses,
+          balance: summary.balance
+        }
+      end)
+
+    {previous_months, current_months} = Enum.split(months, window)
+    revenue = sum_month_incomes(current_months)
+
+    cashflow = %{
+      revenue: revenue,
+      revenue_delta: pct_delta(revenue, sum_month_incomes(previous_months)),
+      year_options: (today.year - 3)..today.year,
+      currency: @default_currency
+    }
+
+    {current_months, cashflow}
+  end
+
+  defp sum_month_incomes(months) do
+    Enum.reduce(months, Decimal.new("0"), &Decimal.add(&2, &1.income))
   end
 
   # Only ever called with the first of a month, so the day is always 1.
   defp shift_months(%Date{year: year, month: month}, n) do
     total = year * 12 + (month - 1) + n
     Date.new!(div(total, 12), rem(total, 12) + 1, 1)
-  end
-
-  defp with_cashflow_intensity(months) do
-    max_amount =
-      months
-      |> Enum.map(&abs(decimal_to_float(&1.balance)))
-      |> Enum.max()
-      |> max(1.0)
-
-    Enum.map(months, fn month ->
-      intensity = min(100, round(abs(decimal_to_float(month.balance)) / max_amount * 100))
-      Map.put(month, :intensity, intensity)
-    end)
   end
 
   # --- spending breakdown (dashboard segmented bar) --------------------------
@@ -1182,6 +1508,7 @@ defmodule CoreWeb.FinanceLive do
       Finance.list_transactions(user, owner,
         status: ["confirmed"],
         type: "expense",
+        exclude_transfers: true,
         start_date: Date.beginning_of_month(today),
         end_date: Date.end_of_month(today)
       )

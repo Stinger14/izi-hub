@@ -1291,62 +1291,61 @@
 }
 
 /* ---------------------------------------------------------------
-   Finance page - scoped dark glass theme. Deliberately unlayered
-   (outside @layer) so it always wins over the utilities layer;
-   tokens and btn overrides only apply inside dot-finance-shell,
-   so every other page keeps the light theme tokens above intact.
+   Finance page - scoped light theme using TailAdmin's published
+   design tokens (brand/gray/success/error/warning scales). Deliberately
+   unlayered (outside @layer) so it always wins over the utilities
+   layer; tokens and btn overrides only apply inside
+   dot-finance-shell, so every other page keeps the global theme
+   tokens above intact.
    --------------------------------------------------------------- */
 .finance-shell {
-    --fin-bg: #0a0d12;
-    --fin-text: #eceef1;
-    --fin-muted: #8a93a3;
-    --fin-glow-purple: rgba(155, 140, 255, 0.1);
-    --fin-glow-green: rgba(111, 207, 151, 0.08);
-    --fin-glass-border: rgba(255, 255, 255, 0.09);
-    --fin-glass-from: rgba(255, 255, 255, 0.06);
-    --fin-glass-to: rgba(255, 255, 255, 0.02);
-    --fin-glass-inset: rgba(255, 255, 255, 0.06);
-    --fin-glass-shadow: rgba(0, 0, 0, 0.6);
+    --fin-bg: #f9fafb;
+    --fin-card: #ffffff;
+    --fin-surface: #f2f4f7;
+    --fin-text: #101828;
+    --fin-muted: #667085;
+    --fin-border: #e4e7ec;
+    --fin-accent: #465fff;
+    --fin-glass-border: #e4e7ec;
+    --fin-glass-from: #ffffff;
+    --fin-glass-to: #f9fafb;
+    --fin-glass-inset: rgba(255, 255, 255, 0.7);
+    --fin-glass-shadow: rgba(16, 24, 40, 0.1);
 
-    --tone-income: #6fcf97;
-    --tone-expense: #e08585;
-    --tone-budget: #9b8cff;
-    --tone-debt: #e3b15c;
-    --tone-review: #e3b15c;
+    --tone-income: #12b76a;
+    --tone-expense: #f04438;
+    --tone-budget: #465fff;
+    --tone-debt: #f79009;
+    --tone-review: #f79009;
 
-    --btn-primary-bg: #6d28d9;
-    --btn-primary-hover: #7c3aed;
+    --btn-primary-bg: #465fff;
+    --btn-primary-hover: #3641f5;
     --btn-primary-text: #ffffff;
-    --btn-secondary-bg: rgba(255, 255, 255, 0.06);
-    --btn-secondary-hover: rgba(255, 255, 255, 0.1);
-    --btn-secondary-border: rgba(255, 255, 255, 0.14);
+    --btn-secondary-bg: var(--fin-card);
+    --btn-secondary-hover: var(--fin-surface);
+    --btn-secondary-border: var(--fin-border);
     --btn-secondary-text: var(--fin-text);
-    --btn-ghost-text: #9b8cff;
-    --btn-accent-border: #9b8cff;
-    --btn-accent-text: #ceb9ff;
-    --btn-accent-hover: rgba(155, 140, 255, 0.14);
-    --btn-danger-bg: #e08585;
-    --btn-danger-hover: #d9706f;
-    --btn-danger-text: #1e0a0a;
+    --btn-ghost-text: var(--fin-accent);
+    --btn-accent-border: var(--fin-accent);
+    --btn-accent-text: var(--fin-accent);
+    --btn-accent-hover: rgba(70, 95, 255, 0.1);
+    --btn-danger-bg: #f04438;
+    --btn-danger-hover: #d92d20;
+    --btn-danger-text: #ffffff;
 
-    position: relative;
-    isolation: isolate;
     background-color: var(--fin-bg);
     color: var(--fin-text);
 }
 
-.finance-shell::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background:
-        radial-gradient(1200px 600px at 15% -10%, var(--fin-glow-purple), transparent),
-        radial-gradient(1000px 500px at 90% 10%, var(--fin-glow-green), transparent);
+/* The global .btn focus ring and .btn-ghost hover are hardcoded to the
+   pre-redesign purple theme; override them here so finance keeps its own
+   blue/gray palette on interactive states (Cancel/Delete/Archive/Ignore,
+   the focus-panel modal's close button, etc). */
+.finance-shell .btn:focus-visible {
+    outline-color: var(--fin-accent);
 }
 
-.finance-shell > * {
-    position: relative;
-    z-index: 1;
+.finance-shell .btn-ghost:hover {
+    background: var(--fin-surface);
+    color: var(--fin-text);
 }
