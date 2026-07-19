@@ -26,6 +26,7 @@ defmodule Core.Finance.Transaction do
     belongs_to :user, Core.Accounts.User
     belongs_to :household, Core.Accounts.Household
     belongs_to :category, Core.Finance.Category
+    belongs_to :counterpart_transaction, __MODULE__
     has_many :debt_payments, Core.Finance.DebtPayment
 
     timestamps()
