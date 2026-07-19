@@ -197,6 +197,7 @@ venv.bak/
 uv.lock
 
 PORTFOLIO_REPO_PLAN.md
+FINANCE_INGESTION_INTEGRATION.md
 
 # mypy
 .mypy_cache/
