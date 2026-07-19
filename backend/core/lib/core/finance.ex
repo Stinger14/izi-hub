@@ -21,6 +21,7 @@ defmodule Core.Finance do
     EmailIngestion,
     EmailIngestionAttempt,
     Health,
+    SavingsGoal,
     Transaction
   }
 
@@ -60,6 +61,9 @@ defmodule Core.Finance do
       {:category_id, category_id}, query ->
         where(query, [t], t.category_id == ^category_id)
 
+      {:account_id, account_id}, query ->
+        where(query, [t], t.account_id == ^account_id)
+
       {:start_date, start_date}, query ->
         where(query, [t], t.transaction_date >= ^start_date)
 
@@ -69,20 +73,55 @@ defmodule Core.Finance do
       {:limit, limit}, query ->
         limit(query, ^limit)
 
+      {:offset, offset}, query ->
+        offset(query, ^offset)
+
+      {:exclude_transfers, true}, query ->
+        where(query, [t], is_nil(t.counterpart_transaction_id))
+
       _, query ->
         query
     end)
+  end
+
+  @transaction_sort_fields [:transaction_date, :amount, :merchant]
+
+  defp apply_transaction_sort(query, opts) do
+    case Keyword.get(opts, :sort) do
+      {field, direction} when field in @transaction_sort_fields and direction in [:asc, :desc] ->
+        order_by(query, [t], [{^direction, field(t, ^field)}, desc: t.inserted_at])
+
+      _ ->
+        order_by(query, [t], desc: t.transaction_date, desc: t.inserted_at)
+    end
   end
 
   defp do_list_transactions(owner, opts) do
     query =
       Transaction
       |> scope_query(owner)
-      |> order_by([t], desc: t.transaction_date, desc: t.inserted_at)
+      |> apply_transaction_sort(opts)
       |> preload([:category, :account])
 
     query = apply_transaction_filters(query, opts)
     Repo.all(query)
+  end
+
+  @doc """
+  Counts transactions in scope for the given filters. Pagination options
+  (`:limit`, `:offset`, `:sort`) are ignored so the count always reflects the
+  full filtered set.
+  """
+  def count_transactions(%User{} = actor, owner, opts \\ []) when is_list(opts) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      count =
+        Transaction
+        |> scope_query(owner)
+        |> apply_transaction_filters(Keyword.drop(opts, [:limit, :offset, :sort]))
+        |> Repo.aggregate(:count)
+
+      {:ok, count}
+    end
   end
 
   def list_pending_transactions_for_user(%User{} = user, opts \\ []) do
@@ -193,7 +232,8 @@ defmodule Core.Finance do
   end
 
   @doc """
-  Deletes a transaction
+  Deletes a transaction. Deleting a transfer leg deletes both legs and
+  reverses the balance movement on both accounts atomically.
   """
   def delete_transaction(%User{} = user, %Transaction{} = transaction) do
     with :ok <- ensure_resource_owner(user, transaction) do
@@ -201,8 +241,175 @@ defmodule Core.Finance do
     end
   end
 
-  def delete_transaction(%Transaction{} = transaction) do
+  def delete_transaction(%Transaction{counterpart_transaction_id: nil} = transaction) do
     Repo.delete(transaction)
+  end
+
+  def delete_transaction(%Transaction{} = transaction) do
+    counterpart = Repo.get(Transaction, transaction.counterpart_transaction_id)
+
+    Repo.transaction(fn ->
+      for leg <- [transaction, counterpart], leg do
+        reverse_transfer_leg_balance(leg)
+        Repo.delete!(leg)
+      end
+
+      transaction
+    end)
+  end
+
+  defp reverse_transfer_leg_balance(%Transaction{account_id: nil}), do: :ok
+
+  defp reverse_transfer_leg_balance(%Transaction{} = leg) do
+    if account = Repo.get(Account, leg.account_id) do
+      delta = if leg.type == "expense", do: leg.amount, else: Decimal.negate(leg.amount)
+
+      account
+      |> Ecto.Changeset.change(current_balance: Decimal.add(account.current_balance, delta))
+      |> Repo.update!()
+    end
+
+    :ok
+  end
+
+  @doc """
+  Moves money between two accounts in the same owner scope by creating a
+  linked pair of transactions (expense on the source, income on the
+  destination) and shifting both balances atomically. Transfer legs carry a
+  `counterpart_transaction_id` and are excluded from income/expense
+  aggregates so moving money never reads as earning or spending it.
+
+  Cross-currency transfers are rejected for now.
+  """
+  def create_account_transfer(%User{} = actor, owner, attrs) do
+    with :ok <- ensure_scope_access(actor, owner),
+         {:ok, from_account} <-
+           fetch_transfer_account(attrs, "from_account_id", :from_account_id, owner),
+         {:ok, to_account} <-
+           fetch_transfer_account(attrs, "to_account_id", :to_account_id, owner),
+         :ok <- ensure_transfer_accounts_differ(from_account, to_account),
+         :ok <- ensure_transfer_same_currency(from_account, to_account),
+         {:ok, amount} <- parse_transfer_amount(attrs),
+         {:ok, transfer_date} <- parse_transfer_date(attrs) do
+      notes = presence(Map.get(attrs, "notes") || Map.get(attrs, :notes))
+
+      base = %{
+        "amount" => amount,
+        "status" => "confirmed",
+        "source" => "manual",
+        "payment_method" => "bank_transfer",
+        "transaction_date" => transfer_date,
+        "notes" => notes
+      }
+
+      Repo.transaction(fn ->
+        out_leg =
+          insert_transfer_leg!(
+            Map.merge(base, %{
+              "type" => "expense",
+              "description" => "Transfer to #{to_account.name}",
+              "account_id" => from_account.id
+            }),
+            owner
+          )
+
+        in_leg =
+          insert_transfer_leg!(
+            Map.merge(base, %{
+              "type" => "income",
+              "description" => "Transfer from #{from_account.name}",
+              "account_id" => to_account.id
+            }),
+            owner
+          )
+
+        out_leg = link_transfer_counterpart!(out_leg, in_leg)
+        in_leg = link_transfer_counterpart!(in_leg, out_leg)
+
+        shift_account_balance!(from_account, Decimal.negate(amount))
+        shift_account_balance!(to_account, amount)
+
+        {out_leg, in_leg}
+      end)
+    end
+  end
+
+  defp fetch_transfer_account(attrs, key, atom_key, owner) do
+    case presence(Map.get(attrs, key) || Map.get(attrs, atom_key)) do
+      nil ->
+        {:error, :missing_transfer_account}
+
+      account_id ->
+        account = Repo.get(Account, account_id)
+
+        if account && same_scope?(owner, account) do
+          {:ok, account}
+        else
+          {:error, :invalid_account_scope}
+        end
+    end
+  end
+
+  defp ensure_transfer_accounts_differ(%Account{id: id}, %Account{id: id}),
+    do: {:error, :same_account}
+
+  defp ensure_transfer_accounts_differ(_from, _to), do: :ok
+
+  defp ensure_transfer_same_currency(%Account{currency: currency}, %Account{currency: currency}),
+    do: :ok
+
+  defp ensure_transfer_same_currency(_from, _to), do: {:error, :currency_mismatch}
+
+  defp parse_transfer_amount(attrs) do
+    raw = Map.get(attrs, "amount") || Map.get(attrs, :amount)
+
+    case Decimal.cast(raw) do
+      {:ok, amount} ->
+        if Decimal.compare(amount, Decimal.new("0")) == :gt,
+          do: {:ok, amount},
+          else: {:error, :invalid_transfer_amount}
+
+      _ ->
+        {:error, :invalid_transfer_amount}
+    end
+  end
+
+  defp parse_transfer_date(attrs) do
+    case presence(Map.get(attrs, "transaction_date") || Map.get(attrs, :transaction_date)) do
+      nil ->
+        {:ok, Date.utc_today()}
+
+      %Date{} = date ->
+        {:ok, date}
+
+      value when is_binary(value) ->
+        case Date.from_iso8601(value) do
+          {:ok, date} -> {:ok, date}
+          _ -> {:error, :invalid_transfer_date}
+        end
+    end
+  end
+
+  defp presence(nil), do: nil
+  defp presence(""), do: nil
+  defp presence(value), do: value
+
+  defp insert_transfer_leg!(attrs, owner) do
+    %Transaction{}
+    |> Transaction.changeset(scope_attrs(attrs, owner))
+    |> Repo.insert!()
+  end
+
+  defp link_transfer_counterpart!(%Transaction{} = leg, %Transaction{id: counterpart_id}) do
+    leg
+    |> Ecto.Changeset.change(counterpart_transaction_id: counterpart_id)
+    |> Repo.update!()
+  end
+
+  defp shift_account_balance!(%Account{} = account, delta) do
+    account
+    |> Ecto.Changeset.change(current_balance: Decimal.add(account.current_balance, delta))
+    |> Repo.update!()
   end
 
   @doc """
@@ -221,6 +428,7 @@ defmodule Core.Finance do
     |> scope_query(owner)
     |> where([t], t.status == "confirmed")
     |> where([t], t.type == "income")
+    |> where([t], is_nil(t.counterpart_transaction_id))
     |> where([t], t.transaction_date >= ^start_date and t.transaction_date <= ^end_date)
     |> select([t], sum(t.amount))
     |> Repo.one() || Decimal.new(0)
@@ -242,6 +450,7 @@ defmodule Core.Finance do
     |> scope_query(owner)
     |> where([t], t.status == "confirmed")
     |> where([t], t.type == "expense")
+    |> where([t], is_nil(t.counterpart_transaction_id))
     |> where([t], t.transaction_date >= ^start_date and t.transaction_date <= ^end_date)
     |> select([t], sum(t.amount))
     |> Repo.one() || Decimal.new(0)
@@ -267,6 +476,7 @@ defmodule Core.Finance do
       |> scope_query(owner)
       |> join(:left, [transaction], account in assoc(transaction, :account))
       |> where([transaction, _account], transaction.status in ^statuses)
+      |> where([transaction, _account], is_nil(transaction.counterpart_transaction_id))
       |> where(
         [transaction, _account],
         transaction.transaction_date >= ^start_date and transaction.transaction_date <= ^end_date
@@ -817,6 +1027,82 @@ defmodule Core.Finance do
       "target_payoff_date" => plan.target_payoff_date,
       "snapshot" => stringify_plan(plan)
     })
+  end
+
+  # ------ Savings goals ------
+
+  def list_savings_goals_for_user(%User{} = user) do
+    do_list_savings_goals(user)
+  end
+
+  def list_savings_goals(%User{} = actor, owner) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      {:ok, do_list_savings_goals(owner)}
+    end
+  end
+
+  defp do_list_savings_goals(owner) do
+    SavingsGoal
+    |> scope_query(owner)
+    |> where([goal], goal.status in ["active", "achieved"])
+    |> order_by([goal], asc_nulls_last: goal.target_date, asc: goal.name)
+    |> Repo.all()
+  end
+
+  def get_savings_goal!(%User{} = actor, owner, id) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      SavingsGoal
+      |> scope_query(owner)
+      |> Repo.get!(id)
+    end
+  end
+
+  def change_savings_goal(%SavingsGoal{} = goal \\ %SavingsGoal{}) do
+    SavingsGoal.changeset(goal, %{})
+  end
+
+  def create_savings_goal(%User{} = user, attrs \\ %{}) do
+    create_savings_goal(user, user, attrs)
+  end
+
+  def create_savings_goal(%User{} = actor, owner, attrs) do
+    with :ok <- ensure_scope_access(actor, owner),
+         attrs <- scope_attrs(attrs, owner) do
+      %SavingsGoal{}
+      |> SavingsGoal.changeset(attrs)
+      |> Repo.insert()
+    end
+  end
+
+  def update_savings_goal(%User{} = user, %SavingsGoal{} = goal, attrs) do
+    with :ok <- ensure_resource_owner(user, goal) do
+      goal
+      |> SavingsGoal.changeset(attrs)
+      |> Repo.update()
+    end
+  end
+
+  def contribute_to_savings_goal(%User{} = user, %SavingsGoal{} = goal, amount) do
+    with :ok <- ensure_resource_owner(user, goal) do
+      new_saved_amount = Decimal.add(goal.saved_amount || Decimal.new("0"), amount)
+
+      status =
+        if Decimal.compare(new_saved_amount, goal.target_amount) != :lt,
+          do: "achieved",
+          else: goal.status
+
+      goal
+      |> SavingsGoal.changeset(%{"saved_amount" => new_saved_amount, "status" => status})
+      |> Repo.update()
+    end
+  end
+
+  def delete_savings_goal(%User{} = user, %SavingsGoal{} = goal) do
+    with :ok <- ensure_resource_owner(user, goal) do
+      goal
+      |> SavingsGoal.changeset(%{"status" => "archived"})
+      |> Repo.update()
+    end
   end
 
   def get_financial_health(%User{} = user, opts \\ []) do

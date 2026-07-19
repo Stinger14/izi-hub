@@ -1,12 +1,67 @@
 import "phoenix_html";
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
+import ApexCharts from "apexcharts";
 
 let csrfToken = document
   .querySelector("meta[name='csrf-token']")
   ?.getAttribute("content");
 
 let Hooks = {};
+
+// Copies data-copy-value to the clipboard on click and briefly flags the
+// button as "Copied" via data-copied (styled/labeled from CSS/markup).
+Hooks.CopyToClipboard = {
+  mounted() {
+    this.onClick = () => {
+      const value = this.el.dataset.copyValue;
+      if (!value || !navigator.clipboard) return;
+      navigator.clipboard.writeText(value).then(() => {
+        this.el.dataset.copied = "true";
+        this.el.setAttribute("title", "Copied!");
+        clearTimeout(this.timer);
+        this.timer = setTimeout(() => {
+          delete this.el.dataset.copied;
+          this.el.setAttribute("title", this.el.dataset.copyTitle || "Copy");
+        }, 1500);
+      });
+    };
+    this.el.addEventListener("click", this.onClick);
+  },
+  destroyed() {
+    this.el.removeEventListener("click", this.onClick);
+    clearTimeout(this.timer);
+  },
+};
+
+// Generic ApexCharts hook. The hook element carries the full chart config as
+// JSON in data-chart; the chart mounts into the inner [data-chart-target]
+// node, which is phx-update="ignore" so LiveView patches never touch Apex's
+// DOM. On update we re-read data-chart and re-render.
+Hooks.ApexChart = {
+  mounted() {
+    this.render();
+  },
+  updated() {
+    this.render();
+  },
+  destroyed() {
+    if (this.chart) this.chart.destroy();
+  },
+  render() {
+    const target = this.el.querySelector("[data-chart-target]");
+    if (!target) return;
+    let options;
+    try {
+      options = JSON.parse(this.el.dataset.chart);
+    } catch {
+      return;
+    }
+    if (this.chart) this.chart.destroy();
+    this.chart = new ApexCharts(target, options);
+    this.chart.render();
+  },
+};
 
 Hooks.ScrollHint = {
   mounted() {

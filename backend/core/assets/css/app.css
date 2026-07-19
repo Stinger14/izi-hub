@@ -1283,4 +1283,69 @@
             filter: blur(13px);
         }
     }
+
+    .font-display {
+        font-weight: 650;
+        letter-spacing: -0.02em;
+    }
+}
+
+/* ---------------------------------------------------------------
+   Finance page - scoped light theme using TailAdmin's published
+   design tokens (brand/gray/success/error/warning scales). Deliberately
+   unlayered (outside @layer) so it always wins over the utilities
+   layer; tokens and btn overrides only apply inside
+   dot-finance-shell, so every other page keeps the global theme
+   tokens above intact.
+   --------------------------------------------------------------- */
+.finance-shell {
+    --fin-bg: #f9fafb;
+    --fin-card: #ffffff;
+    --fin-surface: #f2f4f7;
+    --fin-text: #101828;
+    --fin-muted: #667085;
+    --fin-border: #e4e7ec;
+    --fin-accent: #465fff;
+    --fin-glass-border: #e4e7ec;
+    --fin-glass-from: #ffffff;
+    --fin-glass-to: #f9fafb;
+    --fin-glass-inset: rgba(255, 255, 255, 0.7);
+    --fin-glass-shadow: rgba(16, 24, 40, 0.1);
+
+    --tone-income: #12b76a;
+    --tone-expense: #f04438;
+    --tone-budget: #465fff;
+    --tone-debt: #f79009;
+    --tone-review: #f79009;
+
+    --btn-primary-bg: #465fff;
+    --btn-primary-hover: #3641f5;
+    --btn-primary-text: #ffffff;
+    --btn-secondary-bg: var(--fin-card);
+    --btn-secondary-hover: var(--fin-surface);
+    --btn-secondary-border: var(--fin-border);
+    --btn-secondary-text: var(--fin-text);
+    --btn-ghost-text: var(--fin-accent);
+    --btn-accent-border: var(--fin-accent);
+    --btn-accent-text: var(--fin-accent);
+    --btn-accent-hover: rgba(70, 95, 255, 0.1);
+    --btn-danger-bg: #f04438;
+    --btn-danger-hover: #d92d20;
+    --btn-danger-text: #ffffff;
+
+    background-color: var(--fin-bg);
+    color: var(--fin-text);
+}
+
+/* The global .btn focus ring and .btn-ghost hover are hardcoded to the
+   pre-redesign purple theme; override them here so finance keeps its own
+   blue/gray palette on interactive states (Cancel/Delete/Archive/Ignore,
+   the focus-panel modal's close button, etc). */
+.finance-shell .btn:focus-visible {
+    outline-color: var(--fin-accent);
+}
+
+.finance-shell .btn-ghost:hover {
+    background: var(--fin-surface);
+    color: var(--fin-text);
 }
