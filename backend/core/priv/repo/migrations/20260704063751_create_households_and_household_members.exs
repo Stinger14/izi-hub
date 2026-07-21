@@ -17,7 +17,10 @@ defmodule Core.Repo.Migrations.CreateHouseholdsAndHouseholdMembers do
       add :id, :binary_id, primary_key: true
       add :role, :string, null: false, default: "member"
       add :status, :string, null: false, default: "active"
-      add :household_id, references(:households, type: :binary_id, on_delete: :delete_all), null: false
+
+      add :household_id, references(:households, type: :binary_id, on_delete: :delete_all),
+        null: false
+
       add :user_id, references(:users, type: :binary_id, on_delete: :delete_all), null: false
 
       timestamps()

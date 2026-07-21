@@ -26,6 +26,9 @@ config :core, CoreWeb.Endpoint,
 # In test we don't send emails
 config :core, Core.Mailer, adapter: Swoosh.Adapters.Test
 
+# Fixed shared secret for the service-to-service finance ingestion path
+config :core, :finance_ingestion_api_key, "test_finance_ingestion_api_key"
+
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 

@@ -39,6 +39,7 @@ defmodule Core.Repo.Migrations.AddHouseholdScopeToFinanceRecords do
             "ALTER TABLE debt_payoff_plans ALTER COLUMN user_id SET NOT NULL"
 
     create index(:categories, [:household_id])
+
     create unique_index(:categories, [:household_id, :name, :type],
              where: "household_id IS NOT NULL",
              name: :categories_household_id_name_type_index
