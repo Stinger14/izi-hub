@@ -24,6 +24,10 @@ config :core, Core.Repo,
   pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
   ssl: System.get_env("SSL") == "true"
 
+if api_key = System.get_env("FINANCE_INGESTION_API_KEY") do
+  config :core, :finance_ingestion_api_key, api_key
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

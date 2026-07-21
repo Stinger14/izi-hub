@@ -29,6 +29,17 @@ defmodule CoreWeb.Router do
     plug CoreWeb.UserAuth, :require_admin_user
   end
 
+  pipeline :service_api do
+    plug :accepts, ["json"]
+    plug CoreWeb.ServiceAuth
+  end
+
+  scope "/api/service", CoreWeb do
+    pipe_through :service_api
+
+    post "/finance/email-ingestion", Api.Finance.ServiceEmailIngestionController, :create
+  end
+
   scope "/api", CoreWeb do
     pipe_through :api
   end
