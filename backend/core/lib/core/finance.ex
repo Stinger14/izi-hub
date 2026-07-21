@@ -22,7 +22,8 @@ defmodule Core.Finance do
     EmailIngestionAttempt,
     Health,
     SavingsGoal,
-    Transaction
+    Transaction,
+    IngestionToken
   }
 
   # ------ Transactions ------
@@ -270,6 +271,48 @@ defmodule Core.Finance do
     end
 
     :ok
+  end
+
+  @doc """
+  Generates and inserts a token for a user
+  """
+  def create_ingestion_token(%User{} = user) do
+    %IngestionToken{user_id: user.id, token: generate_ingestion_token()}
+    |> IngestionToken.changeset(%{})
+    |> Repo.insert()
+  end
+
+  @doc """
+  Revokes an ingestion token owned by the given user.
+  """
+  def revoke_ingestion_token(%User{} = user, token_id) do
+    with %IngestionToken{} = token <- Repo.get(IngestionToken, token_id),
+         :ok <- ensure_resource_owner(user, token) do
+      token
+      |> IngestionToken.changeset(%{"revoked_at" => DateTime.utc_now()})
+      |> Repo.update()
+    else
+      nil -> {:error, :not_found}
+      error -> error
+    end
+  end
+
+  @doc """
+  Resolves an active ingestion token to its owning user. This is the
+  auth boundary itself for the service-to-service ingestion path, so it
+  runs no session/scope checks beyond "token exists and isn't revoked."
+  """
+  def user_for_ingestion_token(token) when is_binary(token) do
+    query = from(t in IngestionToken, where: t.token == ^token and is_nil(t.revoked_at))
+
+    case Repo.one(query) |> Repo.preload(:user) do
+      %IngestionToken{user: user} -> {:ok, user}
+      nil -> {:error, :not_found}
+    end
+  end
+
+  defp generate_ingestion_token do
+    :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
   end
 
   @doc """
@@ -1316,10 +1359,11 @@ defmodule Core.Finance do
   end
 
   defp recent_debt_payments_query do
-    from payment in DebtPayment,
+    from(payment in DebtPayment,
       order_by: [desc: payment.payment_date, desc: payment.inserted_at],
       limit: 3,
       preload: [:transaction]
+    )
   end
 
   defp validate_debt_payment_amount(changeset, debt) do
