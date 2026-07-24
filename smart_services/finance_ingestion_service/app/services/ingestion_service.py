@@ -5,6 +5,7 @@ from app.modules.finance.schemas import (
 )
 from app.modules.finance.repository import FinanceTransactionRepo
 from app.services.parsers.bank_alert import BankAlertParser
+from app.services.parsers.bank_alert_usd import BankAlertParserUsd
 from app.services.dedup import DedupService
 from app.services.normalization import NormalizationService
 from app.services.scoring import ScoringService
@@ -24,6 +25,7 @@ class EmailIngestionService:
         self.scoring_service = scoring_service
         self.parsers = [
             BankAlertParser(),
+            BankAlertParserUsd(),
         ]
 
     async def ingest(self, payload: EmailIngestionRequest) -> IngestionResult:
