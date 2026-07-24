@@ -10,6 +10,7 @@ class EmailIngestionRequest(BaseModel):
     subject: str
     body: str
     received_at: Optional[datetime] = None
+    ingestion_token: Optional[str] = None
 
 
 class ParsedBankAlert(BaseModel):

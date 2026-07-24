@@ -35,6 +35,9 @@ config :logger, :default_formatter,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Redact sensitive params from debug logs (defaults to just ["password"])
+config :phoenix, :filter_parameters, ["password", "ingestion_token"]
+
 # Configure Phoenix assets
 config :esbuild,
   version: "0.20.2",

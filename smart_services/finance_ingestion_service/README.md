@@ -21,6 +21,8 @@ Create a `.env` file:
 ```env
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/izihub_finance_ingestion
 DB_ECHO=false
+IZIHUB_API_BASE_URL=http://localhost:4000
+FINANCE_INGESTION_API_KEY=<shared secret, same value as izi-hub's FINANCE_INGESTION_API_KEY>
 ```
 
 Create the database:
@@ -57,3 +59,9 @@ Example request:
   "body": "Consumo por RD$ 1,250.00 en Supermercado Nacional tarjeta 1234"
 }
 ```
+
+`ingestion_token` (optional): when present and the transaction isn't a
+duplicate, the service also relays the email to izi-hub's
+`/api/service/finance/email-ingestion` endpoint so it shows up as a
+pending-review transaction for the token's owning user. Omit it to use this
+service standalone, with no relay.

@@ -196,6 +196,178 @@ async def test_ingest_uses_received_at_when_occurred_at_is_missing():
 
 
 @pytest.mark.asyncio
+async def test_ingest_forwards_to_izihub_when_token_present_and_not_duplicate(
+    monkeypatch,
+):
+    forward_calls = []
+
+    async def spy_forward(payload, settings):
+        forward_calls.append((payload, settings))
+
+    monkeypatch.setattr(
+        "app.services.ingestion_service.forward_to_izihub", spy_forward
+    )
+
+    payload = EmailIngestionRequest(
+        sender="alertas@popular.com",
+        subject="Alerta de consumo",
+        body="Consumo por RD$ 1,250.00 en Sirena tarjeta 1234",
+        ingestion_token="tok-123",
+    )
+    parsed = ParsedBankAlert(
+        bank_name="Banco popular",
+        account_hint="1234",
+        transaction_type="purchase",
+        amount=Decimal("1250.00"),
+        currency="DOP",
+        merchant="NACIONAL",
+        raw_text=payload.body,
+    )
+
+    repo = SpyRepo(exists_result=False, transaction_id=123)
+    service = EmailIngestionService(
+        repo=repo,
+        dedup_service=StubDedupService("hash-123"),
+        normalization_service=StubNormalizationService(parsed),
+        scoring_service=StubScoringService(0.4),
+    )
+    service.parsers = [StubParser(parsed)]
+
+    result = await service.ingest(payload)
+
+    assert result.status == "ingested"
+    assert len(forward_calls) == 1
+    assert forward_calls[0][0] is payload
+
+
+@pytest.mark.asyncio
+async def test_ingest_skips_izihub_relay_when_token_absent(monkeypatch):
+    forward_calls = []
+
+    async def spy_forward(payload, settings):
+        forward_calls.append((payload, settings))
+
+    monkeypatch.setattr(
+        "app.services.ingestion_service.forward_to_izihub", spy_forward
+    )
+
+    payload = EmailIngestionRequest(
+        sender="alertas@popular.com",
+        subject="Alerta de consumo",
+        body="Consumo por RD$ 1,250.00 en Sirena tarjeta 1234",
+    )
+    parsed = ParsedBankAlert(
+        bank_name="Banco popular",
+        account_hint="1234",
+        transaction_type="purchase",
+        amount=Decimal("1250.00"),
+        currency="DOP",
+        merchant="NACIONAL",
+        raw_text=payload.body,
+    )
+
+    repo = SpyRepo(exists_result=False, transaction_id=123)
+    service = EmailIngestionService(
+        repo=repo,
+        dedup_service=StubDedupService("hash-123"),
+        normalization_service=StubNormalizationService(parsed),
+        scoring_service=StubScoringService(0.4),
+    )
+    service.parsers = [StubParser(parsed)]
+
+    await service.ingest(payload)
+
+    assert forward_calls == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_skips_izihub_relay_on_hash_duplicate(monkeypatch):
+    forward_calls = []
+
+    async def spy_forward(payload, settings):
+        forward_calls.append((payload, settings))
+
+    monkeypatch.setattr(
+        "app.services.ingestion_service.forward_to_izihub", spy_forward
+    )
+
+    payload = EmailIngestionRequest(
+        sender="alertas@popular.com",
+        subject="Alerta de consumo",
+        body="Consumo por RD$ 1,250.00 en Nacional tarjeta 1234",
+        ingestion_token="tok-123",
+    )
+    parsed = ParsedBankAlert(
+        bank_name="Banco Popular",
+        account_hint="1234",
+        transaction_type="purchase",
+        amount=Decimal("1250.00"),
+        currency="DOP",
+        merchant="NACIONAL",
+        raw_text=payload.body,
+    )
+
+    repo = SpyRepo(exists_result=True)
+    service = EmailIngestionService(
+        repo=repo,
+        dedup_service=StubDedupService("hash-123"),
+        normalization_service=StubNormalizationService(parsed),
+        scoring_service=StubScoringService(0.4),
+    )
+    service.parsers = [StubParser(parsed)]
+
+    result = await service.ingest(payload)
+
+    assert result.status == "duplicate"
+    assert forward_calls == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_skips_izihub_relay_on_insert_race_duplicate(monkeypatch):
+    forward_calls = []
+
+    async def spy_forward(payload, settings):
+        forward_calls.append((payload, settings))
+
+    monkeypatch.setattr(
+        "app.services.ingestion_service.forward_to_izihub", spy_forward
+    )
+
+    payload = EmailIngestionRequest(
+        sender="alertas@popular.com",
+        subject="Alerta de consumo",
+        body="Consumo por RD$ 1,250.00 en Nacional tarjeta 1234",
+        ingestion_token="tok-123",
+    )
+    parsed = ParsedBankAlert(
+        bank_name="Banco Popular",
+        account_hint="1234",
+        transaction_type="purchase",
+        amount=Decimal("1250.00"),
+        currency="DOP",
+        merchant="NACIONAL",
+        raw_text=payload.body,
+    )
+
+    repo = SpyRepo(
+        exists_result=False,
+        create_error=DuplicateTransactionError(),
+    )
+    service = EmailIngestionService(
+        repo=repo,
+        dedup_service=StubDedupService("hash-123"),
+        normalization_service=StubNormalizationService(parsed),
+        scoring_service=StubScoringService(0.4),
+    )
+    service.parsers = [StubParser(parsed)]
+
+    result = await service.ingest(payload)
+
+    assert result.status == "duplicate"
+    assert forward_calls == []
+
+
+@pytest.mark.asyncio
 async def test_ingest_returns_duplicate_when_insert_hits_unique_constraint():
     payload = EmailIngestionRequest(
         sender="alertas@popular.com",
