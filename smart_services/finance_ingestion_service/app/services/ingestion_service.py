@@ -4,6 +4,8 @@ from app.modules.finance.schemas import (
     IngestionResult,
 )
 from app.modules.finance.repository import FinanceTransactionRepo
+from app.modules.finance.izihub_client import forward_to_izihub
+from app.core.config import settings
 from app.services.parsers.bank_alert import BankAlertParser
 from app.services.parsers.bank_alert_usd import BankAlertParserUsd
 from app.services.dedup import DedupService
@@ -73,6 +75,9 @@ class EmailIngestionService:
                 score=0,
                 transaction_id=None,
             )
+
+        if payload.ingestion_token:
+            await forward_to_izihub(payload, settings)
 
         return IngestionResult(
             status="ingested",
