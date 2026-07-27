@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.core.security import verify_ingestion_api_key
 from app.modules.finance.dependencies import get_email_ingestion_service
 
 
@@ -26,6 +27,7 @@ def test_ingest_email_returns_success_response():
             "transaction_id": 123,
         }
     )
+    app.dependency_overrides[verify_ingestion_api_key] = lambda: None
 
     client = TestClient(app)
 
@@ -55,6 +57,7 @@ def test_ingest_email_returns_422_for_domain_errors():
     app.dependency_overrides[get_email_ingestion_service] = lambda: StubService(
         error=ValueError("No parser available for this email")
     )
+    app.dependency_overrides[verify_ingestion_api_key] = lambda: None
 
     client = TestClient(app)
 
