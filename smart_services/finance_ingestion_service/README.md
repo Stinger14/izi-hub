@@ -23,6 +23,7 @@ DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/izihub_financ
 DB_ECHO=false
 IZIHUB_API_BASE_URL=http://localhost:4000
 FINANCE_INGESTION_API_KEY=<shared secret, same value as izi-hub's FINANCE_INGESTION_API_KEY>
+INGESTION_INBOUND_API_KEY=<separate secret, required by callers of this service's own /email endpoint>
 ```
 
 Create the database:
@@ -49,6 +50,9 @@ API docs:
 ## Endpoint
 
 `POST /api/v1/finance/ingestion/email`
+
+Requires an `Authorization: Bearer <INGESTION_INBOUND_API_KEY>` header — requests
+without it, or with the wrong key, get a `401`.
 
 Example request:
 
