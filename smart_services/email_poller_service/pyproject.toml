@@ -1,0 +1,11 @@
+[project]
+name = "email-poller-service"
+version = "0.1.0"
+description = "Fetch, log and poll emails to feed Finance Ingestion service"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "imap-tools>=1.14.0",
+    "pydantic-settings>=2.14.2",
+    "requests>=2.34.2",
+]
