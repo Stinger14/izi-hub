@@ -22,12 +22,15 @@ class RawEmail:
     uid: int
 
 
-def fetch_new_messages(since_uid: int) -> list[RawEmail]:
+def fetch_new_messages(since_uid: int, max_results: int) -> list[RawEmail]:
     raw_emails = []
     with MailBox(settings.IMAP_HOST, settings.IMAP_PORT).login(
         settings.IMAP_USERNAME, settings.IMAP_PASSWORD
     ) as mailbox:
         for msg in mailbox.fetch(AND(uid=f"{since_uid + 1}:*"), mark_seen=False):
+            if len(raw_emails) >= max_results:
+                break
+
             if msg.uid is None:
                 logger.warning(f"message with no UID fetched (subject={msg.subject!r})")
                 continue

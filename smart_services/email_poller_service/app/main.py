@@ -1,5 +1,8 @@
+from app.services.poller import run_poll_cycle
+
+
 def main():
-    print("Hello from email-poller-service!")
+    run_poll_cycle()
 
 
 if __name__ == "__main__":
