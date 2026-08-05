@@ -10,6 +10,7 @@ defmodule Core.Finance.EmailParserResult do
     :type,
     :transaction_date,
     :merchant,
+    :currency,
     :description,
     :raw_description,
     :review_reason,

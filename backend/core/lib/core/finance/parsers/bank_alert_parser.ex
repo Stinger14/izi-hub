@@ -7,12 +7,13 @@ defmodule Core.Finance.Parsers.BankAlertParser do
 
   @supported_senders [
     "alerts@bank.com",
-    "alerts@bank.example",
-    "notifications@bank.com"
+    "popular.com",
+    "bhd.com",
+    "qik.com.do"
   ]
 
-  @expense_keywords ["purchase", "debit", "withdrawal", "card purchase"]
-  @income_keywords ["deposit", "payment received", "credit", "transfer received"]
+  @expense_keywords ["purchase", "debit", "withdrawal", "card purchase", "compra", "consumo", "retiro"]
+  @income_keywords ["deposit", "payment received", "credit", "transfer received", "transferencia recibida"]
 
   def parse(%EmailMessage{} = message) do
     with true <- supported_sender?(message.from),
@@ -28,6 +29,7 @@ defmodule Core.Finance.Parsers.BankAlertParser do
          type: type,
          transaction_date: transaction_date,
          merchant: merchant,
+         currency: parse_currency(body),
          description: build_description(type, merchant, message.subject),
          raw_description: truncate(body, 1000),
          review_reason: "Parsed from bank email",
@@ -54,13 +56,21 @@ defmodule Core.Finance.Parsers.BankAlertParser do
   end
 
   defp parse_amount(body) do
-    case Regex.run(~r/(?:USD|US\$|\$)\s*([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{2})?)/i, body) do
+    case Regex.run(~r/(?:USD|US\$|RD\$|DOP|\$)\s*([0-9]+(?:,[0-9]{3})*(?:\.[0-9]{2})?)/i, body) do
       [_, amount] ->
         normalized = String.replace(amount, ",", "")
         {:ok, Decimal.new(normalized)}
 
       _ ->
         {:error, :amount_not_found}
+    end
+  end
+
+  defp parse_currency(body) do
+    cond do
+      Regex.match?(~r/RD\$|DOP/i, body) -> "DOP"
+      Regex.match?(~r/USD|US\$/i, body) -> "USD"
+      true -> "DOP"
     end
   end
 
@@ -87,7 +97,7 @@ defmodule Core.Finance.Parsers.BankAlertParser do
   defp parse_merchant(body) do
     patterns = [
       ~r/(?:merchant|vendor):\s*([^\n\r]+)/i,
-      ~r/(?:at|from)\s+([A-Za-z0-9 &'.,-]+)/i
+      ~r/(?:at|from|en|comercio|establecimiento)\s+([A-Za-z0-9 &'.,-]+)/i
     ]
 
     case Enum.find_value(patterns, &Regex.run(&1, body)) do
