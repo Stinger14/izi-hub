@@ -7,7 +7,6 @@ from app.modules.finance.repository import FinanceTransactionRepo
 from app.modules.finance.izihub_client import forward_to_izihub
 from app.core.config import settings
 from app.services.parsers.bank_alert import BankAlertParser
-from app.services.parsers.bank_alert_usd import BankAlertParserUsd
 from app.services.dedup import DedupService
 from app.services.normalization import NormalizationService
 from app.services.scoring import ScoringService
@@ -27,7 +26,6 @@ class EmailIngestionService:
         self.scoring_service = scoring_service
         self.parsers = [
             BankAlertParser(),
-            BankAlertParserUsd(),
         ]
 
     async def ingest(self, payload: EmailIngestionRequest) -> IngestionResult:
