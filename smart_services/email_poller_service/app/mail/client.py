@@ -32,7 +32,7 @@ def fetch_new_messages(since_uid: int, max_results: int) -> list[RawEmail]:
                 break
 
             if msg.uid is None:
-                logger.warning(f"message with no UID fetched (subject={msg.subject!r})")
+                logger.warning("message with no UID fetched (subject=%r)", msg.subject)
                 continue
 
             raw_emails.append(

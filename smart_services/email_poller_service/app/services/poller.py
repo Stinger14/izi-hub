@@ -19,21 +19,36 @@ def run_poll_cycle() -> None:
     batch_size = settings.MAX_BATCH_SIZE
     since_uid = read_watermark(watermark_path)
     emails = fetch_new_messages(since_uid=since_uid, max_results=batch_size)
+
     if len(emails) == batch_size:
         logger.warning("hit the batch cap, more pending")
+
+    ingested = 0
+    rejected = 0
+    failed = 0
 
     for email in emails:
         payload = to_ingestion_payload(email, settings.INGESTION_TOKEN)
         ingestion_check = send_to_ingestion(payload)
 
         if ingestion_check.status == "failed":
-            logger.warning(f"email ingestion failed: {ingestion_check.detail}")
+            failed += 1
+            logger.warning("email ingestion failed: %s", ingestion_check.detail)
             break
 
         if ingestion_check.status == "rejected":
-            logger.warning(f"email payload rejected: {ingestion_check.detail}")
+            rejected += 1
+            logger.debug("email payload rejected: %s", ingestion_check.detail)
 
         if ingestion_check.status == "accepted":
-            logger.info("payload ingestion successful")
+            ingested += 1
 
         write_watermark(watermark_path, email.uid)
+
+    logger.info(
+        "poll cycle complete: fetched=%d ingested=%d rejected=%d failed=%d",
+        len(emails),
+        ingested,
+        rejected,
+        failed,
+    )
