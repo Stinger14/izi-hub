@@ -1,8 +1,9 @@
 from fastapi.testclient import TestClient
 
-from app.main import create_app
 from app.core.security import verify_ingestion_api_key
+from app.main import create_app
 from app.modules.finance.dependencies import get_email_ingestion_service
+from app.modules.finance.exceptions import NoParserMatchedError
 
 
 class StubService:
@@ -55,7 +56,7 @@ def test_ingest_email_returns_422_for_domain_errors():
     app = create_app()
 
     app.dependency_overrides[get_email_ingestion_service] = lambda: StubService(
-        error=ValueError("No parser available for this email")
+        error=NoParserMatchedError("No parser available for this email")
     )
     app.dependency_overrides[verify_ingestion_api_key] = lambda: None
 
