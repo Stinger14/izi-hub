@@ -1,10 +1,13 @@
 from datetime import datetime, timezone
-from types import SimpleNamespace
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
-from app.modules.finance.exceptions import DuplicateTransactionError
+from app.modules.finance.exceptions import (
+    DuplicateTransactionError,
+    NoParserMatchedError,
+)
 from app.modules.finance.schemas import EmailIngestionRequest, ParsedBankAlert
 from app.services.ingestion_service import EmailIngestionService
 
@@ -158,7 +161,9 @@ async def test_ingest_raises_when_no_parser_matches():
     )
     service.parsers = [StubParser(parsed=None, can_parse=False)]
 
-    with pytest.raises(ValueError, match="No parser available for this email"):
+    with pytest.raises(
+        NoParserMatchedError, match="No parser available for this email"
+    ):
         await service.ingest(payload)
 
 
@@ -204,9 +209,7 @@ async def test_ingest_forwards_to_izihub_when_token_present_and_not_duplicate(
     async def spy_forward(payload, settings):
         forward_calls.append((payload, settings))
 
-    monkeypatch.setattr(
-        "app.services.ingestion_service.forward_to_izihub", spy_forward
-    )
+    monkeypatch.setattr("app.services.ingestion_service.forward_to_izihub", spy_forward)
 
     payload = EmailIngestionRequest(
         sender="alertas@popular.com",
@@ -247,9 +250,7 @@ async def test_ingest_skips_izihub_relay_when_token_absent(monkeypatch):
     async def spy_forward(payload, settings):
         forward_calls.append((payload, settings))
 
-    monkeypatch.setattr(
-        "app.services.ingestion_service.forward_to_izihub", spy_forward
-    )
+    monkeypatch.setattr("app.services.ingestion_service.forward_to_izihub", spy_forward)
 
     payload = EmailIngestionRequest(
         sender="alertas@popular.com",
@@ -287,9 +288,7 @@ async def test_ingest_skips_izihub_relay_on_hash_duplicate(monkeypatch):
     async def spy_forward(payload, settings):
         forward_calls.append((payload, settings))
 
-    monkeypatch.setattr(
-        "app.services.ingestion_service.forward_to_izihub", spy_forward
-    )
+    monkeypatch.setattr("app.services.ingestion_service.forward_to_izihub", spy_forward)
 
     payload = EmailIngestionRequest(
         sender="alertas@popular.com",
@@ -329,9 +328,7 @@ async def test_ingest_skips_izihub_relay_on_insert_race_duplicate(monkeypatch):
     async def spy_forward(payload, settings):
         forward_calls.append((payload, settings))
 
-    monkeypatch.setattr(
-        "app.services.ingestion_service.forward_to_izihub", spy_forward
-    )
+    monkeypatch.setattr("app.services.ingestion_service.forward_to_izihub", spy_forward)
 
     payload = EmailIngestionRequest(
         sender="alertas@popular.com",

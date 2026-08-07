@@ -1,15 +1,22 @@
-from app.modules.finance.exceptions import DuplicateTransactionError
+import logging
+
+from app.core.config import settings
+from app.modules.finance.exceptions import (
+    DuplicateTransactionError,
+    NoParserMatchedError,
+)
+from app.modules.finance.izihub_client import forward_to_izihub
+from app.modules.finance.repository import FinanceTransactionRepo
 from app.modules.finance.schemas import (
     EmailIngestionRequest,
     IngestionResult,
 )
-from app.modules.finance.repository import FinanceTransactionRepo
-from app.modules.finance.izihub_client import forward_to_izihub
-from app.core.config import settings
-from app.services.parsers.bank_alert import BankAlertParser
 from app.services.dedup import DedupService
 from app.services.normalization import NormalizationService
+from app.services.parsers.bank_alert import BankAlertParser
 from app.services.scoring import ScoringService
+
+logger = logging.getLogger(__name__)
 
 
 class EmailIngestionService:
@@ -89,4 +96,7 @@ class EmailIngestionService:
             if parser.can_parse(payload.sender, payload.subject, payload.body):
                 return parser
 
-        raise ValueError("No parser available for this email")
+        logger.debug(
+            "no parser matched sender=%s subject=%r", payload.sender, payload.subject
+        )
+        raise NoParserMatchedError("No parser available for this email")

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     POLL_INTERVAL_SECONDS: int = 300
     WATERMARK_FILE_PATH: str
     MAX_BATCH_SIZE: int = 50
+    LOG_LEVEL: str = "INFO"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
