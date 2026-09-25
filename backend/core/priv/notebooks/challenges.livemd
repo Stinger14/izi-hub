@@ -1,0 +1,63 @@
+# Kata Training
+
+## Challenges
+
+### Two Sums
+
+Write a function that takes an array of numbers (integers for the tests) 
+  and a target number. It should find two different items in the array that, 
+  when added together, give the target value. The indexes of these items 
+  should then be returned in a tuple / list like: `{index1, index2}`.
+
+Example input: `([1, 2, 3], 4)`
+  Output: `{0, 2}`
+
+```elixir
+defmodule TwoSums do
+  @moduledoc false
+  # ([2,3,4,5,8], 11)
+
+  def get_addends(numbers, target) do
+    numbers
+    |> Enum.with_index()
+    |> Enum.reduce_while(%{}, fn {val, idx}, seen ->
+      complement = target - val
+
+      if is_map_key(seen, complement) do
+        {:halt, {seen[complement], idx}}
+      else
+        {:cont, Map.put(seen, val, idx)}
+      end
+    end)
+    
+  end
+end
+```
+
+```elixir
+TwoSums.get_addends([1,2,3], 4)
+```
+
+### Commands (wip)
+
+<!-- livebook:{"break_markdown":true} -->
+
+Write a function that parses a list that contains 3 items: `["ADD", a, b]` first argument is the command to process, the others 2 are the arguments(integers) for that operation.
+
+Example input: `["ADD", 2, 3]`
+Output: 5
+
+```elixir
+defmodule Commands do
+  @moduledoc false
+
+  def parse_command(payload) do
+    payload
+    |> List.to_tuple()
+  end
+end
+
+Commands.parse_command(["ADD", 2, 4])
+```
+
+###

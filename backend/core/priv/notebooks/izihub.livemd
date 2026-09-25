@@ -1,0 +1,20 @@
+<!-- livebook:{"file_entries":[{"name":"IMG_2531.png","type":"attachment"}]} -->
+
+# IziHub
+
+## Feature Spec
+
+### Living Desk
+
+An integrated workstation in the cloud ☁️
+
+#### Features
+
+* Todo's app
+* Courses section
+* Books tracker
+* Google's calendar & Gmail integration
+* Music player
+* Translator service
+
+#### Design Scope
