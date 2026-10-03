@@ -1,457 +1,241 @@
 defmodule CoreWeb.HubLive do
   use CoreWeb, :live_view
 
-  alias Core.GitHub
-  alias Core.HackerNews
-
   def mount(_params, _session, socket) do
-    socket =
-      socket
-      |> assign_new(:current_scope, fn -> nil end)
-      |> assign(
-        github_accounts: [],
-        news_items: [],
-        loading_data: false
-      )
+    month = month_start(Date.utc_today())
 
-    socket =
-      if connected?(socket) do
-        send(self(), :load_hub_data)
-
-        assign(socket, loading_data: true)
-      else
-        socket
-      end
-
-    {:ok, socket}
+    {:ok,
+     socket
+     |> assign_new(:current_scope, fn -> nil end)
+     |> assign(
+       calendar_month: month,
+       calendar_days: calendar_days(month, nil),
+       calendar_weekdays: ~w(Sun Mon Tue Wed Thu Fri Sat),
+       selected_date: nil,
+       translator_open: false,
+       translator_text: "",
+       translator_direction: "en-es"
+     )}
   end
 
-  def handle_info(:load_hub_data, socket) do
-    github_accounts = GitHub.fetch_accounts()
-    news_items = HackerNews.fetch_best_stories(limit: 7)
+  def handle_event("toggle_translator", _params, socket) do
+    {:noreply, update(socket, :translator_open, &(!&1))}
+  end
+
+  def handle_event("close_translator", _params, socket) do
+    {:noreply, assign(socket, :translator_open, false)}
+  end
+
+  def handle_event("translator_input", %{"translator" => params}, socket) do
+    text = params |> Map.get("text", "") |> String.slice(0, 5_000)
+    direction = normalize_translator_direction(Map.get(params, "direction"))
 
     {:noreply,
-     assign(socket, github_accounts: github_accounts, news_items: news_items, loading_data: false)}
+     assign(socket,
+       translator_text: text,
+       translator_direction: direction
+     )}
+  end
+
+  def handle_event("toggle_translator_direction", _params, socket) do
+    direction = if socket.assigns.translator_direction == "en-es", do: "es-en", else: "en-es"
+    {:noreply, assign(socket, :translator_direction, direction)}
+  end
+
+  def handle_event("prev_calendar_month", _params, socket) do
+    month = previous_month(socket.assigns.calendar_month)
+
+    {:noreply,
+     assign(socket,
+       calendar_month: month,
+       calendar_days: calendar_days(month, socket.assigns.selected_date)
+     )}
+  end
+
+  def handle_event("next_calendar_month", _params, socket) do
+    month = next_month(socket.assigns.calendar_month)
+
+    {:noreply,
+     assign(socket,
+       calendar_month: month,
+       calendar_days: calendar_days(month, socket.assigns.selected_date)
+     )}
+  end
+
+  def handle_event("select_calendar_date", %{"date" => value}, socket) do
+    case Date.from_iso8601(value) do
+      {:ok, date} ->
+        month = month_start(date)
+
+        {:noreply,
+         assign(socket,
+           selected_date: date,
+           calendar_month: month,
+           calendar_days: calendar_days(month, date)
+         )}
+
+      {:error, _reason} ->
+        {:noreply, socket}
+    end
   end
 
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-    <div class="relative min-h-screen bg-purple-50 text-slate-900">
-      <%= if is_nil(@current_scope) do %>
-        <button
-          type="button"
-          class="hidden fixed inset-0 z-60 bg-purple-200/35 backdrop-blur-[2px]"
-          data-auth-backdrop
-          data-auth-close
-          aria-label="Close authentication panel"
-        >
-        </button>
-      <% end %>
-      <header class="relative z-70 border-b border-purple-100 bg-white/70 backdrop-blur">
-        <div class="mx-auto max-w-6xl px-6 py-5">
-          <div class="flex items-center justify-between gap-4">
-            <nav class="hidden items-center gap-4 text-sm text-slate-600 md:ml-12 md:flex">
-              <a href="#links" class="fx-nav-link">Quick links</a>
-              <a href={~p"/contributions"} class="fx-nav-link">Contributions</a>
-              <a
-                href={~p"/resources"}
-                class="fx-nav-link fx-nav-link-with-badge relative inline-flex items-center"
-              >
-                <span>Resources</span>
-                <span
-                  class="pointer-events-none absolute -right-4 -top-2 badge-status badge-wip badge-compact-64"
-                  aria-hidden="true"
-                >
-                  WIP
-                </span>
-              </a>
-              <a href={~p"/liveapps"} class="fx-nav-link fx-nav-link-with-badge relative inline-flex items-center">
-                <span>Liveapps</span>
-                <span
-                  class="pointer-events-none absolute -right-4 -top-2 badge-status badge-wip badge-compact-64"
-                  aria-hidden="true"
-                >
-                  WIP
-                </span>
-              </a>
+      <main class="min-h-screen bg-purple-50 text-slate-900">
+        <header class="sticky top-2 z-50 mx-auto max-w-[1680px] px-5 sm:px-8">
+          <div class="relative" phx-click-away="close_translator" phx-window-keydown="close_translator" phx-key="Escape">
+          <div class="flex items-center gap-2 rounded-2xl border border-purple-100 bg-white/95 p-2 shadow-md shadow-purple-900/5 backdrop-blur">
+            <a href={~p"/welcome"} class="shrink-0 px-2 font-display text-xs font-semibold uppercase tracking-[0.12em] text-slate-600">Workspace</a>
+            <nav aria-label="Command center" class="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto rounded-xl bg-purple-50/70 p-1">
+              <a href="#tasks" class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-purple-100 bg-white px-2.5 text-xs font-semibold text-slate-700 transition hover:border-purple-200 hover:bg-purple-50"><.icon name="hero-check" class="h-4 w-4 text-purple-600" />Tasks</a>
+              <button type="button" phx-click="toggle_translator" aria-expanded={@translator_open} aria-controls="translator-popover" class={translator_button_class(@translator_open)}><.icon name="hero-arrow-path" class="h-4 w-4 text-purple-600" />Translate</button>
+              <button type="button" disabled title="Music connection coming soon" class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-slate-100 bg-slate-50 px-2.5 text-xs font-medium text-slate-500"><span class="inline-flex h-4 w-4 items-center justify-center rounded bg-white text-sm text-slate-500" aria-hidden="true">♫</span>Music</button>
+              <button type="button" disabled title="Gmail connection coming soon" class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-slate-100 bg-slate-50 px-2.5 text-xs font-medium text-slate-500"><span class="inline-flex h-4 w-4 items-center justify-center rounded bg-white text-[10px] font-bold text-slate-500" aria-hidden="true">M</span>Gmail</button>
             </nav>
-            <%= if is_nil(@current_scope) do %>
-              <div class="relative flex items-center gap-2" data-auth-inline>
-                <button
-                  type="button"
-                  class="fx-nav-link inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold"
-                  data-auth-toggle="login"
-                >
-                  Login
-                </button>
-                <button
-                  type="button"
-                  class="fx-nav-link inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold"
-                  data-auth-toggle="signup"
-                >
-                  Signup
-                </button>
-
-                <div class="hidden absolute right-0 top-full z-80 mt-3 w-[min(24rem,calc(100vw-2rem))]" data-auth-shell>
-                  <div class="rounded-2xl border border-purple-100 bg-white p-4 shadow-xl ring-1 ring-purple-200/80">
-                    <div>
-                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Account access</p>
-                      <p class="mt-1 text-sm font-semibold text-slate-900">
-                        Sign in or create an account
-                      </p>
-                    </div>
-
-                    <div class="hidden mt-4 border-t border-purple-100/80 pt-4" data-auth-panel="login">
-                      <div class="mb-3 flex items-center justify-between">
-                        <p class="text-sm font-semibold text-slate-900">Sign in</p>
-                        <button type="button" class="btn btn-ghost btn-xs" data-auth-close>
-                          <.icon name="hero-x-mark" class="h-4 w-4" />
-                        </button>
-                      </div>
-                      <.form for={%{}} as={:user} action={~p"/login"} method="post" class="space-y-3">
-                        <div>
-                          <label for="hub-login-email" class="mb-1 block text-xs font-medium text-slate-700">
-                            Email
-                          </label>
-                          <input
-                            id="hub-login-email"
-                            name="user[email]"
-                            type="email"
-                            required
-                            autocomplete="email"
-                            class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label for="hub-login-password" class="mb-1 block text-xs font-medium text-slate-700">
-                            Password
-                          </label>
-                          <input
-                            id="hub-login-password"
-                            name="user[password]"
-                            type="password"
-                            required
-                            autocomplete="current-password"
-                            class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
-                          />
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-xs w-full">Sign in</button>
-                      </.form>
-                    </div>
-
-                    <div class="hidden mt-4 border-t border-purple-100/80 pt-4" data-auth-panel="signup">
-                      <div class="mb-3 flex items-center justify-between">
-                        <p class="text-sm font-semibold text-slate-900">Create account</p>
-                        <button type="button" class="btn btn-ghost btn-xs" data-auth-close>
-                          <.icon name="hero-x-mark" class="h-4 w-4" />
-                        </button>
-                      </div>
-                      <.form for={%{}} as={:user} action={~p"/signup"} method="post" class="space-y-3">
-                        <div>
-                          <label for="hub-signup-email" class="mb-1 block text-xs font-medium text-slate-700">
-                            Email
-                          </label>
-                          <input
-                            id="hub-signup-email"
-                            name="user[email]"
-                            type="email"
-                            required
-                            autocomplete="email"
-                            class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
-                          />
-                        </div>
-                        <p class="text-[11px] text-slate-500">
-                          We'll generate a username and send you to password setup.
-                        </p>
-                        <button type="submit" class="btn btn-primary btn-xs w-full">Continue</button>
-                      </.form>
-                    </div>
-                  </div>
-                </div>
+            <details class="relative shrink-0">
+              <summary class="inline-flex h-9 cursor-pointer list-none items-center gap-1.5 rounded-lg border border-purple-100 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-purple-200 hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-200">
+                <.icon name="hero-ellipsis-horizontal" class="h-4 w-4 text-purple-600" />Pages
+              </summary>
+              <div class="absolute right-0 top-full z-[60] mt-2 grid w-52 gap-1 rounded-xl border border-purple-100 bg-white p-2 shadow-xl shadow-purple-900/10">
+                <a href={~p"/hub"} class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700">Dashboard</a>
+                <a :if={@current_scope} href={~p"/finance"} class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700">Finance</a>
+                <a :if={@current_scope} href={~p"/notebooks"} class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700">Books &amp; notebooks</a>
+                <a href={~p"/resources"} class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700">Resources</a>
+                <a href={~p"/liveapps"} class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700">Live Apps</a>
+                <a :if={@current_scope} href={~p"/contributions"} class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700">Contributions</a>
+                <a href={~p"/profile"} class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700">Profile</a>
+                <a href={~p"/welcome"} class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700">Welcome</a>
               </div>
-            <% end %>
-          </div>
-
-        </div>
-      </header>
-
-      <main>
-        <section class="mx-auto max-w-6xl px-6 pb-16 pt-16">
-          <div class="grid items-start gap-12 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <div>
-              <h1 class="mt-3 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
-                Hi, I’m Maxly García — software developer.
-              </h1>
-              <p class="mt-4 text-lg text-slate-600">
-                I build practical, reliable systems and tools to make things simple.
-              </p>
-              <div class="mt-8 flex flex-wrap items-center gap-4">
-                <a
-                  href={~p"/profile"}
-                  class="btn btn-primary btn-glow"
-                >
-                  View profile
-                </a>
-              </div>
-              <div class="mt-10 rounded-2xl border border-purple-100 bg-white/80 p-6 shadow-sm">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">GitHub</p>
-                    <h3 class="mt-1 text-lg font-semibold text-slate-900">Contribution pulse</h3>
-                    <p class="mt-1 text-xs text-slate-500">
-                      A quick heatmap preview. Open the full contributions page for branch logs and recent commits.
-                    </p>
-                  </div>
-                  <a href={~p"/contributions"} class="btn btn-secondary btn-xs">
-                    View contributions
-                  </a>
-                </div>
-
-                <div class="mt-6 grid gap-6">
-                  <%= if @github_accounts == [] and @loading_data do %>
-                    <p class="text-xs text-slate-500">Loading GitHub pulse...</p>
-                  <% else %>
-                    <%= for account <- @github_accounts do %>
-                      <div class="rounded-xl border border-purple-100 bg-white p-4">
-                        <div class="flex items-center justify-between">
-                          <p class="text-sm font-semibold text-slate-900"><%= account.username %></p>
-                          <a
-                            href={account.repo_url}
-                            class="btn btn-ghost btn-xs"
-                          >
-                            Profile
-                          </a>
-                        </div>
-
-                        <div class="mt-4 space-y-4">
-                          <div class="overflow-x-auto rounded-xl border border-purple-100 bg-white p-3">
-                            <%= if account.contributions_svg do %>
-                              <div class="min-w-[720px] text-slate-700">
-                                <%= Phoenix.HTML.raw(account.contributions_svg) %>
-                              </div>
-                            <% else %>
-                              <p class="text-xs text-slate-500">Contribution heatmap unavailable.</p>
-                            <% end %>
-                          </div>
-
-                          <%= if account.events == [] do %>
-                            <p class="text-xs text-slate-500">No recent public activity.</p>
-                          <% else %>
-                            <div class="rounded-xl border border-purple-100 bg-purple-50/60 px-3 py-3">
-                              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Latest touchpoint</p>
-                              <div class="mt-2 flex items-center justify-between gap-3 text-xs text-slate-600">
-                                <span>
-                                  <span class="font-semibold text-slate-700"><%= List.first(account.events).type %></span>
-                                  <span class="text-slate-400">·</span>
-                                  <a href={List.first(account.events).repo_url} class="text-purple-600 hover:text-purple-700">
-                                    <%= List.first(account.events).repo %>
-                                  </a>
-                                </span>
-                                <span class="text-slate-400"><%= List.first(account.events).created_at_label %></span>
-                              </div>
-                            </div>
-                          <% end %>
-                        </div>
-                      </div>
-                    <% end %>
-                  <% end %>
-                </div>
-              </div>
-            </div>
-            <aside class="lg:sticky lg:top-24">
-              <div class="rounded-2xl border border-purple-100 bg-white/80 p-6 shadow-sm">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">News</p>
-                    <h3 class="mt-1 text-lg font-semibold text-slate-900">Best of the day</h3>
-                    <p class="mt-1 text-xs text-slate-500">
-                      Live from
-                      <a
-                        href="https://news.ycombinator.com"
-                        class="font-medium text-purple-600"
-                      >
-                        Hacker News
-                      </a>
-                    </p>
-                  </div>
-                </div>
-
-                <div class="mt-6">
-                  <%= if @loading_data do %>
-                    <p class="text-xs text-slate-500">Loading stories...</p>
-                  <% else %>
-                    <%= if @news_items == [] do %>
-                      <p class="text-xs text-slate-500">No recent stories available.</p>
-                    <% else %>
-                      <ul class="space-y-3 text-sm text-slate-600">
-                        <%= for story <- @news_items do %>
-                          <li class="fx-item rounded-xl border border-transparent p-1 transition-colors hover:border-purple-100">
-                            <a
-                              href={story.url}
-                              class="fx-trigger"
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              <span class="line-clamp-2 text-left font-semibold text-slate-900"><%= story.title %></span>
-                            </a>
-
-                            <div class="fx-preview">
-                              <div class="fx-preview-content">
-                                <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-purple-500">
-                                  Story details
-                                </p>
-
-                                <p class="mt-2 text-sm font-semibold leading-snug text-slate-900">
-                                  <%= story.title %>
-                                </p>
-
-                                <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                                  <span class="fx-stamp"><%= story.age %></span>
-                                  <span><%= story.score %> points</span>
-                                  <span>·</span>
-                                  <span><%= story.comments %> comments</span>
-                                  <span>·</span>
-                                  <span>by <%= story.author %></span>
-                                </div>
-
-                                <div class="mt-4 flex flex-wrap items-center gap-3 text-xs">
-                                  <a
-                                    href={story.url}
-                                    class="btn btn-secondary btn-xs"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                  >
-                                    Open article
-                                  </a>
-                                  <a
-                                    href={story.hn_url}
-                                    class="btn btn-secondary btn-xs"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                  >
-                                    Hacker News thread
-                                  </a>
-                                </div>
-                              </div>
-                            </div>
-                          </li>
-                        <% end %>
-                      </ul>
-                    <% end %>
-                  <% end %>
-                </div>
-              </div>
-            </aside>
-          </div>
-        </section>
-
-        <section id="links" class="mx-auto max-w-6xl px-6 pb-16">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <h2 class="text-2xl font-semibold text-slate-900">Quick links</h2>
-            </div>
-          </div>
-          <div class="mt-8 grid gap-3 md:grid-cols-2">
-            <%= for item <- quick_link_items() do %>
-              <div class="fx-item rounded-xl border border-transparent p-1 transition-colors hover:border-purple-100">
-                <a href={item.href} class="fx-trigger rounded-xl px-4 py-3">
-                  <div class="flex items-center justify-between gap-4">
-                    <div>
-                      <h3 class="text-sm font-semibold text-slate-900"><%= item.title %></h3>
-                      <p class="mt-1 text-xs text-slate-600"><%= item.description %></p>
-                    </div>
-                    <span class="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-purple-600">
-                      Open
-                      <.icon name="hero-arrow-right" class="h-3.5 w-3.5" />
-                    </span>
-                  </div>
-                </a>
-              </div>
-            <% end %>
-          </div>
-        </section>
-
-        <section class="mx-auto max-w-6xl px-6 pb-16">
-          <div class="rounded-2xl border border-purple-100 bg-white/80 p-6 shadow-sm">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">GitHub</p>
-                <h3 class="mt-1 text-lg font-semibold text-slate-900">Recent activity</h3>
-                <p class="mt-1 text-xs text-slate-500">
-                  Lower-signal event stream from tracked accounts. Open source and branch-level detail live on the contributions page.
-                </p>
-              </div>
-              <a href={~p"/contributions"} class="btn btn-ghost btn-xs">
-                Open contributions
-              </a>
-            </div>
-
-            <div class="mt-6 grid gap-6">
-              <%= if @github_accounts == [] and @loading_data do %>
-                <p class="text-xs text-slate-500">Loading recent activity...</p>
+            </details>
+            <div class="shrink-0">
+              <%= if is_nil(@current_scope) do %>
+                <a href={~p"/login"} class="btn btn-primary btn-xs">Sign in</a>
               <% else %>
-                <%= for account <- @github_accounts do %>
-                  <div class="rounded-xl border border-purple-100 bg-white p-4">
-                    <div class="flex items-center justify-between">
-                      <p class="text-sm font-semibold text-slate-900"><%= account.username %></p>
-                      <a
-                        href={account.repo_url}
-                        class="btn btn-ghost btn-xs"
-                      >
-                        Profile
-                      </a>
-                    </div>
-
-                    <div class="mt-4">
-                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Recent events</p>
-                      <%= if account.events == [] do %>
-                        <p class="mt-2 text-xs text-slate-500">No recent events.</p>
-                      <% else %>
-                        <ul class="mt-2 space-y-2 text-xs text-slate-600">
-                          <%= for event <- Enum.take(account.events, 4) do %>
-                            <li class="flex items-center justify-between gap-2">
-                              <span>
-                                <span class="font-semibold text-slate-700"><%= event.type %></span>
-                                <span class="text-slate-400">·</span>
-                                <a href={event.repo_url} class="text-purple-600 hover:text-purple-700">
-                                  <%= event.repo %>
-                                </a>
-                              </span>
-                              <span class="text-slate-400"><%= event.created_at_label %></span>
-                            </li>
-                          <% end %>
-                        </ul>
-                      <% end %>
-                    </div>
-                  </div>
-                <% end %>
+                <a href={~p"/profile"} class="inline-flex h-8 items-center rounded-lg px-3 text-xs font-semibold text-purple-600 transition hover:bg-purple-50">Profile</a>
               <% end %>
             </div>
           </div>
-        </section>
+          <section :if={@translator_open} id="translator-popover" role="dialog" aria-label="Translator" class="mt-2 w-full rounded-2xl border border-purple-100 bg-white p-3 shadow-md shadow-purple-900/5 sm:p-4">
+            <form id="translator-form" phx-change="translator_input" class="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+              <label for="translator-text" class="sr-only">Text in {translator_source_language(@translator_direction)}</label>
+              <input type="hidden" name="translator[direction]" value={@translator_direction} />
+              <textarea id="translator-text" name="translator[text]" rows="1" maxlength="5000" autofocus phx-debounce="500" phx-hook="AutoGrow" placeholder={translator_source_language(@translator_direction)} aria-label={translator_source_language(@translator_direction)} class="min-h-10 max-h-40 w-full resize-none overflow-y-auto rounded-xl border border-purple-100 bg-purple-50/40 px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-purple-300 focus:bg-white focus:ring-2 focus:ring-purple-100"><%= @translator_text %></textarea>
+              <button type="button" phx-click="toggle_translator_direction" aria-label="Swap English and Spanish" title="Swap languages" class="mx-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-purple-100 bg-white text-purple-700 transition hover:border-purple-300 hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-200"><.icon name="hero-arrow-path" class="h-4 w-4" /></button>
+              <label for="translator-result" class="sr-only">Translation in {translator_target_language(@translator_direction)}</label>
+              <textarea id="translator-result" readonly rows="1" phx-hook="AutoGrow" placeholder={translator_target_language(@translator_direction)} aria-label={translator_target_language(@translator_direction)} class="min-h-10 max-h-40 w-full resize-none overflow-y-auto rounded-xl border border-purple-100 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400"></textarea>
+            </form>
+          </section>
+          </div>
+        </header>
 
+        <div class="mx-auto max-w-[1680px] px-5 py-6 sm:px-8 sm:py-8">
+          <div class="space-y-5">
+            <section class="rounded-3xl border border-purple-100 bg-white/95 p-6 shadow-lg shadow-purple-900/5 sm:p-8 lg:p-10">
+                <div class="mb-7 flex flex-wrap items-center justify-between gap-3 sm:mb-8">
+                  <div><p class="text-xs font-semibold uppercase tracking-[0.14em] text-purple-600">Your workspace</p><h1 class="mt-1 font-display text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Dashboard</h1></div>
+                  <a href={~p"/welcome"} class="text-sm font-medium text-purple-600 hover:text-purple-700">Welcome <.icon name="hero-arrow-right" class="ml-1 inline h-4 w-4" /></a>
+                </div>
+                <div class="grid gap-5 lg:grid-cols-2 lg:gap-6">
+                  <article class="rounded-2xl border border-purple-100 bg-white p-5 shadow-sm shadow-purple-900/5 sm:p-6">
+                    <div><p class="text-xs font-semibold uppercase tracking-wide text-purple-600">Finance</p><h2 class="mt-1 text-lg font-semibold text-slate-900">Your money, at a glance</h2></div>
+                    <div class="mt-5 grid grid-cols-2 gap-3"><div class="min-w-0 rounded-xl border border-purple-100/70 bg-purple-50/60 p-3 sm:p-4"><p class="text-xs text-slate-500">Balances</p><p class="mt-2 text-sm font-semibold leading-snug text-slate-800">Connect account</p></div><div class="min-w-0 rounded-xl border border-purple-100/70 bg-purple-50/60 p-3 sm:p-4"><p class="text-xs text-slate-500">Monthly spending</p><p class="mt-2 text-sm font-semibold leading-snug text-slate-800">No data yet</p></div></div>
+                    <a href={if @current_scope, do: ~p"/finance", else: ~p"/login"} class="mt-5 inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-semibold text-purple-700 transition hover:bg-purple-50">Open Finance <.icon name="hero-arrow-right" class="h-4 w-4" /></a>
+                  </article>
+                  <article class="rounded-2xl border border-purple-100 bg-purple-50/70 p-5 shadow-sm shadow-purple-900/5 sm:p-6">
+                    <div class="flex items-start justify-between gap-3"><div><p class="text-xs font-semibold uppercase tracking-wide text-purple-600">Social &amp; creator stats</p><h2 class="mt-1 text-lg font-semibold text-slate-900">Your reach and activity</h2></div><a :if={@current_scope} href={~p"/contributions"} class="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-purple-700 transition hover:bg-white/70">GitHub details</a></div>
+                    <div class="mt-5 grid grid-cols-2 gap-3"><div class="min-w-0 rounded-xl border border-purple-100/70 bg-white p-3 sm:p-4"><p class="text-xs text-slate-500">Creator</p><p class="mt-2 text-sm font-semibold leading-snug text-slate-800">Connect account</p><p class="mt-1 text-xs leading-snug text-slate-500">Followers, views, engagement</p></div><div class="min-w-0 rounded-xl border border-purple-100/70 bg-white p-3 sm:p-4"><p class="text-xs text-slate-500">Developer</p><p class="mt-2 text-sm font-semibold leading-snug text-slate-800">GitHub activity</p><p class="mt-1 text-xs leading-snug text-slate-500">Connect to see your stats</p></div></div>
+                  </article>
+                </div>
+            </section>
+
+            <div class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+              <section id="tasks" class="rounded-2xl border border-purple-100 bg-white/90 p-5 shadow-sm sm:p-6">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div><p class="text-xs font-semibold uppercase tracking-[0.14em] text-purple-600">Focus</p><h2 class="mt-1 text-xl font-semibold text-slate-900">Tasks</h2></div>
+                </div>
+                <div class="mt-4 flex items-center gap-3 rounded-xl border border-purple-100 bg-purple-50/45 px-4 py-4">
+                  <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-purple-600"><.icon name="hero-check" class="h-4 w-4" /></span>
+                  <div><p class="text-sm font-semibold text-slate-800">No tasks yet</p><p class="mt-0.5 text-xs text-slate-500">Your tasks will appear here.</p></div>
+                </div>
+              </section>
+              <aside class="lg:pt-1">
+              <section class="rounded-2xl border border-purple-100 bg-white p-3 shadow-sm">
+                <div class="flex items-center justify-between gap-2"><div><p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-purple-600">Calendar</p><h2 class="text-sm font-semibold text-slate-900"><%= calendar_month_label(@calendar_month) %></h2></div><div class="flex gap-1"><button type="button" phx-click="prev_calendar_month" aria-label="Previous month" class="grid h-8 w-8 place-items-center rounded-lg text-purple-700 transition hover:bg-purple-50"><.icon name="hero-arrow-left" class="h-3.5 w-3.5" /></button><button type="button" phx-click="next_calendar_month" aria-label="Next month" class="grid h-8 w-8 place-items-center rounded-lg text-purple-700 transition hover:bg-purple-50"><.icon name="hero-arrow-right" class="h-3.5 w-3.5" /></button></div></div>
+                <div class="mt-2 grid grid-cols-7 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-500"><span :for={weekday <- @calendar_weekdays}><%= weekday %></span></div>
+                <div class="mt-1 grid grid-cols-7 gap-y-0"><button :for={day <- @calendar_days} type="button" phx-click="select_calendar_date" phx-value-date={Date.to_iso8601(day.date)} aria-pressed={day.selected?} class={calendar_day_class(day)}><%= day.label %></button></div>
+                <p class="mt-2 border-t border-purple-100 pt-2 text-[10px] text-slate-500"><%= if @selected_date, do: Calendar.strftime(@selected_date, "%a, %b %-d"), else: "Select a date" %></p>
+              </section>
+              </aside>
+            </div>
+          </div>
+        </div>
       </main>
-
-    </div>
     </Layouts.app>
     """
   end
 
-  defp quick_link_items do
-    [
-      %{title: "Profile", description: "Open experience, stack, and CV.", href: "/profile"},
+  defp calendar_days(calendar_month, selected_date) do
+    first_day = month_start(calendar_month)
+    last_day = Date.add(first_day, Date.days_in_month(first_day) - 1)
+    grid_start = Date.add(first_day, -rem(Date.day_of_week(first_day), 7))
+    grid_end = Date.add(last_day, 6 - rem(Date.day_of_week(last_day), 7))
+    day_count = Date.diff(grid_end, grid_start) + 1
+
+    Enum.map(0..(day_count - 1), fn offset ->
+      date = Date.add(grid_start, offset)
+
       %{
-        title: "Notebooks",
-        description: "Browse notebook markdown previews.",
-        href: "/notebooks"
-      },
-      %{
-        title: "Contributions",
-        description: "View heatmaps, branch logs, and recent commits.",
-        href: "/contributions"
-      },
-      %{title: "Resources", description: "Check playbooks and templates.", href: "/resources"}
-    ]
+        date: date,
+        in_month?: date.month == calendar_month.month and date.year == calendar_month.year,
+        selected?: match?(%Date{}, selected_date) and Date.compare(date, selected_date) == :eq,
+        label: Integer.to_string(date.day)
+      }
+    end)
+  end
+
+  defp month_start(%Date{} = date), do: %{date | day: 1}
+
+  defp previous_month(%Date{} = month) do
+    month |> Date.add(-1) |> month_start()
+  end
+
+  defp next_month(%Date{} = month) do
+    month |> Date.add(Date.days_in_month(month)) |> month_start()
+  end
+
+  defp calendar_month_label(%Date{} = date), do: Calendar.strftime(date, "%B %Y")
+
+  defp normalize_translator_direction("es-en"), do: "es-en"
+  defp normalize_translator_direction(_direction), do: "en-es"
+
+  defp translator_source_language("en-es"), do: "English"
+  defp translator_source_language("es-en"), do: "Spanish"
+
+  defp translator_target_language("en-es"), do: "Spanish"
+  defp translator_target_language("es-en"), do: "English"
+
+  defp translator_button_class(true) do
+    "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-purple-300 bg-purple-100 px-2.5 text-xs font-semibold text-purple-800 transition"
+  end
+
+  defp translator_button_class(false) do
+    "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-purple-100 bg-white px-2.5 text-xs font-semibold text-slate-700 transition hover:border-purple-200 hover:bg-purple-50"
+  end
+
+  defp calendar_day_class(day) do
+    base =
+      "grid h-8 w-full place-items-center rounded-lg text-xs leading-none transition-colors"
+
+    cond do
+      day.selected? ->
+        base <> " bg-purple-600 font-semibold text-white shadow-sm shadow-purple-900/15"
+
+      day.in_month? ->
+        base <> " text-slate-700 hover:bg-purple-50"
+
+      true ->
+        base <> " text-slate-300 hover:bg-purple-50/70"
+    end
   end
 end

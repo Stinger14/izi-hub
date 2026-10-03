@@ -33,6 +33,9 @@ defmodule CoreWeb.HubLandingLive do
                   >
                     Enter Hub
                   </a>
+                  <a href={~p"/profile"} class="btn btn-secondary btn-glow">
+                    Profile &amp; CV
+                  </a>
                 </div>
                 <p class="mt-4 text-xs text-slate-500">This hub is where my work, notes, and tools live.</p>
               </div>
@@ -46,7 +49,7 @@ defmodule CoreWeb.HubLandingLive do
                   </div>
                   <div class="flex items-start gap-2">
                     <.icon name="hero-check" class="mt-0.5 h-4 w-4 shrink-0 text-purple-500" />
-                    Open the Profile to download CV.
+                    Visit the Profile to review experience and download the CV.
                   </div>
                   <div class="flex items-start gap-2">
                     <.icon name="hero-check" class="mt-0.5 h-4 w-4 shrink-0 text-purple-500" />
