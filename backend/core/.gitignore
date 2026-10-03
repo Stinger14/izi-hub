@@ -42,6 +42,10 @@ erl_crash.dump
 !/priv/static/images/pp3.jpeg
 !/priv/static/maxly_garcia_cv.pdf
 
+# Book PDFs are added locally, not versioned; keep the directory itself
+/priv/books/*
+!/priv/books/.gitkeep
+
 # Installer-related files
 /installer/_build
 /installer/tmp
