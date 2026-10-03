@@ -44,7 +44,7 @@ defmodule CoreWeb.UserAuth do
       is_nil(conn.assigns.current_scope) ->
         conn
         |> put_flash(:error, "Please sign in to continue")
-        |> redirect(to: ~p"/hub?auth=login")
+        |> redirect(to: ~p"/login?error=auth")
         |> halt()
 
       true ->
@@ -59,7 +59,7 @@ defmodule CoreWeb.UserAuth do
     if is_nil(conn.assigns.current_scope) do
       conn
       |> put_flash(:error, "Please sign in to continue")
-      |> redirect(to: ~p"/hub?auth=login")
+      |> redirect(to: ~p"/login?error=auth")
       |> halt()
     else
       conn
@@ -110,7 +110,7 @@ defmodule CoreWeb.UserAuth do
       {:halt,
        socket
        |> Phoenix.LiveView.put_flash(:error, "Please sign in to continue")
-       |> Phoenix.LiveView.redirect(to: ~p"/hub?auth=login")}
+       |> Phoenix.LiveView.redirect(to: ~p"/login?error=auth")}
     else
       {:cont, socket}
     end
@@ -125,7 +125,7 @@ defmodule CoreWeb.UserAuth do
         {:halt,
          socket
          |> Phoenix.LiveView.put_flash(:error, "Please sign in to continue")
-         |> Phoenix.LiveView.redirect(to: ~p"/hub?auth=login")}
+         |> Phoenix.LiveView.redirect(to: ~p"/login?error=auth")}
 
       true ->
         {:halt,

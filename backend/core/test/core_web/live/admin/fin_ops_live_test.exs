@@ -8,7 +8,7 @@ defmodule CoreWeb.Admin.FinOpsLiveTest do
   alias Core.Repo
 
   test "redirects unauthenticated users to login", %{conn: conn} do
-    assert {:error, {:redirect, %{to: "/hub?auth=login"}}} = live(conn, ~p"/admin/finops")
+    assert {:error, {:redirect, %{to: "/login?error=auth"}}} = live(conn, ~p"/admin/finops")
   end
 
   test "redirects non-admin users", %{conn: conn} do

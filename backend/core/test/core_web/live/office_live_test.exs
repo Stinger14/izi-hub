@@ -7,7 +7,7 @@ defmodule CoreWeb.OfficeLiveTest do
   alias Core.Office
 
   test "redirects unauthenticated users to login", %{conn: conn} do
-    assert {:error, {:redirect, %{to: "/hub?auth=login"}}} = live(conn, ~p"/office")
+    assert {:error, {:redirect, %{to: "/login?error=auth"}}} = live(conn, ~p"/office")
   end
 
   test "renders the office workbench for authenticated users", %{conn: conn} do

@@ -16,6 +16,12 @@
         <p class="mt-1 text-sm text-slate-600">Sign in to access your admin tools and metrics.</p>
       </div>
 
+      <%= if @error do %>
+        <div role="alert" class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <%= @error %>
+        </div>
+      <% end %>
+
       <.form for={%{}} as={:user} action={~p"/login"} method="post" class="space-y-4">
         <div>
           <label for="user_email" class="mb-1 block text-sm font-medium text-slate-700">Email</label>
@@ -23,6 +29,7 @@
             id="user_email"
             name="user[email]"
             type="email"
+            value={@email}
             required
             autocomplete="email"
             class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"

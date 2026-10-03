@@ -269,7 +269,7 @@ defmodule CoreWeb.ProfileLive do
             <%= if is_nil(@current_scope) do %>
               <p class="mt-2 text-xs text-slate-500">
                 Want updates on new projects and CV revisions?
-                <a href={~p"/hub?auth=signup"} class="font-medium text-purple-600 hover:text-purple-700">
+                <a href={~p"/signup"} class="font-medium text-purple-600 hover:text-purple-700">
                   Sign up
                 </a>
               </p>

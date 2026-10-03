@@ -5,10 +5,12 @@ defmodule CoreWeb.SessionControllerTest do
   alias Core.Repo
 
   describe "GET /login" do
-    test "redirects to hub login inline panel", %{conn: conn} do
+    test "renders the sign in form", %{conn: conn} do
       conn = get(conn, ~p"/login")
 
-      assert redirected_to(conn) == "/hub?auth=login"
+      html = html_response(conn, 200)
+      assert html =~ "Welcome back"
+      assert html =~ "name=\"user[email]\""
     end
 
     test "shows admin and logout links for admin scope on controller-rendered pages", %{
@@ -89,7 +91,7 @@ defmodule CoreWeb.SessionControllerTest do
           "user" => %{"email" => "wrong@example.com", "password" => "wrong-password"}
         })
 
-      assert redirected_to(conn) == "/hub?auth=login"
+      assert html_response(conn, 422) =~ "Invalid login or password"
       assert get_session(conn, :user_id) == nil
     end
   end

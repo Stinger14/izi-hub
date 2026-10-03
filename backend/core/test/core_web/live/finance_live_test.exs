@@ -8,7 +8,7 @@ defmodule CoreWeb.FinanceLiveTest do
   alias Core.Finance
 
   test "redirects unauthenticated users to login", %{conn: conn} do
-    assert {:error, {:redirect, %{to: "/hub?auth=login"}}} = live(conn, ~p"/finance")
+    assert {:error, {:redirect, %{to: "/login?error=auth"}}} = live(conn, ~p"/finance")
   end
 
   test "renders the finance dashboard for authenticated users", %{conn: conn} do

@@ -8,7 +8,7 @@ defmodule CoreWeb.Admin.DashboardLiveTest do
   alias Core.Repo
 
   test "redirects unauthenticated users to login", %{conn: conn} do
-    assert {:error, {:redirect, %{to: "/hub?auth=login"}}} = live(conn, ~p"/admin")
+    assert {:error, {:redirect, %{to: "/login?error=auth"}}} = live(conn, ~p"/admin")
   end
 
   test "redirects non-admin users", %{conn: conn} do

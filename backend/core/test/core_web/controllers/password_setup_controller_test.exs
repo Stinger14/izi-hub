@@ -20,7 +20,7 @@ defmodule CoreWeb.PasswordSetupControllerTest do
     test "redirects for invalid token", %{conn: conn} do
       conn = get(conn, ~p"/set-password?token=invalid-token")
 
-      assert redirected_to(conn) == "/hub?auth=signup"
+      assert redirected_to(conn) == "/signup"
     end
   end
 
@@ -61,7 +61,7 @@ defmodule CoreWeb.PasswordSetupControllerTest do
           "user" => %{"token" => "invalid-token", "password" => "Password123!"}
         })
 
-      assert redirected_to(conn) == "/hub?auth=signup"
+      assert redirected_to(conn) == "/signup"
     end
   end
 end

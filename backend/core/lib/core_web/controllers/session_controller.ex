@@ -3,16 +3,21 @@ defmodule CoreWeb.SessionController do
 
   alias Core.Accounts
 
-  def new(conn, _params) do
-    redirect(conn, to: ~p"/hub?auth=login")
+  def new(conn, params) do
+    case conn.assigns.current_scope do
+      %{user: user} ->
+        redirect(conn, to: after_login_path(user))
+
+      nil ->
+        error = if params["error"] == "auth", do: "Please sign in to continue", else: nil
+        render(conn, :new, error: error, email: "")
+    end
   end
 
   def create(conn, %{"user" => %{"email" => email, "password" => password}}) do
     case Accounts.get_user_by_email_password(email, password) do
       nil ->
-        conn
-        |> put_flash(:error, "Invalid login or password")
-        |> redirect(to: ~p"/hub?auth=login")
+        render_login_error(conn, "Invalid login or password", email)
 
       user ->
         _ = Accounts.update_last_login(user)
@@ -26,9 +31,7 @@ defmodule CoreWeb.SessionController do
   end
 
   def create(conn, _params) do
-    conn
-    |> put_flash(:error, "Invalid login payload")
-    |> redirect(to: ~p"/hub?auth=login")
+    render_login_error(conn, "Invalid login payload", "")
   end
 
   def delete(conn, _params) do
@@ -40,4 +43,10 @@ defmodule CoreWeb.SessionController do
 
   defp after_login_path(%{role: "admin"}), do: ~p"/admin"
   defp after_login_path(_user), do: ~p"/hub"
+
+  defp render_login_error(conn, error, email) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> render(:new, error: error, email: email)
+  end
 end
