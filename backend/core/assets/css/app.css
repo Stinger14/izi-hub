@@ -1349,3 +1349,207 @@
     background: var(--fin-surface);
     color: var(--fin-text);
 }
+
+/* ---------------------------------------------------------------
+   Hub (/hub, /welcome) - scoped "Nebula violet" dark glass theme,
+   modelled on the Nebula template: lifted charcoal page (~#1c1b22) with
+   a violet haze at the top (~#2b2341), violet glow pockets and a
+   starfield; translucent blurred glass panels (.hub-glass) that let the
+   haze show through; Geist type. Enabled by passing theme="hub" to
+   Layouts.app. Unlayered like .finance-shell so it wins over utilities
+   (including the bg/border/shadow utilities on fin_card). Also maps the
+   --fin-*, --tone-* and --btn-* tokens onto the hub palette so
+   FinanceComponents.fin_card/1, tone_class/2 and .btn-* render
+   correctly inside the hub.
+
+   Roles: --hub-primary is a deep violet used only as a FILL (buttons,
+   selected states) under white text (>=4.9:1); --hub-secondary is
+   violet-400 for links/icons (>=6.2:1 on glass); --hub-accent-2 is
+   violet-300 for kicker labels; --hub-accent is violet-500 for
+   decoration only (glows, focus rings, hover borders; <4.5:1 as text).
+   --------------------------------------------------------------- */
+.hub-shell {
+    --hub-bg: #1c1b22;
+    --hub-card: #17161c;
+    --hub-surface: rgba(255, 255, 255, 0.035);
+    --hub-border: rgba(221, 214, 254, 0.08);
+    --hub-text: #ededef;
+    --hub-muted: #a1a1aa;
+    --hub-primary: #6d4fc7;
+    --hub-secondary: #a78bfa;
+    --hub-accent: #8b5cf6;
+    --hub-accent-2: #c4b5fd;
+    --hub-accent-hi: #c4b5fd;
+    --hub-on-primary: #ffffff;
+    --hub-shadow: rgba(0, 0, 0, 0.55);
+
+    --fin-bg: var(--hub-bg);
+    --fin-card: var(--hub-card);
+    --fin-surface: var(--hub-surface);
+    --fin-text: var(--hub-text);
+    --fin-muted: var(--hub-muted);
+    --fin-border: var(--hub-border);
+    --fin-accent: var(--hub-secondary);
+    --fin-glass-shadow: var(--hub-shadow);
+
+    --tone-income: #7fc4a0;
+    --tone-expense: #f08a7e;
+    --tone-budget: var(--hub-secondary);
+    --tone-debt: #e3b363;
+    --tone-review: #e3b363;
+
+    --btn-primary-bg: linear-gradient(180deg, #7c5bd6 0%, #5b3fb0 100%);
+    --btn-primary-hover: #7c5bd6;
+    --btn-primary-text: var(--hub-on-primary);
+    --btn-secondary-bg: rgba(255, 255, 255, 0.03);
+    --btn-secondary-hover: rgba(255, 255, 255, 0.06);
+    --btn-secondary-border: var(--hub-border);
+    --btn-secondary-text: var(--hub-text);
+    --btn-ghost-text: var(--hub-secondary);
+    --btn-accent-border: var(--hub-accent);
+    --btn-accent-text: var(--hub-secondary);
+    --btn-accent-hover: rgba(139, 92, 246, 0.14);
+    --btn-danger-bg: #b4473b;
+    --btn-danger-hover: #c85648;
+    --btn-danger-text: #ffffff;
+
+    font-family: "Geist", system-ui, sans-serif;
+    color-scheme: dark;
+    background-color: var(--hub-bg);
+    background-image:
+        radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.45), transparent 60%),
+        radial-gradient(1px 1px at 68% 9%, rgba(255, 255, 255, 0.35), transparent 60%),
+        radial-gradient(1.5px 1.5px at 84% 27%, rgba(221, 214, 254, 0.5), transparent 60%),
+        radial-gradient(1px 1px at 31% 44%, rgba(255, 255, 255, 0.28), transparent 60%),
+        radial-gradient(1px 1px at 92% 63%, rgba(255, 255, 255, 0.3), transparent 60%),
+        radial-gradient(1.5px 1.5px at 7% 76%, rgba(221, 214, 254, 0.4), transparent 60%),
+        radial-gradient(1px 1px at 55% 88%, rgba(255, 255, 255, 0.28), transparent 60%),
+        radial-gradient(ellipse 65% 420px at 50% 0%, rgba(139, 92, 246, 0.32), transparent 75%),
+        radial-gradient(ellipse 45% 360px at 18% 640px, rgba(139, 92, 246, 0.16), transparent 70%),
+        radial-gradient(ellipse 45% 360px at 85% 680px, rgba(139, 92, 246, 0.13), transparent 70%),
+        linear-gradient(180deg, #292633 0px, #211f2a 260px, var(--hub-bg) 620px);
+    background-size: 900px 900px, 900px 900px, 900px 900px, 900px 900px, 900px 900px, 900px 900px, 900px 900px, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+    background-repeat: repeat, repeat, repeat, repeat, repeat, repeat, repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    color: var(--hub-text);
+}
+
+.hub-shell .font-display {
+    font-family: "Geist", system-ui, sans-serif;
+    font-weight: 650;
+    letter-spacing: -0.025em;
+}
+
+/* Glass panel: translucent and blurred so the violet haze shows through,
+   with Nebula's surface shadows (light top edge, lavender inner haze). At
+   62% opacity, muted text stays >=6.5:1 even over the brightest haze. */
+.hub-shell .hub-glass {
+    background-color: rgba(23, 22, 28, 0.62);
+    background-image: linear-gradient(180deg, rgba(221, 214, 254, 0.05), rgba(221, 214, 254, 0.01) 40%, transparent);
+    border: 1px solid var(--hub-border);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    backdrop-filter: blur(16px) saturate(140%);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+        inset -0.5px 0.5px 1px 0 rgba(203, 213, 225, 0.12),
+        inset 0 0 96px 0 rgba(221, 214, 254, 0.05),
+        0 0 0 1px rgba(0, 0, 0, 0.2),
+        0 24px 48px -28px rgba(0, 0, 0, 0.8);
+}
+
+.hub-shell .hub-gradient-text {
+    background: linear-gradient(180deg, #ddd6fe 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+/* Buttons: Nebula's filled violet gradient with an inset glow instead of
+   the global cyan hover. The primary fill is a gradient, so it is set on
+   `background` rather than through background-color. */
+.hub-shell .btn-primary {
+    background: var(--btn-primary-bg);
+    border-color: rgba(196, 181, 253, 0.35);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
+        inset 0 0 12px 0 rgba(255, 255, 255, 0.06),
+        inset 0 -8px 24px 0 rgba(30, 13, 73, 0.25),
+        0 0 0 1px rgba(0, 0, 0, 0.25),
+        0 4px 22px -4px rgba(139, 92, 246, 0.55);
+}
+
+.hub-shell .btn-secondary {
+    background: var(--btn-secondary-bg);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+        inset 0 0 24px 0 rgba(221, 214, 254, 0.03);
+}
+
+.hub-shell .btn-accent {
+    background: transparent;
+}
+
+.hub-shell .btn-primary::after,
+.hub-shell .btn-secondary::after,
+.hub-shell .btn-accent::after {
+    background: radial-gradient(
+        140% 180% at 50% 0%,
+        rgba(196, 181, 253, 0.22) 0%,
+        rgba(139, 92, 246, 0.12) 60%,
+        transparent 100%
+    );
+}
+
+.hub-shell .btn-primary:hover,
+.hub-shell .btn-primary:focus-visible {
+    color: var(--hub-on-primary);
+    background: var(--btn-primary-bg);
+    border-color: rgba(196, 181, 253, 0.6);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+        inset 0 0 12px 0 rgba(255, 255, 255, 0.08),
+        0 0 0 1px rgba(0, 0, 0, 0.25),
+        0 6px 30px -4px rgba(139, 92, 246, 0.75);
+}
+
+.hub-shell .btn-secondary:hover,
+.hub-shell .btn-secondary:focus-visible,
+.hub-shell .btn-accent:hover,
+.hub-shell .btn-accent:focus-visible {
+    color: var(--hub-text);
+    background: var(--btn-secondary-hover);
+    border-color: rgba(196, 181, 253, 0.3);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+        0 0 18px -4px rgba(139, 92, 246, 0.45);
+}
+
+.hub-shell .btn:focus-visible {
+    outline-color: var(--hub-accent-hi);
+}
+
+.hub-shell .btn-ghost:hover {
+    background: var(--hub-surface);
+    color: var(--hub-text);
+}
+
+.hub-shell .fx-tech-chip {
+    color: var(--hub-secondary);
+}
+
+.hub-shell .fx-tech-chip::before {
+    background: radial-gradient(
+        80% 120% at 50% 50%,
+        rgba(139, 92, 246, 0.3),
+        rgba(139, 92, 246, 0) 72%
+    );
+}
+
+.hub-shell .fx-tech-chip::after {
+    background: rgba(23, 22, 28, 0.7);
+    box-shadow: inset 0 0 0 1px var(--hub-border);
+}
+
+.hub-shell ::selection {
+    background: rgba(139, 92, 246, 0.45);
+    color: #ffffff;
+}
