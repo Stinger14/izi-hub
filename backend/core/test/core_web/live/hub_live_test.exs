@@ -94,6 +94,12 @@ defmodule CoreWeb.HubLiveTest do
       assert html =~ "Enter Hub"
       assert html =~ "Profile &amp; CV"
     end
+
+    test "shows the app version from mix.exs in the footer", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/welcome")
+
+      assert html =~ "IziHub v#{Application.spec(:core, :vsn)}"
+    end
   end
 
   defp user_fixture do
