@@ -1413,6 +1413,27 @@
     --btn-danger-hover: #c85648;
     --btn-danger-text: #ffffff;
 
+    /* Shared fx effects (fx-item / fx-trigger / fx-preview / fx-stamp) read
+       these tokens, so remapping them here gives every migrated page the
+       dark glass version without touching the effect rules themselves. */
+    --fx-accent-100: rgba(139, 92, 246, 0.16);
+    --fx-accent-150: var(--hub-border);
+    --fx-accent-300: rgba(196, 181, 253, 0.3);
+    --fx-accent-500: rgba(167, 139, 250, 0.6);
+    --fx-ink-900: var(--hub-text);
+    --fx-surface: rgba(255, 255, 255, 0.03);
+    --fx-surface-strong: rgba(255, 255, 255, 0.06);
+    --fx-surface-gradient-start: rgba(221, 214, 254, 0.08);
+    --fx-surface-gradient-end: rgba(139, 92, 246, 0.06);
+    --fx-preview-gradient-start: rgba(23, 22, 28, 0.92);
+    --fx-preview-gradient-end: rgba(43, 35, 65, 0.88);
+    --fx-glow-a: rgba(139, 92, 246, 0.35);
+    --fx-glow-b: rgba(167, 139, 250, 0.25);
+    --fx-aura: rgba(139, 92, 246, 0.3);
+    --fx-shadow-soft: rgba(0, 0, 0, 0.6);
+    --fx-shadow-accent: rgba(139, 92, 246, 0.45);
+    --fx-shadow-preview: rgba(0, 0, 0, 0.7);
+
     font-family: "Geist", system-ui, sans-serif;
     color-scheme: dark;
     background-color: var(--hub-bg);
@@ -1547,6 +1568,12 @@
 .hub-shell .fx-tech-chip::after {
     background: rgba(23, 22, 28, 0.7);
     box-shadow: inset 0 0 0 1px var(--hub-border);
+}
+
+/* fx-stamp hardcodes a light-theme ink color; keep it readable on glass. */
+.hub-shell .fx-stamp {
+    color: var(--hub-accent-2);
+    box-shadow: 0 4px 12px -8px rgba(139, 92, 246, 0.8);
 }
 
 .hub-shell ::selection {
