@@ -3,6 +3,8 @@ defmodule CoreWeb.RegistrationController do
 
   alias Core.Accounts
 
+  plug :put_hub_theme
+
   def new(conn, _params) do
     render(conn, :new, errors: [], form_data: %{})
   end
@@ -59,4 +61,6 @@ defmodule CoreWeb.RegistrationController do
   defp extract_email(%{"email" => email}) when is_binary(email), do: String.trim(email)
   defp extract_email(%{email: email}) when is_binary(email), do: String.trim(email)
   defp extract_email(_), do: ""
+
+  defp put_hub_theme(conn, _opts), do: assign(conn, :theme, "hub")
 end
