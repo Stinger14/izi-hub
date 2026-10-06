@@ -1570,6 +1570,22 @@
     box-shadow: inset 0 0 0 1px var(--hub-border);
 }
 
+/* The WIP status badge is a light amber pill; on glass it reads through
+   the theme's review tone so it matches tone_class("review", ...). */
+.hub-shell .badge-wip {
+    border-color: color-mix(in srgb, var(--tone-review) 40%, transparent);
+    background: color-mix(in srgb, var(--tone-review) 14%, transparent);
+    color: var(--tone-review);
+}
+
+.hub-shell .badge-wip::before {
+    background: radial-gradient(
+        circle,
+        color-mix(in srgb, var(--tone-review) 35%, transparent),
+        transparent 70%
+    );
+}
+
 /* fx-stamp hardcodes a light-theme ink color; keep it readable on glass. */
 .hub-shell .fx-stamp {
     color: var(--hub-accent-2);
