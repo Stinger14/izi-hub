@@ -1586,6 +1586,60 @@
     );
 }
 
+/* Profile: contact links and stack badges hardcode the light theme's cyan
+   hover glow and white pills; swap them for violet on glass. White text on
+   the violet glow stays >=4.8:1. */
+.hub-shell .fx-contact-link {
+    color: var(--hub-secondary);
+}
+
+.hub-shell .fx-contact-link::after {
+    background: radial-gradient(
+        140% 180% at 50% 50%,
+        rgba(124, 91, 214, 0.98) 0%,
+        rgba(109, 79, 199, 0.9) 56%,
+        rgba(91, 63, 176, 0.7) 100%
+    );
+}
+
+.hub-shell .fx-contact-link:hover,
+.hub-shell .fx-contact-link:focus-visible {
+    color: #ffffff;
+    border-color: rgba(196, 181, 253, 0.6);
+    box-shadow:
+        0 0 0 1px rgba(196, 181, 253, 0.45),
+        0 0 14px rgba(139, 92, 246, 0.5);
+}
+
+.hub-shell .fx-stack-badge {
+    border-color: var(--hub-border);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--hub-text);
+}
+
+.hub-shell .fx-stack-badge:hover {
+    border-color: rgba(167, 139, 250, 0.5);
+    background: rgba(139, 92, 246, 0.18);
+    color: #ffffff;
+    box-shadow:
+        0 0 0 1px rgba(167, 139, 250, 0.35),
+        0 0 12px rgba(139, 92, 246, 0.35);
+}
+
+.hub-shell .fx-stack-badge.fx-stack-badge-active,
+.hub-shell .fx-stack-badge.fx-stack-badge-active:hover {
+    border-color: rgba(196, 181, 253, 0.6);
+    background: rgba(139, 92, 246, 0.3);
+    color: #ffffff;
+    box-shadow:
+        0 0 0 1px rgba(196, 181, 253, 0.45),
+        0 0 16px rgba(139, 92, 246, 0.45);
+}
+
+.hub-shell .fx-stack-badge:focus-visible {
+    outline-color: var(--hub-accent-hi);
+}
+
 /* fx-stamp hardcodes a light-theme ink color; keep it readable on glass. */
 .hub-shell .fx-stamp {
     color: var(--hub-accent-2);
