@@ -2,42 +2,17 @@
 @plugin "@tailwindcss/typography";
 
 @layer base {
+    /* Every page renders inside .hub-shell (Layouts.app), which defines the
+       IziHub theme tokens (--hub-*, --fin-*, --tone-*, --btn-*, --fx-*).
+       The root only sets the dark canvas so overscroll and the moment
+       before the shell paints never flash white. */
     :root {
         font-family:
             system-ui,
             -apple-system,
             sans-serif;
-        --fx-accent-100: #ede9fe;
-        --fx-accent-150: #e9d5ff;
-        --fx-accent-300: #c4b5fd;
-        --fx-accent-500: #a855f7;
-        --fx-ink-900: #1e293b;
-        --fx-surface: rgba(255, 255, 255, 0.78);
-        --fx-surface-strong: rgba(255, 255, 255, 0.95);
-        --fx-surface-gradient-start: rgba(255, 255, 255, 0.98);
-        --fx-surface-gradient-end: rgba(243, 232, 255, 0.8);
-        --fx-preview-gradient-start: rgba(255, 255, 255, 0.96);
-        --fx-preview-gradient-end: rgba(243, 232, 255, 0.9);
-        --fx-glow-a: rgba(196, 181, 253, 0.56);
-        --fx-glow-b: rgba(167, 139, 250, 0.42);
-        --fx-aura: rgba(196, 181, 253, 0.58);
-        --fx-shadow-soft: rgba(51, 65, 85, 0.8);
-        --fx-shadow-accent: rgba(88, 28, 135, 0.55);
-        --fx-shadow-preview: rgba(67, 56, 202, 0.45);
-        --btn-primary-bg: #6d28d9;
-        --btn-primary-hover: #6d28d9;
-        --btn-primary-text: #ffffff;
-        --btn-secondary-bg: rgba(255, 255, 255, 0.88);
-        --btn-secondary-hover: #f5f3ff;
-        --btn-secondary-border: #ddd6fe;
-        --btn-secondary-text: #334155;
-        --btn-ghost-text: #6d28d9;
-        --btn-accent-border: #a855f7;
-        --btn-accent-text: #6d28d9;
-        --btn-accent-hover: #f3e8ff;
-        --btn-danger-bg: #be123c;
-        --btn-danger-hover: #9f1239;
-        --btn-danger-text: #ffffff;
+        color-scheme: dark;
+        background-color: #1c1b22;
     }
 
     main {
@@ -88,11 +63,6 @@
         border-radius: 14px;
     }
 
-    .btn-lg {
-        padding: 12px 18px;
-        font-size: 15px;
-    }
-
     .btn:focus-visible {
         outline: 2px solid #a855f7;
         outline-offset: 2px;
@@ -107,7 +77,6 @@
 
     .btn-primary,
     .btn-secondary,
-    .btn-accent,
     .fx-contact-link {
         isolation: isolate;
         overflow: hidden;
@@ -129,15 +98,8 @@
         color: #5b21b6;
     }
 
-    .btn-accent {
-        border-color: var(--btn-accent-border);
-        background: rgba(255, 255, 255, 0.95);
-        color: var(--btn-accent-text);
-    }
-
     .btn-primary::after,
-    .btn-secondary::after,
-    .btn-accent::after {
+    .btn-secondary::after {
         content: "";
         position: absolute;
         inset: 0;
@@ -174,9 +136,7 @@
     .btn-primary:hover,
     .btn-primary:focus-visible,
     .btn-secondary:hover,
-    .btn-secondary:focus-visible,
-    .btn-accent:hover,
-    .btn-accent:focus-visible {
+    .btn-secondary:focus-visible {
         color: #0f172a;
         border-color: rgba(56, 189, 248, 0.8);
         background: transparent;
@@ -190,9 +150,7 @@
     .btn-primary:hover::after,
     .btn-primary:focus-visible::after,
     .btn-secondary:hover::after,
-    .btn-secondary:focus-visible::after,
-    .btn-accent:hover::after,
-    .btn-accent:focus-visible::after {
+    .btn-secondary:focus-visible::after {
         opacity: 1;
     }
 
@@ -653,12 +611,6 @@
         text-transform: uppercase;
     }
 
-    .badge-compact-64 {
-        padding: 4px 6px;
-        font-size: 9px;
-        letter-spacing: 0.06em;
-    }
-
     .badge-status::before {
         content: "";
         position: absolute;
@@ -687,89 +639,6 @@
                 rgba(252, 211, 77, 0.28),
                 rgba(252, 211, 77, 0) 74%
             );
-    }
-
-    .badge-new {
-        border-color: #a78bfa;
-        background: linear-gradient(
-            180deg,
-            rgba(243, 232, 255, 0.96),
-            rgba(233, 213, 255, 0.88)
-        );
-        color: #5b21b6;
-        box-shadow: 0 8px 14px -18px rgba(109, 40, 217, 0.5);
-    }
-
-    .badge-new::before {
-        opacity: 0;
-        background: none;
-        animation: none;
-    }
-
-    .fx-nav-link {
-        position: relative;
-        isolation: isolate;
-        overflow: hidden;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px;
-        padding: 2px 8px;
-        color: #6d28d9;
-        transition:
-            color 180ms ease,
-            background-color 180ms ease,
-            box-shadow 180ms ease,
-            text-decoration-color 180ms ease;
-    }
-
-    .fx-nav-link::before {
-        content: none;
-    }
-
-    .fx-nav-link::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        z-index: -1;
-        border-radius: none;
-        pointer-events: none;
-        opacity: 0;
-        background: radial-gradient(
-            140% 180% at 50% 50%,
-            rgba(56, 189, 248, 0.98) 0%,
-            rgba(56, 189, 248, 0.84) 56%,
-            rgba(56, 189, 248, 0.52) 100%
-        );
-        transition: opacity 180ms ease;
-    }
-
-    .fx-nav-link:hover,
-    .fx-nav-link:focus-visible {
-        color: #4c1d95;
-        background: transparent;
-        box-shadow:
-            0 0 0 1px rgba(56, 189, 248, 0.8),
-            0 0 0 2px rgba(56, 189, 248, 0.38),
-            0 0 12px rgba(56, 189, 248, 0.62),
-            0 0 22px rgba(56, 189, 248, 0.42);
-        text-decoration: underline;
-        text-underline-offset: 3px;
-    }
-
-    .fx-nav-link:hover::after,
-    .fx-nav-link:focus-visible::after {
-        opacity: 1;
-    }
-
-    .fx-nav-link:focus-visible {
-        outline: 2px solid #a855f7;
-        outline-offset: 2px;
-    }
-
-    .fx-nav-link-with-badge {
-        overflow: visible;
-        padding-right: 18px;
     }
 
     .fx-tech-chip {
@@ -1263,28 +1132,6 @@
         }
     }
 
-    @keyframes fx-contact-link-glow {
-        0% {
-            filter: blur(8px);
-            opacity: 0.72;
-        }
-
-        100% {
-            filter: blur(12px);
-            opacity: 0.96;
-        }
-    }
-
-    @keyframes fx-btn-glow {
-        0% {
-            filter: blur(8px);
-        }
-
-        100% {
-            filter: blur(13px);
-        }
-    }
-
     .font-display {
         font-weight: 650;
         letter-spacing: -0.02em;
@@ -1292,9 +1139,9 @@
 }
 
 /* ---------------------------------------------------------------
-   Finance page - rides the IziHub theme: FinanceLive passes
-   theme="hub", and .hub-shell maps every --fin-*, --tone-* and --btn-*
-   token onto the hub palette. This scope only keeps finance-specific
+   Finance page - rides the IziHub theme: Layouts.app wraps every page
+   in .hub-shell, which maps every --fin-*, --tone-* and --btn-* token
+   onto the hub palette. This scope only keeps finance-specific
    rules (focus ring, ghost hover) that read those tokens.
    --------------------------------------------------------------- */
 .finance-shell {
@@ -1315,12 +1162,12 @@
 }
 
 /* ---------------------------------------------------------------
-   Hub (/hub, /welcome) - scoped "Nebula violet" dark glass theme,
+   IziHub site theme - "Nebula violet" dark glass theme,
    modelled on the Nebula template: lifted charcoal page (~#1c1b22) with
    a violet haze at the top (~#2b2341), violet glow pockets and a
    starfield; translucent blurred glass panels (.hub-glass) that let the
-   haze show through; Geist type. Enabled by passing theme="hub" to
-   Layouts.app. Unlayered like .finance-shell so it wins over utilities
+   haze show through; Geist type. Applied site-wide: Layouts.app wraps
+   every page in .hub-shell. Unlayered like .finance-shell so it wins over utilities
    (including the bg/border/shadow utilities on fin_card). Also maps the
    --fin-*, --tone-* and --btn-* tokens onto the hub palette so
    FinanceComponents.fin_card/1, tone_class/2 and .btn-* render
@@ -1373,9 +1220,6 @@
     --btn-secondary-border: var(--hub-border);
     --btn-secondary-text: var(--hub-text);
     --btn-ghost-text: var(--hub-secondary);
-    --btn-accent-border: var(--hub-accent);
-    --btn-accent-text: var(--hub-secondary);
-    --btn-accent-hover: rgba(139, 92, 246, 0.14);
     --btn-danger-bg: #b4473b;
     --btn-danger-hover: #c85648;
     --btn-danger-text: #ffffff;
@@ -1472,13 +1316,8 @@
         inset 0 0 24px 0 rgba(221, 214, 254, 0.03);
 }
 
-.hub-shell .btn-accent {
-    background: transparent;
-}
-
 .hub-shell .btn-primary::after,
-.hub-shell .btn-secondary::after,
-.hub-shell .btn-accent::after {
+.hub-shell .btn-secondary::after {
     background: radial-gradient(
         140% 180% at 50% 0%,
         rgba(196, 181, 253, 0.22) 0%,
@@ -1500,9 +1339,7 @@
 }
 
 .hub-shell .btn-secondary:hover,
-.hub-shell .btn-secondary:focus-visible,
-.hub-shell .btn-accent:hover,
-.hub-shell .btn-accent:focus-visible {
+.hub-shell .btn-secondary:focus-visible {
     color: var(--hub-text);
     background: var(--btn-secondary-hover);
     border-color: rgba(196, 181, 253, 0.3);
@@ -1693,6 +1530,14 @@
 
 .hub-shell .admin-console-preview-title {
     color: var(--hub-text);
+}
+
+/* Hover previews are a pointer affordance; on phones the hidden (opacity 0)
+   previews of the right-hand actions still widened the page past 390px. */
+@media (max-width: 639px) {
+    .hub-shell .admin-console-preview {
+        display: none;
+    }
 }
 
 /* Admin FinOps compose form: light panels and glowing fields in the base

@@ -92,7 +92,7 @@ defmodule CoreWeb.HubLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} theme="hub">
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <main class="min-h-screen max-w-none p-0">
         <header class="sticky top-2 z-50 mx-auto max-w-[1440px] px-4 pt-2 sm:px-8">
           <div

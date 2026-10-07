@@ -32,7 +32,7 @@ defmodule CoreWeb.Admin.DashboardLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} theme="hub">
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="min-h-screen">
         <header class="relative z-20 border-b border-[color:var(--hub-border)]">
           <div class="mx-auto max-w-6xl px-6 py-5">

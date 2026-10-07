@@ -11,7 +11,7 @@ defmodule CoreWeb.ProfileLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} theme="hub">
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="min-h-screen px-6 py-16">
         <div class="mx-auto flex min-h-[calc(100vh-8rem)] items-center justify-center">
           <div class="hub-glass w-full max-w-3xl rounded-2xl p-8">

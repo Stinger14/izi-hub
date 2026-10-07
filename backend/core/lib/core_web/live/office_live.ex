@@ -420,7 +420,7 @@ defmodule CoreWeb.OfficeLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} theme="hub">
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="min-h-screen">
         <main class="mx-auto max-w-7xl px-6 pb-16 pt-12">
           <section class="mb-8 flex flex-wrap items-end justify-between gap-4">

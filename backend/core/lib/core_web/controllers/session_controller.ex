@@ -3,8 +3,6 @@ defmodule CoreWeb.SessionController do
 
   alias Core.Accounts
 
-  plug :put_hub_theme
-
   def new(conn, params) do
     case conn.assigns.current_scope do
       %{user: user} ->
@@ -51,6 +49,4 @@ defmodule CoreWeb.SessionController do
     |> put_status(:unprocessable_entity)
     |> render(:new, error: error, email: email)
   end
-
-  defp put_hub_theme(conn, _opts), do: assign(conn, :theme, "hub")
 end

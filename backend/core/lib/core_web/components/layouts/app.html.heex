@@ -1,24 +1,9 @@
 <% current_scope = Map.get(assigns, :current_scope) %>
-<% hub_theme? = Map.get(assigns, :theme) == "hub" %>
-<section class={["min-h-screen", if(hub_theme?, do: "hub-shell", else: "bg-white text-slate-900")]}>
+<section class="hub-shell min-h-screen">
   <div class="flex min-h-screen flex-col">
-    <header class={[
-      "relative z-40 border-b backdrop-blur",
-      if(hub_theme?,
-        do: "border-[color:var(--hub-border)] bg-transparent",
-        else: "border-purple-100/70 bg-white/80"
-      )
-    ]}>
+    <header class="relative z-40 border-b border-[color:var(--hub-border)] bg-transparent backdrop-blur">
       <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <a
-          href={~p"/hub"}
-          class={[
-            if(hub_theme?,
-              do: "font-display text-xl text-[var(--hub-secondary)]",
-              else: "text-sm font-semibold tracking-tight text-purple-600"
-            )
-          ]}
-        >
+        <a href={~p"/hub"} class="font-display text-xl text-[var(--hub-secondary)]">
           IziHub
         </a>
 
@@ -34,17 +19,10 @@
 
           <%= if current_scope do %>
             <span
-              class={[
-                "hidden items-center gap-1.5 rounded-[14px] border px-2.5 py-1.5 text-xs font-semibold leading-[1.2] sm:inline-flex",
-                if(hub_theme?, do: "text-[var(--hub-secondary)]", else: "text-purple-600")
-              ]}
+              class="hidden items-center gap-1.5 rounded-[14px] border px-2.5 py-1.5 text-xs font-semibold leading-[1.2] text-[var(--hub-secondary)] sm:inline-flex"
               style="border-color: var(--btn-secondary-border); background: var(--btn-secondary-bg);"
             >
-              <span class={[
-                "inline-block h-2 w-2 rounded-full",
-                if(hub_theme?, do: "bg-[var(--tone-income)]", else: "bg-green-500")
-              ]}>
-              </span>
+              <span class="inline-block h-2 w-2 rounded-full bg-[var(--tone-income)]"></span>
               <%= current_scope.user.username || current_scope.user.email %>
             </span>
             <.form for={%{}} as={:logout} action={~p"/logout"} method="delete">
@@ -62,13 +40,7 @@
         <%= @inner_content %>
       <% end %>
     </div>
-    <footer class={[
-      "border-t px-4 py-2 text-[11px] font-medium",
-      if(hub_theme?,
-        do: "border-[color:var(--hub-border)] bg-[color:var(--hub-card)]/60 text-[var(--hub-muted)]",
-        else: "border-purple-100/70 bg-white/80 text-slate-400"
-      )
-    ]}>
+    <footer class="border-t border-[color:var(--hub-border)] bg-[color:var(--hub-card)]/60 px-4 py-2 text-[11px] font-medium text-[var(--hub-muted)]">
       <div class="mx-auto max-w-6xl">
         <div class="flex min-h-6 items-center justify-center gap-3">
           <span class="whitespace-nowrap text-[11px] font-medium">IziHub v<%= Application.spec(:core, :vsn) %></span>

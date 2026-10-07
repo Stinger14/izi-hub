@@ -97,7 +97,7 @@ defmodule CoreWeb.Admin.OpsLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} theme="hub">
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="min-h-screen">
         <header class="border-b border-[color:var(--hub-border)]">
           <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">

@@ -11,7 +11,7 @@ defmodule CoreWeb.HubLandingLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} theme="hub">
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <main class="max-w-none p-0">
         <section class="mx-auto max-w-5xl px-6 pb-16 pt-20">
           <div class="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_340px]">

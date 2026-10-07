@@ -15,7 +15,7 @@ defmodule CoreWeb.UnderDevelopmentLive do
       |> assign(:visual, visual)
 
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} theme="hub">
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="relative min-h-screen overflow-hidden">
         <div
           class="pointer-events-none absolute -left-16 top-16 h-64 w-64 rounded-full blur-3xl"

@@ -647,7 +647,7 @@ defmodule CoreWeb.FinanceLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope} theme="hub">
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="finance-shell min-h-screen">
         <div class="mx-auto grid min-h-screen max-w-[118rem] gap-6 px-4 py-6 sm:px-6 xl:grid-cols-[17rem_minmax(0,1fr)] xl:px-8">
           <aside class="hidden xl:flex xl:flex-col xl:gap-6">

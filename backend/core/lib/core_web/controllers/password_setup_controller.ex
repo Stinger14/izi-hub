@@ -3,8 +3,6 @@ defmodule CoreWeb.PasswordSetupController do
 
   alias Core.Accounts
 
-  plug :put_hub_theme
-
   def new(conn, %{"token" => token}) do
     with {:ok, user} <- Accounts.get_user_by_token(token, "setup_password") do
       render(conn, :new, token: token, username: user.username, errors: [])
@@ -91,6 +89,4 @@ defmodule CoreWeb.PasswordSetupController do
 
   defp after_setup_path(%{role: "admin"}), do: ~p"/admin"
   defp after_setup_path(_user), do: ~p"/hub"
-
-  defp put_hub_theme(conn, _opts), do: assign(conn, :theme, "hub")
 end
