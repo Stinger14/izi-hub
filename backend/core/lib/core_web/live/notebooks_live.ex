@@ -109,7 +109,7 @@ defmodule CoreWeb.NotebooksLive do
                 <div class="hub-glass mt-4 rounded-xl px-5 py-6 text-sm text-[var(--hub-muted)]">No PDF books have been added yet.</div>
               <% else %>
                 <div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  <a :for={book <- @books} href={~p"/books/#{book.slug}"} class="group flex items-center gap-3 hub-glass hub-glass-interactive rounded-xl p-4 hover:-translate-y-0.5">
+                  <a :for={book <- @books} href={~p"/books/#{book.slug}"} class="group flex min-w-0 items-center gap-3 hub-glass hub-glass-interactive rounded-xl p-4 hover:-translate-y-0.5">
                     <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color:var(--hub-accent)]/15 text-[10px] font-bold uppercase text-[var(--hub-accent-2)]">PDF</span>
                     <span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold text-[var(--hub-text)]"><%= book.title %></span><span class="mt-1 block text-xs text-[var(--hub-muted)]">Open book</span></span>
                     <.icon name="hero-arrow-right" class="h-4 w-4 shrink-0 text-[var(--hub-secondary)] transition group-hover:translate-x-0.5" />

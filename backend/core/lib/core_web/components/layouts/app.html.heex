@@ -22,7 +22,7 @@
           IziHub
         </a>
 
-        <div class="flex items-center gap-2">
+        <div class="flex min-w-0 flex-wrap items-center justify-end gap-2">
           <%= if current_scope do %>
             <a href={~p"/office"} class="btn btn-secondary btn-xs">Office</a>
             <a href={~p"/finance"} class="btn btn-secondary btn-xs">Finance</a>
@@ -35,7 +35,7 @@
           <%= if current_scope do %>
             <span
               class={[
-                "inline-flex items-center gap-1.5 rounded-[14px] border px-2.5 py-1.5 text-xs font-semibold leading-[1.2]",
+                "hidden items-center gap-1.5 rounded-[14px] border px-2.5 py-1.5 text-xs font-semibold leading-[1.2] sm:inline-flex",
                 if(hub_theme?, do: "text-[var(--hub-secondary)]", else: "text-purple-600")
               ]}
               style="border-color: var(--btn-secondary-border); background: var(--btn-secondary-bg);"

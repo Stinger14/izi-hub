@@ -76,7 +76,7 @@ defmodule CoreWeb.HubComponents do
 
   def finance_card(assigns) do
     ~H"""
-    <.fin_card class="hub-glass flex h-full flex-col">
+    <.fin_card class="flex h-full flex-col">
       <div class="flex items-start justify-between gap-3">
         <div>
           <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--hub-accent-2)]">

@@ -647,14 +647,14 @@ defmodule CoreWeb.FinanceLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.app flash={@flash} current_scope={@current_scope} theme="hub">
       <div class="finance-shell min-h-screen">
         <div class="mx-auto grid min-h-screen max-w-[118rem] gap-6 px-4 py-6 sm:px-6 xl:grid-cols-[17rem_minmax(0,1fr)] xl:px-8">
           <aside class="hidden xl:flex xl:flex-col xl:gap-6">
             <.fin_card padded={false} class="flex min-h-[calc(100vh-3rem)] flex-col">
               <div class="flex h-full flex-col px-5 py-6">
                 <div class="flex items-center gap-3">
-                  <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#465fff] text-base font-semibold text-[#ffffff]">
+                  <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--fin-primary)] text-base font-semibold text-[var(--fin-on-primary)]">
                     IZ
                   </div>
                   <div>
@@ -676,7 +676,7 @@ defmodule CoreWeb.FinanceLive do
                 </nav>
 
                 <div class="mt-auto flex items-center gap-3 border-t border-[color:var(--fin-border)] pt-5">
-                  <div class="flex h-11 w-11 items-center justify-center rounded-full bg-[#465fff] text-sm font-semibold text-[#ffffff]">
+                  <div class="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--fin-primary)] text-sm font-semibold text-[var(--fin-on-primary)]">
                     <%= initials(@current_scope.user) %>
                   </div>
                   <div class="min-w-0">
