@@ -420,31 +420,31 @@ defmodule CoreWeb.OfficeLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="min-h-screen bg-purple-50 text-slate-900">
+    <Layouts.app flash={@flash} current_scope={@current_scope} theme="hub">
+      <div class="min-h-screen">
         <main class="mx-auto max-w-7xl px-6 pb-16 pt-12">
           <section class="mb-8 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-purple-500">Private roadmap canvas</p>
-              <h1 class="mt-3 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">
+              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--hub-secondary)]">Private roadmap canvas</p>
+              <h1 class="mt-3 text-4xl font-semibold tracking-tight text-[var(--hub-text)] sm:text-5xl">
                 IziOffice
               </h1>
             </div>
 
-            <div :if={@current_project} class="rounded-2xl border border-purple-100 bg-white/80 px-4 py-3 shadow-sm">
+            <div :if={@current_project} class="hub-glass rounded-2xl px-4 py-3">
               <div class="flex items-start justify-between gap-4">
                 <div>
-                  <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Current project</p>
+                  <p class="text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Current project</p>
                   <div class="mt-1 flex items-center gap-2">
-                    <p class="text-sm font-semibold text-slate-900"><%= @current_project.name %></p>
+                    <p class="text-sm font-semibold text-[var(--hub-text)]"><%= @current_project.name %></p>
                     <span
                       :if={current_project_default?(@current_project, @default_project_id)}
-                      class="rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-600"
+                      class="rounded-full border border-[color:var(--hub-border)] bg-[color:var(--hub-accent)]/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--hub-secondary)]"
                     >
                       Default
                     </span>
                   </div>
-                  <p class="mt-1 text-xs text-slate-500">
+                  <p class="mt-1 text-xs text-[var(--hub-muted)]">
                     <%= length(@canvas_milestones) %> milestones and <%= @canvas_item_count %> roadmap cards
                   </p>
                 </div>
@@ -456,7 +456,7 @@ defmodule CoreWeb.OfficeLive do
                   <button type="button" phx-click="archive_current_project" class="btn btn-secondary btn-xs">
                     Archive
                   </button>
-                  <button type="button" phx-click="open_delete_project_confirm" class="btn btn-ghost btn-xs text-rose-600 hover:text-rose-700">
+                  <button type="button" phx-click="open_delete_project_confirm" class="btn btn-ghost btn-xs text-[var(--tone-expense)] hover:text-[var(--tone-expense)]">
                     Delete
                   </button>
                 </div>
@@ -464,13 +464,13 @@ defmodule CoreWeb.OfficeLive do
 
               <div
                 :if={@project_delete_confirm && !current_project_default?(@current_project, @default_project_id)}
-                class="mt-4 rounded-2xl border border-rose-200 bg-rose-50/80 p-4"
+                class="mt-4 rounded-2xl border border-[color:var(--tone-expense)]/35 bg-[color:var(--tone-expense)]/12 p-4"
               >
-                <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-500">Delete project</p>
-                <p class="mt-2 text-sm font-semibold text-slate-900">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--tone-expense)]">Delete project</p>
+                <p class="mt-2 text-sm font-semibold text-[var(--hub-text)]">
                   Delete "<%= @current_project.name %>" permanently?
                 </p>
-                <p class="mt-1 text-sm text-slate-600">
+                <p class="mt-1 text-sm text-[var(--hub-muted)]">
                   This removes <%= @current_project_summary.work_item_count %> tasks,
                   <%= @current_project_summary.timeline_entry_count %> milestones, and
                   <%= @current_project_summary.transition_count %> transition records.
@@ -488,11 +488,11 @@ defmodule CoreWeb.OfficeLive do
             </div>
           </section>
 
-          <section class="overflow-hidden rounded-[2rem] border border-purple-100 bg-white/80 shadow-[0_30px_80px_-45px_rgba(109,40,217,0.45)] backdrop-blur">
-            <div class="border-b border-purple-100/80 bg-gradient-to-r from-white via-purple-50/80 to-purple-100/60 px-6 py-6">
+          <section class="overflow-hidden rounded-[2rem] border border-[color:var(--hub-border)] bg-[var(--hub-surface)] shadow-[0_30px_80px_-45px_rgba(109,40,217,0.45)] backdrop-blur">
+            <div class="border-b border-[color:var(--hub-border)] bg-gradient-to-r from-[color:var(--hub-accent)]/12 via-[color:var(--hub-accent)]/5 to-transparent px-6 py-6">
               <div class="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                 <div class="flex-1">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Projects</p>
+                  <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Projects</p>
                   <div class="mt-3 flex flex-wrap gap-2">
                     <a
                       :for={project <- @projects}
@@ -510,9 +510,9 @@ defmodule CoreWeb.OfficeLive do
                       :if={!@project_form_open}
                       type="button"
                       phx-click="open_project_form"
-                      class="group inline-flex w-full items-center gap-2 rounded-2xl border border-purple-200 bg-white/90 px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.01] hover:border-purple-300 hover:shadow-md active:translate-y-0 active:scale-[0.99]"
+                      class="hub-glass group inline-flex w-full items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-[var(--hub-text)] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.01] hover:border-[color:var(--hub-accent)]/50 hover: active:translate-y-0 active:scale-[0.99]"
                     >
-                      <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-base leading-none text-slate-600 transition-transform duration-300 ease-out group-hover:rotate-90">
+                      <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--hub-surface)] text-base leading-none text-[var(--hub-muted)] transition-transform duration-300 ease-out group-hover:rotate-90">
                         +
                       </span>
                       New project
@@ -522,7 +522,7 @@ defmodule CoreWeb.OfficeLive do
                       :if={@project_form_open}
                       for={@project_form}
                       phx-submit="create_project"
-                      class="w-full rounded-2xl border border-purple-200 bg-white/95 p-2.5 shadow-[0_18px_36px_-28px_rgba(109,40,217,0.45)] transition-all duration-300 ease-out"
+                      class="w-full rounded-2xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] p-2.5 shadow-[0_18px_36px_-28px_rgba(109,40,217,0.45)] transition-all duration-300 ease-out"
                     >
                       <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                         <div class="min-w-0 flex-1">
@@ -532,9 +532,9 @@ defmodule CoreWeb.OfficeLive do
                             value={@project_form[:name].value}
                             type="text"
                             placeholder="Project title"
-                            class="w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                            class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-4 py-3 text-sm text-[var(--hub-text)] outline-none transition-all duration-200 focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                           />
-                          <p :for={error <- @project_form[:name].errors} class="mt-1 text-xs text-rose-600">
+                          <p :for={error <- @project_form[:name].errors} class="mt-1 text-xs text-[var(--tone-expense)]">
                             <%= translate_error(error) %>
                           </p>
                         </div>
@@ -555,16 +555,16 @@ defmodule CoreWeb.OfficeLive do
                 <.form
                   for={@entry_form}
                   phx-submit="create_entry"
-                  class="w-full max-w-xl rounded-[1.5rem] border border-purple-100 bg-white/92 p-4 shadow-[0_24px_60px_-38px_rgba(109,40,217,0.48)] backdrop-blur-sm transition-all duration-300 ease-out"
+                  class="w-full max-w-xl rounded-[1.5rem] border border-[color:var(--hub-border)] bg-[var(--hub-surface)] p-4 shadow-[0_24px_60px_-38px_rgba(109,40,217,0.48)] backdrop-blur-sm transition-all duration-300 ease-out"
                 >
                   <div class="flex items-center justify-between gap-4">
                     <div>
-                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Add roadmap entry</p>
+                      <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Add roadmap entry</p>
                     </div>
                     <button
                       type="button"
                       phx-click="close_entry_form"
-                      class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-purple-100 bg-white text-slate-500 transition hover:border-purple-200 hover:text-slate-700"
+                      class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--hub-border)] bg-[var(--hub-surface)] text-[var(--hub-muted)] transition hover:border-[color:var(--hub-border)] hover:text-[var(--hub-text)]"
                       aria-label="Close entry form"
                     >
                       <.icon name="hero-x-mark" class="h-4 w-4" />
@@ -592,7 +592,7 @@ defmodule CoreWeb.OfficeLive do
 
                   <div class="mt-4 space-y-3">
                     <div>
-                      <label for="entry-title" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      <label for="entry-title" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">
                         Title
                       </label>
                       <input
@@ -601,34 +601,34 @@ defmodule CoreWeb.OfficeLive do
                         value={@entry_form[:title].value}
                         type="text"
                         placeholder={entry_title_placeholder(@entry_kind)}
-                        class="w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                        class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-4 py-3 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                       />
-                      <p :for={error <- @entry_form[:title].errors} class="mt-1 text-xs text-rose-600">
+                      <p :for={error <- @entry_form[:title].errors} class="mt-1 text-xs text-[var(--tone-expense)]">
                         <%= translate_error(error) %>
                       </p>
                     </div>
 
                     <div>
-                      <label for="entry-description" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      <label for="entry-description" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">
                         Description
                       </label>
                       <textarea
                         id="entry-description"
                         name={@entry_form[:description].name}
-                        class="h-20 w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                        class="h-20 w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-4 py-3 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                         placeholder={entry_description_placeholder(@entry_kind)}
                       ><%= @entry_form[:description].value %></textarea>
                     </div>
 
                     <div :if={@entry_kind == "task"} class="grid gap-3 sm:grid-cols-3">
                       <div>
-                        <label for="entry-priority" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <label for="entry-priority" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">
                           Priority
                         </label>
                         <select
                           id="entry-priority"
                           name={@entry_form[:priority].name}
-                          class="w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                          class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-4 py-3 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                         >
                           <option value="low" selected={@entry_form[:priority].value == "low"}>Low</option>
                           <option value="medium" selected={@entry_form[:priority].value in [nil, "medium"]}>Medium</option>
@@ -637,7 +637,7 @@ defmodule CoreWeb.OfficeLive do
                       </div>
 
                       <div>
-                        <label for="entry-scheduled-for" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <label for="entry-scheduled-for" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">
                           Scheduled
                         </label>
                         <input
@@ -645,12 +645,12 @@ defmodule CoreWeb.OfficeLive do
                           name={@entry_form[:scheduled_for].name}
                           value={@entry_form[:scheduled_for].value}
                           type="date"
-                          class="w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                          class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-4 py-3 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                         />
                       </div>
 
                       <div>
-                        <label for="entry-due-at" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <label for="entry-due-at" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">
                           Due at
                         </label>
                         <input
@@ -658,9 +658,9 @@ defmodule CoreWeb.OfficeLive do
                           name={@entry_form[:due_at].name}
                           value={datetime_local_value(@entry_form[:due_at].value)}
                           type="datetime-local"
-                          class="w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                          class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-4 py-3 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                         />
-                        <p :for={error <- @entry_form[:due_at].errors} class="mt-1 text-xs text-rose-600">
+                        <p :for={error <- @entry_form[:due_at].errors} class="mt-1 text-xs text-[var(--tone-expense)]">
                           <%= translate_error(error) %>
                         </p>
                       </div>
@@ -668,13 +668,13 @@ defmodule CoreWeb.OfficeLive do
 
                     <div :if={@entry_kind == "milestone"} class="grid gap-3 sm:grid-cols-3">
                       <div>
-                        <label for="entry-kind" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <label for="entry-kind" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">
                           Kind
                         </label>
                         <select
                           id="entry-kind"
                           name={@entry_form[:kind].name}
-                          class="w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                          class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-4 py-3 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                         >
                           <option :for={{label, value} <- @milestone_kinds} value={value} selected={milestone_kind_selected?(@entry_form[:kind].value, value)}>
                             <%= label %>
@@ -683,7 +683,7 @@ defmodule CoreWeb.OfficeLive do
                       </div>
 
                       <div>
-                        <label for="entry-starts-at" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <label for="entry-starts-at" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">
                           Starts at
                         </label>
                         <input
@@ -691,15 +691,15 @@ defmodule CoreWeb.OfficeLive do
                           name={@entry_form[:starts_at].name}
                           value={datetime_local_value(@entry_form[:starts_at].value)}
                           type="datetime-local"
-                          class="w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                          class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-4 py-3 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                         />
-                        <p :for={error <- @entry_form[:starts_at].errors} class="mt-1 text-xs text-rose-600">
+                        <p :for={error <- @entry_form[:starts_at].errors} class="mt-1 text-xs text-[var(--tone-expense)]">
                           <%= translate_error(error) %>
                         </p>
                       </div>
 
                       <div>
-                        <label for="entry-ends-at" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <label for="entry-ends-at" class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">
                           Ends at
                         </label>
                         <input
@@ -707,7 +707,7 @@ defmodule CoreWeb.OfficeLive do
                           name={@entry_form[:ends_at].name}
                           value={datetime_local_value(@entry_form[:ends_at].value)}
                           type="datetime-local"
-                          class="w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                          class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-4 py-3 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                         />
                       </div>
                     </div>
@@ -726,19 +726,19 @@ defmodule CoreWeb.OfficeLive do
             <div class="px-6 py-6">
               <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
                 <div>
-                  <div class="relative rounded-[1.75rem] border border-purple-100 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(245,243,255,0.8))] p-5 shadow-sm">
+                  <div class="relative rounded-[1.75rem] border border-[color:var(--hub-border)] bg-[linear-gradient(180deg,rgba(36,30,56,0.97),rgba(23,22,28,0.97))] p-5 shadow-sm">
                     <div class="flex flex-wrap items-end justify-between gap-4">
                       <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-purple-500">Interactive Roadmap</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-secondary)]">Interactive Roadmap</p>
                       </div>
 
                       <button
                         :if={!@entry_form_open}
                         type="button"
                         phx-click="open_entry_form"
-                        class="group inline-flex items-center gap-2 rounded-2xl border border-purple-200 bg-white/90 px-4 py-3 text-sm font-semibold text-purple-700 shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.01] hover:border-purple-300 hover:shadow-md active:translate-y-0 active:scale-[0.99]"
+                        class="hub-glass group inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-[var(--hub-accent-2)] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.01] hover:border-[color:var(--hub-accent)]/50 hover: active:translate-y-0 active:scale-[0.99]"
                       >
-                        <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-purple-100 text-base leading-none text-purple-600 transition-transform duration-300 ease-out group-hover:rotate-90">
+                        <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[color:var(--hub-accent)]/12 text-base leading-none text-[var(--hub-secondary)] transition-transform duration-300 ease-out group-hover:rotate-90">
                           +
                         </span>
                         Add entry
@@ -755,22 +755,22 @@ defmodule CoreWeb.OfficeLive do
                       }
                     >
                       <%= if @roadmap_rows == [] do %>
-                        <div class="flex min-h-[10rem] items-center justify-center rounded-xl border border-dashed border-purple-100 bg-purple-50/40 px-6 text-center text-sm text-slate-500">
+                        <div class="flex min-h-[10rem] items-center justify-center rounded-xl border border-dashed border-[color:var(--hub-accent)]/20 bg-[color:var(--hub-accent)]/5 px-6 text-center text-sm text-[var(--hub-muted)]">
                           <%= empty_roadmap_message(@selected_date) %>
                         </div>
                       <% else %>
-                        <div class="border-b border-purple-100/80 bg-gradient-to-r from-white via-purple-50/60 to-purple-100/50 px-4 py-4">
+                        <div class="border-b border-[color:var(--hub-border)] bg-gradient-to-r from-[color:var(--hub-accent)]/12 via-[color:var(--hub-accent)]/5 to-transparent px-4 py-4">
                           <div class="grid grid-cols-[4.75rem_minmax(0,1fr)] items-end gap-3">
                             <div>
-                              <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Day</p>
+                              <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--hub-muted)]">Day</p>
                             </div>
-                            <div class="relative h-12 rounded-2xl border border-purple-100/80 bg-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+                            <div class="relative h-12 rounded-2xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                               <div
                                 :for={tick <- @roadmap_hour_ticks}
                                 class="absolute inset-y-0 flex -translate-x-1/2 items-center"
                                 style={"left: #{tick.position_percent}%;"}
                               >
-                                <span class="rounded-full border border-purple-200 bg-white/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 shadow-sm">
+                                <span class="rounded-full border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--hub-muted)] shadow-sm">
                                   <%= tick.label %>
                                 </span>
                               </div>
@@ -797,17 +797,17 @@ defmodule CoreWeb.OfficeLive do
                           >
                           </div>
 
-                          <div class="divide-y divide-purple-100/80">
+                          <div class="divide-y divide-[color:var(--hub-border)]/80">
                           <section
                             :for={row <- @roadmap_rows}
                             class="grid grid-cols-[4.75rem_minmax(0,1fr)] gap-3 px-4 py-4"
                             data-roadmap-date={Date.to_iso8601(row.date)}
                           >
                             <div class="pt-1">
-                              <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                              <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--hub-muted)]">
                                 <%= row.weekday_label %>
                               </p>
-                              <p class="mt-1 text-sm font-semibold text-slate-900"><%= row.date_label %></p>
+                              <p class="mt-1 text-sm font-semibold text-[var(--hub-text)]"><%= row.date_label %></p>
                             </div>
 
                             <div
@@ -827,7 +827,7 @@ defmodule CoreWeb.OfficeLive do
                             >
                               <%= for tick <- @roadmap_hour_ticks do %>
                                 <div
-                                  class="absolute bottom-0 top-0 w-px bg-purple-100/80"
+                                  class="absolute bottom-0 top-0 w-px bg-[color:var(--hub-accent)]/12"
                                   style={"left: #{tick.position_percent}%;"}
                                 >
                                 </div>
@@ -876,10 +876,10 @@ defmodule CoreWeb.OfficeLive do
                                     <div class="fx-preview-content">
                                       <div class="flex items-start justify-between gap-3">
                                         <div class="min-w-0">
-                                          <p class="truncate text-sm font-semibold text-slate-900">
+                                          <p class="truncate text-sm font-semibold text-[var(--hub-text)]">
                                             <%= item.title %>
                                           </p>
-                                          <p class="mt-1 text-[11px] font-medium text-slate-500">
+                                          <p class="mt-1 text-[11px] font-medium text-[var(--hub-muted)]">
                                             <%= item.time_label %>
                                           </p>
                                         </div>
@@ -888,7 +888,7 @@ defmodule CoreWeb.OfficeLive do
 
                                       <p
                                         :if={present?(item.description)}
-                                        class="mt-2 text-xs leading-5 text-slate-600"
+                                        class="mt-2 text-xs leading-5 text-[var(--hub-muted)]"
                                         style="-webkit-line-clamp: 2; -webkit-box-orient: vertical; display: -webkit-box; overflow: hidden;"
                                       >
                                         <%= item.description %>
@@ -927,32 +927,32 @@ defmodule CoreWeb.OfficeLive do
                                     >
                                       <div class="flex items-start justify-between gap-2">
                                         <div class="min-w-0">
-                                          <p class="truncate text-sm font-semibold text-slate-900"><%= item.title %></p>
-                                          <p class="mt-1 text-[11px] font-semibold uppercase tracking-wide text-purple-500">
+                                          <p class="truncate text-sm font-semibold text-[var(--hub-text)]"><%= item.title %></p>
+                                          <p class="mt-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-secondary)]">
                                             <%= item.badge_label %>
                                           </p>
                                         </div>
                                         <span class="fx-stamp shrink-0"><%= item.duration_label %></span>
                                       </div>
 
-                                      <p class="mt-2 text-[11px] font-medium text-slate-500"><%= item.time_label %></p>
+                                      <p class="mt-2 text-[11px] font-medium text-[var(--hub-muted)]"><%= item.time_label %></p>
                                     </button>
 
                                     <%= if @editing_timeline_entry_id == item.record_id do %>
                                       <.form
                                         for={@timeline_edit_form}
                                         phx-submit="save_timeline_entry"
-                                        class="mt-3 space-y-3 rounded-[1.25rem] border border-purple-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.99),rgba(245,243,255,0.94))] px-4 pt-4 pb-5 shadow-[0_30px_70px_-28px_rgba(109,40,217,0.62)] ring-2 ring-purple-200/80 transition-all duration-300 ease-out"
+                                        class="mt-3 space-y-3 rounded-[1.25rem] border border-[color:var(--hub-border)] bg-[linear-gradient(180deg,rgba(36,30,56,0.97),rgba(23,22,28,0.97))] px-4 pt-4 pb-5 shadow-[0_30px_70px_-28px_rgba(109,40,217,0.62)] ring-2 ring-[color:var(--hub-accent)]/30 transition-all duration-300 ease-out"
                                       >
                                         <div class="flex items-start justify-between gap-3">
                                           <div>
-                                            <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-purple-500">Edit event</p>
-                                            <p class="mt-1 text-sm text-slate-500">Adjust the timeline event without leaving the roadmap.</p>
+                                            <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--hub-secondary)]">Edit event</p>
+                                            <p class="mt-1 text-sm text-[var(--hub-muted)]">Adjust the timeline event without leaving the roadmap.</p>
                                           </div>
                                           <button
                                             type="button"
                                             phx-click="cancel_timeline_edit"
-                                            class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-purple-100 bg-white text-slate-500 transition hover:border-purple-200 hover:text-slate-700"
+                                            class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[color:var(--hub-border)] bg-[var(--hub-surface)] text-[var(--hub-muted)] transition hover:border-[color:var(--hub-border)] hover:text-[var(--hub-text)]"
                                             aria-label="Close inline timeline editor"
                                           >
                                             <.icon name="hero-x-mark" class="h-4 w-4" />
@@ -961,7 +961,7 @@ defmodule CoreWeb.OfficeLive do
 
                                         <div class="max-h-[24rem] space-y-3 overflow-y-auto pr-1">
                                           <div>
-                                            <label for={"timeline-edit-title-#{item.record_id}"} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                            <label for={"timeline-edit-title-#{item.record_id}"} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">
                                               Title
                                             </label>
                                             <input
@@ -969,33 +969,33 @@ defmodule CoreWeb.OfficeLive do
                                               name={@timeline_edit_form[:title].name}
                                               value={@timeline_edit_form[:title].value}
                                               type="text"
-                                              class="w-full rounded-xl border border-purple-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
+                                              class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                                             />
-                                            <p :for={error <- @timeline_edit_form[:title].errors} class="mt-1 text-xs text-rose-600">
+                                            <p :for={error <- @timeline_edit_form[:title].errors} class="mt-1 text-xs text-[var(--tone-expense)]">
                                               <%= translate_error(error) %>
                                             </p>
                                           </div>
 
                                           <div>
-                                            <label for={"timeline-edit-description-#{item.record_id}"} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                            <label for={"timeline-edit-description-#{item.record_id}"} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">
                                               Description
                                             </label>
                                             <textarea
                                               id={"timeline-edit-description-#{item.record_id}"}
                                               name={@timeline_edit_form[:description].name}
-                                              class="h-20 w-full rounded-xl border border-purple-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
+                                              class="h-20 w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                                             ><%= @timeline_edit_form[:description].value %></textarea>
                                           </div>
 
                                           <div class="grid gap-3 sm:grid-cols-3">
                                             <div>
-                                              <label for={"timeline-edit-kind-#{item.record_id}"} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                              <label for={"timeline-edit-kind-#{item.record_id}"} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">
                                                 Kind
                                               </label>
                                               <select
                                                 id={"timeline-edit-kind-#{item.record_id}"}
                                                 name={@timeline_edit_form[:kind].name}
-                                                class="w-full rounded-xl border border-purple-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
+                                                class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                                               >
                                                 <option :for={{label, value} <- @milestone_kinds} value={value} selected={milestone_kind_selected?(@timeline_edit_form[:kind].value, value)}>
                                                   <%= label %>
@@ -1004,7 +1004,7 @@ defmodule CoreWeb.OfficeLive do
                                             </div>
 
                                             <div>
-                                              <label for={"timeline-edit-starts-at-#{item.record_id}"} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                              <label for={"timeline-edit-starts-at-#{item.record_id}"} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">
                                                 Starts at
                                               </label>
                                               <input
@@ -1012,15 +1012,15 @@ defmodule CoreWeb.OfficeLive do
                                                 name={@timeline_edit_form[:starts_at].name}
                                                 value={datetime_local_value(@timeline_edit_form[:starts_at].value)}
                                                 type="datetime-local"
-                                                class="w-full rounded-xl border border-purple-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
+                                                class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                                               />
-                                              <p :for={error <- @timeline_edit_form[:starts_at].errors} class="mt-1 text-xs text-rose-600">
+                                              <p :for={error <- @timeline_edit_form[:starts_at].errors} class="mt-1 text-xs text-[var(--tone-expense)]">
                                                 <%= translate_error(error) %>
                                               </p>
                                             </div>
 
                                             <div>
-                                              <label for={"timeline-edit-ends-at-#{item.record_id}"} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                              <label for={"timeline-edit-ends-at-#{item.record_id}"} class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">
                                                 Ends at
                                               </label>
                                               <input
@@ -1028,7 +1028,7 @@ defmodule CoreWeb.OfficeLive do
                                                 name={@timeline_edit_form[:ends_at].name}
                                                 value={datetime_local_value(@timeline_edit_form[:ends_at].value)}
                                                 type="datetime-local"
-                                                class="w-full rounded-xl border border-purple-100 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
+                                                class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                                               />
                                             </div>
                                           </div>
@@ -1044,28 +1044,28 @@ defmodule CoreWeb.OfficeLive do
                                         </div>
                                       </.form>
                                     <% else %>
-                                      <div class="mt-3 max-h-[9.5rem] space-y-2 overflow-y-auto pr-1 text-sm text-slate-600">
+                                      <div class="mt-3 max-h-[9.5rem] space-y-2 overflow-y-auto pr-1 text-sm text-[var(--hub-muted)]">
                                         <p :if={present?(item.description)}><%= item.description %></p>
                                         <%= if item.item_type == :task do %>
                                           <div class="flex flex-wrap gap-2 text-[11px]">
-                                            <span class="rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 font-medium text-purple-700">
+                                            <span class="rounded-full border border-[color:var(--hub-border)] bg-[color:var(--hub-accent)]/12 px-2 py-0.5 font-medium text-[var(--hub-accent-2)]">
                                               <%= item.display_stage %>
                                             </span>
                                             <span class={priority_badge_class(item.priority)}>
                                               <%= String.upcase(item.priority) %> priority
                                             </span>
-                                            <span :if={item.scheduled_for} class="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
+                                            <span :if={item.scheduled_for} class="rounded-full border border-[color:var(--tone-info)]/35 bg-[color:var(--tone-info)]/12 px-2 py-0.5 font-medium text-[var(--tone-info)]">
                                               Scheduled <%= Calendar.strftime(item.scheduled_for, "%b %d") %>
                                             </span>
-                                            <span :if={item.due_at} class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
+                                            <span :if={item.due_at} class="rounded-full border border-[color:var(--tone-review)]/35 bg-[color:var(--tone-review)]/12 px-2 py-0.5 font-medium text-[var(--tone-review)]">
                                               Due <%= Calendar.strftime(item.due_at, "%b %d %I:%M %p") %>
                                             </span>
                                           </div>
                                         <% else %>
-                                          <p class="text-xs text-slate-500">
+                                          <p class="text-xs text-[var(--hub-muted)]">
                                             Starts <%= Calendar.strftime(item.starts_at, "%b %d, %Y %I:%M %p") %>
                                           </p>
-                                          <p :if={item.ends_at} class="text-xs text-slate-500">
+                                          <p :if={item.ends_at} class="text-xs text-[var(--hub-muted)]">
                                             Ends <%= Calendar.strftime(item.ends_at, "%b %d, %Y %I:%M %p") %>
                                           </p>
                                         <% end %>
@@ -1108,31 +1108,31 @@ defmodule CoreWeb.OfficeLive do
                   <div class="mt-6">
                     <div class="mb-4 flex items-end justify-between gap-4 px-1">
                       <div>
-                        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Stage</p>
+                        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--hub-muted)]">Stage</p>
                       </div>
                     </div>
 
                     <div class="grid gap-4 xl:grid-cols-4">
                     <section
                       :for={stage <- @canvas_stages}
-                      class="relative overflow-visible rounded-[1.75rem] border border-purple-100 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(245,243,255,0.7))] p-4 shadow-sm"
+                      class="relative overflow-visible rounded-[1.75rem] border border-[color:var(--hub-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(139,92,246,0.06))] p-4 shadow-sm"
                     >
                       <div class="flex items-center justify-between gap-3">
-                        <h3 class="text-lg font-semibold text-slate-900"><%= lane_title(stage) %></h3>
-                        <span class="rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-600">
+                        <h3 class="text-lg font-semibold text-[var(--hub-text)]"><%= lane_title(stage) %></h3>
+                        <span class="rounded-full border border-[color:var(--hub-border)] bg-[color:var(--hub-accent)]/12 px-2.5 py-1 text-xs font-semibold text-[var(--hub-secondary)]">
                           <%= length(Map.get(@canvas_stage_items, stage, [])) %>
                         </span>
                       </div>
 
                       <div
-                        class="relative mt-5 overflow-visible rounded-2xl border border-purple-100/80 bg-[linear-gradient(180deg,rgba(245,243,255,0.94),rgba(237,233,254,0.84))] px-4 py-4"
+                        class="relative mt-5 overflow-visible rounded-2xl border border-[color:var(--hub-border)] bg-[linear-gradient(180deg,rgba(139,92,246,0.12),rgba(139,92,246,0.05))] px-4 py-4"
                         data-stage-canvas={stage}
                         style={stage_canvas_style(Map.get(@canvas_stage_items, stage, []), @expanded_item_ids)}
                       >
 
                         <%= if Map.get(@canvas_stage_items, stage, []) == [] do %>
                           <div
-                            class="min-h-[16rem] rounded-xl border border-dashed border-purple-100 bg-purple-50/50"
+                            class="min-h-[16rem] rounded-xl border border-dashed border-[color:var(--hub-accent)]/20 bg-[color:var(--hub-accent)]/5"
                             data-stage-empty-state={stage}
                             aria-hidden="true"
                           >
@@ -1184,10 +1184,10 @@ defmodule CoreWeb.OfficeLive do
                                 <div class="fx-preview-content">
                                   <div class="flex items-start justify-between gap-3">
                                     <div class="min-w-0">
-                                      <p class="truncate text-sm font-semibold text-slate-900"><%= item.title %></p>
+                                      <p class="truncate text-sm font-semibold text-[var(--hub-text)]"><%= item.title %></p>
                                       <p
                                         :if={present?(item.description)}
-                                        class="mt-1 text-xs leading-5 text-slate-600"
+                                        class="mt-1 text-xs leading-5 text-[var(--hub-muted)]"
                                         style="-webkit-line-clamp: 2; -webkit-box-orient: vertical; display: -webkit-box; overflow: hidden;"
                                       >
                                         <%= item.description %>
@@ -1200,10 +1200,10 @@ defmodule CoreWeb.OfficeLive do
                                     <span class={priority_badge_class(item.priority)}>
                                       <%= String.upcase(item.priority) %>
                                     </span>
-                                    <span :if={item.scheduled_for} class="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
+                                    <span :if={item.scheduled_for} class="rounded-full border border-[color:var(--tone-info)]/35 bg-[color:var(--tone-info)]/12 px-2 py-0.5 font-medium text-[var(--tone-info)]">
                                       Scheduled <%= Calendar.strftime(item.scheduled_for, "%b %d") %>
                                     </span>
-                                    <span :if={item.due_at} class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
+                                    <span :if={item.due_at} class="rounded-full border border-[color:var(--tone-review)]/35 bg-[color:var(--tone-review)]/12 px-2 py-0.5 font-medium text-[var(--tone-review)]">
                                       Due <%= Calendar.strftime(item.due_at, "%b %d %I:%M %p") %>
                                     </span>
                                   </div>
@@ -1238,8 +1238,8 @@ defmodule CoreWeb.OfficeLive do
                                   >
                                     <div class="flex items-start justify-between gap-3">
                                       <div class="min-w-0">
-                                        <p class="truncate text-sm font-semibold text-slate-900"><%= item.title %></p>
-                                        <p class="mt-1 text-[11px] font-semibold uppercase tracking-wide text-purple-500">
+                                        <p class="truncate text-sm font-semibold text-[var(--hub-text)]"><%= item.title %></p>
+                                        <p class="mt-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-secondary)]">
                                           <%= lane_title(item.status) %> task
                                         </p>
                                       </div>
@@ -1250,17 +1250,17 @@ defmodule CoreWeb.OfficeLive do
                                       <span class={priority_badge_class(item.priority)}>
                                         <%= String.upcase(item.priority) %> priority
                                       </span>
-                                      <span :if={item.scheduled_for} class="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
+                                      <span :if={item.scheduled_for} class="rounded-full border border-[color:var(--tone-info)]/35 bg-[color:var(--tone-info)]/12 px-2 py-0.5 font-medium text-[var(--tone-info)]">
                                         Scheduled <%= Calendar.strftime(item.scheduled_for, "%b %d") %>
                                       </span>
-                                      <span :if={item.due_at} class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
+                                      <span :if={item.due_at} class="rounded-full border border-[color:var(--tone-review)]/35 bg-[color:var(--tone-review)]/12 px-2 py-0.5 font-medium text-[var(--tone-review)]">
                                         Due <%= Calendar.strftime(item.due_at, "%b %d %I:%M %p") %>
                                       </span>
                                     </div>
                                   </button>
 
                                   <div class="mt-3 space-y-3">
-                                    <p :if={present?(item.description)} class="text-sm leading-6 text-slate-600"><%= item.description %></p>
+                                    <p :if={present?(item.description)} class="text-sm leading-6 text-[var(--hub-muted)]"><%= item.description %></p>
 
                                     <div class="flex flex-wrap gap-2">
                                       <button
@@ -1286,20 +1286,20 @@ defmodule CoreWeb.OfficeLive do
                   </div>
 
                   <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <div :for={item <- @agenda_items} class="rounded-2xl border border-purple-100 bg-white/85 p-4 shadow-sm">
-                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-400"><%= item.badge %></p>
-                      <h3 class="mt-2 text-sm font-semibold text-slate-900"><%= item.title %></h3>
-                      <p class="mt-1 text-xs text-slate-500"><%= item.when_label %></p>
+                    <div :for={item <- @agenda_items} class="hub-glass rounded-2xl p-4">
+                      <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-muted)]"><%= item.badge %></p>
+                      <h3 class="mt-2 text-sm font-semibold text-[var(--hub-text)]"><%= item.title %></h3>
+                      <p class="mt-1 text-xs text-[var(--hub-muted)]"><%= item.when_label %></p>
                     </div>
                   </div>
                 </div>
 
                 <aside class="space-y-4">
-                  <section class="rounded-[1.75rem] border border-purple-100 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(245,243,255,0.8))] p-5 shadow-sm">
+                  <section class="rounded-[1.75rem] border border-[color:var(--hub-border)] bg-[linear-gradient(180deg,rgba(36,30,56,0.97),rgba(23,22,28,0.97))] p-5 shadow-sm">
                     <div class="flex items-center justify-between gap-3">
                       <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-purple-500">Calendar</p>
-                        <h2 class="mt-1 text-lg font-semibold text-slate-900"><%= calendar_month_label(@calendar_month) %></h2>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-secondary)]">Calendar</p>
+                        <h2 class="mt-1 text-lg font-semibold text-[var(--hub-text)]"><%= calendar_month_label(@calendar_month) %></h2>
                       </div>
 
                       <div class="flex items-center gap-2">
@@ -1308,7 +1308,7 @@ defmodule CoreWeb.OfficeLive do
                       </div>
                     </div>
 
-                    <div class="mt-4 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    <div class="mt-4 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--hub-muted)]">
                       <span :for={label <- @calendar_weekdays}><%= label %></span>
                     </div>
 
@@ -1325,10 +1325,10 @@ defmodule CoreWeb.OfficeLive do
                       </button>
                     </div>
 
-                    <div class="mt-4 flex items-center justify-between gap-3 border-t border-purple-100 pt-4">
+                    <div class="mt-4 flex items-center justify-between gap-3 border-t border-[color:var(--hub-border)] pt-4">
                       <div>
-                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Focus</p>
-                        <p class="mt-1 text-sm font-semibold text-slate-900"><%= calendar_focus_label(@selected_date) %></p>
+                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--hub-muted)]">Focus</p>
+                        <p class="mt-1 text-sm font-semibold text-[var(--hub-text)]"><%= calendar_focus_label(@selected_date) %></p>
                       </div>
                       <button
                         :if={@selected_date}
@@ -1340,49 +1340,49 @@ defmodule CoreWeb.OfficeLive do
                       </button>
                     </div>
 
-                    <div class="mt-4 rounded-2xl border border-purple-100 bg-white/80 p-4">
+                    <div class="hub-glass mt-4 rounded-2xl p-4">
                       <div class="flex items-center justify-between gap-3">
-                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--hub-muted)]">
                           <%= selected_day_heading(@selected_date) %>
                         </p>
                         <button
                           :if={@selected_date}
                           type="button"
                           phx-click="toggle_selected_day_entry_form"
-                          class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-purple-200 bg-white text-base font-semibold leading-none text-purple-700 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-purple-300 hover:text-purple-800"
+                          class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[color:var(--hub-border)] bg-[var(--hub-surface)] text-base font-semibold leading-none text-[var(--hub-accent-2)] shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-[color:var(--hub-accent)]/50 hover:text-[var(--hub-accent-2)]"
                           data-selected-day-add-entry="true"
                           aria-label="Toggle task form for selected date"
                         >
                           +
                         </button>
                       </div>
-                      <p class="mt-2 text-2xl font-semibold text-slate-900"><%= @selected_day_summary.total_count %></p>
-                      <p class="mt-1 text-sm text-slate-500">planned items</p>
+                      <p class="mt-2 text-2xl font-semibold text-[var(--hub-text)]"><%= @selected_day_summary.total_count %></p>
+                      <p class="mt-1 text-sm text-[var(--hub-muted)]">planned items</p>
 
                       <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
-                        <div class="rounded-xl border border-purple-100 bg-purple-50/60 px-3 py-2">
-                          <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Tasks</p>
-                          <p class="mt-1 font-semibold text-slate-900"><%= @selected_day_summary.task_count %></p>
+                        <div class="rounded-xl border border-[color:var(--hub-border)] bg-[color:var(--hub-accent)]/12 px-3 py-2">
+                          <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--hub-muted)]">Tasks</p>
+                          <p class="mt-1 font-semibold text-[var(--hub-text)]"><%= @selected_day_summary.task_count %></p>
                         </div>
-                        <div class="rounded-xl border border-purple-100 bg-purple-50/60 px-3 py-2">
-                          <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Events</p>
-                          <p class="mt-1 font-semibold text-slate-900"><%= @selected_day_summary.event_count %></p>
+                        <div class="rounded-xl border border-[color:var(--hub-border)] bg-[color:var(--hub-accent)]/12 px-3 py-2">
+                          <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--hub-muted)]">Events</p>
+                          <p class="mt-1 font-semibold text-[var(--hub-text)]"><%= @selected_day_summary.event_count %></p>
                         </div>
                       </div>
 
-                      <div class="mt-4 border-t border-purple-100 pt-4">
+                      <div class="mt-4 border-t border-[color:var(--hub-border)] pt-4">
                         <div class="flex items-center justify-between gap-3">
-                          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Tasks for the day</p>
-                          <span class="text-xs font-medium text-slate-500"><%= length(@selected_day_tasks) %></span>
+                          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--hub-muted)]">Tasks for the day</p>
+                          <span class="text-xs font-medium text-[var(--hub-muted)]"><%= length(@selected_day_tasks) %></span>
                         </div>
 
-                        <div :if={@selected_date == nil} class="mt-3 rounded-xl border border-dashed border-purple-100 bg-purple-50/50 px-3 py-3 text-sm text-slate-500">
+                        <div :if={@selected_date == nil} class="mt-3 rounded-xl border border-dashed border-[color:var(--hub-accent)]/20 bg-[color:var(--hub-accent)]/5 px-3 py-3 text-sm text-[var(--hub-muted)]">
                           Select a date to inspect and open its tasks.
                         </div>
 
                         <div
                           :if={@selected_date && @selected_day_tasks == []}
-                          class="mt-3 min-h-[6rem] rounded-xl border border-dashed border-purple-100 bg-purple-50/50 px-3 py-3"
+                          class="mt-3 min-h-[6rem] rounded-xl border border-dashed border-[color:var(--hub-accent)]/20 bg-[color:var(--hub-accent)]/5 px-3 py-3"
                           data-selected-day-empty-state="tasks"
                           aria-hidden="true"
                         >
@@ -1391,26 +1391,26 @@ defmodule CoreWeb.OfficeLive do
                         <div :if={@selected_day_tasks != []} class="mt-3 space-y-2">
                           <div
                             :for={task <- @selected_day_tasks}
-                            class="w-full rounded-xl border border-purple-100 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(245,243,255,0.86))] px-3 py-3 text-left transition duration-300 hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-sm"
+                            class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[linear-gradient(180deg,rgba(36,30,56,0.97),rgba(23,22,28,0.97))] px-3 py-3 text-left transition duration-300 hover:-translate-y-0.5 hover:border-[color:var(--hub-border)] hover:shadow-sm"
                           >
                             <div class="flex items-start justify-between gap-3">
                               <div class="min-w-0">
-                                <p class="truncate text-sm font-semibold text-slate-900"><%= task.title %></p>
-                                <p :if={present?(task.description)} class="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                                <p class="truncate text-sm font-semibold text-[var(--hub-text)]"><%= task.title %></p>
+                                <p :if={present?(task.description)} class="mt-1 line-clamp-2 text-xs leading-5 text-[var(--hub-muted)]">
                                   <%= task.description %>
                                 </p>
                               </div>
-                              <span class="rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-600">
+                              <span class="rounded-full border border-[color:var(--hub-border)] bg-[color:var(--hub-accent)]/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--hub-secondary)]">
                                 <%= lane_title(task.status) %>
                               </span>
                             </div>
 
                             <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
                               <span class={priority_badge_class(task.priority)}><%= String.upcase(task.priority) %></span>
-                              <span :if={task.scheduled_for} class="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
+                              <span :if={task.scheduled_for} class="rounded-full border border-[color:var(--tone-info)]/35 bg-[color:var(--tone-info)]/12 px-2 py-0.5 font-medium text-[var(--tone-info)]">
                                 Scheduled <%= Calendar.strftime(task.scheduled_for, "%b %d") %>
                               </span>
-                              <span :if={task.due_at} class="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
+                              <span :if={task.due_at} class="rounded-full border border-[color:var(--tone-review)]/35 bg-[color:var(--tone-review)]/12 px-2 py-0.5 font-medium text-[var(--tone-review)]">
                                 Due <%= Calendar.strftime(task.due_at, "%b %d %I:%M %p") %>
                               </span>
                             </div>
@@ -1428,16 +1428,16 @@ defmodule CoreWeb.OfficeLive do
 
                             <div
                               :if={expanded?(@selected_day_expanded_task_ids, task.id)}
-                              class="mt-3 rounded-xl border border-purple-100 bg-white/75 px-3 py-3 text-sm text-slate-600"
+                              class="mt-3 rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-3 text-sm text-[var(--hub-muted)]"
                             >
                               <p :if={present?(task.description)} class="leading-6"><%= task.description %></p>
-                              <div class="mt-3 grid gap-2 text-xs text-slate-500">
-                                <p>Stage: <span class="font-semibold text-slate-700"><%= lane_title(task.status) %></span></p>
+                              <div class="mt-3 grid gap-2 text-xs text-[var(--hub-muted)]">
+                                <p>Stage: <span class="font-semibold text-[var(--hub-text)]"><%= lane_title(task.status) %></span></p>
                                 <p :if={task.scheduled_for}>
-                                  Scheduled for <span class="font-semibold text-slate-700"><%= Calendar.strftime(task.scheduled_for, "%b %d, %Y") %></span>
+                                  Scheduled for <span class="font-semibold text-[var(--hub-text)]"><%= Calendar.strftime(task.scheduled_for, "%b %d, %Y") %></span>
                                 </p>
                                 <p :if={task.due_at}>
-                                  Due at <span class="font-semibold text-slate-700"><%= Calendar.strftime(task.due_at, "%b %d, %Y %I:%M %p") %></span>
+                                  Due at <span class="font-semibold text-[var(--hub-text)]"><%= Calendar.strftime(task.due_at, "%b %d, %Y %I:%M %p") %></span>
                                 </p>
                               </div>
                             </div>
@@ -1448,7 +1448,7 @@ defmodule CoreWeb.OfficeLive do
 
                     <div
                       :if={@selected_date && @selected_day_entry_form_open}
-                      class="mt-3 rounded-2xl border border-purple-100 bg-white/90 p-4 shadow-sm"
+                      class="hub-glass mt-3 rounded-2xl p-4"
                     >
                       <.form
                         for={@selected_day_entry_form}
@@ -1457,15 +1457,15 @@ defmodule CoreWeb.OfficeLive do
                       >
                         <div class="flex items-start justify-between gap-3">
                           <div>
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Quick task</p>
-                            <p class="mt-1 text-sm font-semibold text-slate-900">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Quick task</p>
+                            <p class="mt-1 text-sm font-semibold text-[var(--hub-text)]">
                               Scheduled for <%= calendar_focus_label(@selected_date) %>
                             </p>
                           </div>
                           <button
                             type="button"
                             phx-click="cancel_selected_day_entry_form"
-                            class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-purple-100 bg-white text-slate-500 transition hover:border-purple-200 hover:text-slate-700"
+                            class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[color:var(--hub-border)] bg-[var(--hub-surface)] text-[var(--hub-muted)] transition hover:border-[color:var(--hub-border)] hover:text-[var(--hub-text)]"
                             aria-label="Close selected day task form"
                           >
                             <.icon name="hero-x-mark" class="h-4 w-4" />
@@ -1475,7 +1475,7 @@ defmodule CoreWeb.OfficeLive do
                         <div>
                           <label
                             for="selected-day-entry-title"
-                            class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+                            class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]"
                           >
                             Title
                           </label>
@@ -1485,11 +1485,11 @@ defmodule CoreWeb.OfficeLive do
                             value={@selected_day_entry_form[:title].value}
                             type="text"
                             placeholder="Add task title"
-                            class="w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                            class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-4 py-3 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                           />
                           <p
                             :for={error <- @selected_day_entry_form[:title].errors}
-                            class="mt-1 text-xs text-rose-600"
+                            class="mt-1 text-xs text-[var(--tone-expense)]"
                           >
                             <%= translate_error(error) %>
                           </p>
@@ -1498,14 +1498,14 @@ defmodule CoreWeb.OfficeLive do
                         <div>
                           <label
                             for="selected-day-entry-description"
-                            class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+                            class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]"
                           >
                             Description
                           </label>
                           <textarea
                             id="selected-day-entry-description"
                             name={@selected_day_entry_form[:description].name}
-                            class="h-20 w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                            class="h-20 w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-4 py-3 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                             placeholder="Add context or notes"
                           ><%= @selected_day_entry_form[:description].value %></textarea>
                         </div>
@@ -1514,14 +1514,14 @@ defmodule CoreWeb.OfficeLive do
                           <div>
                             <label
                               for="selected-day-entry-priority"
-                              class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+                              class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]"
                             >
                               Priority
                             </label>
                             <select
                               id="selected-day-entry-priority"
                               name={@selected_day_entry_form[:priority].name}
-                              class="w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                              class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-4 py-3 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                             >
                               <option
                                 value="low"
@@ -1547,7 +1547,7 @@ defmodule CoreWeb.OfficeLive do
                           <div>
                             <label
                               for="selected-day-entry-due-at"
-                              class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+                              class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]"
                             >
                               Due at
                             </label>
@@ -1556,11 +1556,11 @@ defmodule CoreWeb.OfficeLive do
                               name={@selected_day_entry_form[:due_at].name}
                               value={datetime_local_value(@selected_day_entry_form[:due_at].value)}
                               type="datetime-local"
-                              class="w-full rounded-xl border border-purple-100 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-purple-300 focus:ring-2 focus:ring-purple-200"
+                              class="w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-4 py-3 text-sm text-[var(--hub-text)] outline-none transition focus:border-[color:var(--hub-accent)]/50 focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                             />
                             <p
                               :for={error <- @selected_day_entry_form[:due_at].errors}
-                              class="mt-1 text-xs text-rose-600"
+                              class="mt-1 text-xs text-[var(--tone-expense)]"
                             >
                               <%= translate_error(error) %>
                             </p>
@@ -1996,29 +1996,31 @@ defmodule CoreWeb.OfficeLive do
 
   defp calendar_day_class(day) do
     base =
-      "flex h-12 flex-col items-center justify-center rounded-2xl border text-slate-700 transition duration-300"
+      "flex h-12 flex-col items-center justify-center rounded-2xl border transition duration-300"
 
     cond do
       day.selected? ->
-        base <> " border-purple-300 bg-purple-50 shadow-sm"
+        base <>
+          " border-[color:var(--hub-accent)]/50 bg-[color:var(--hub-accent)]/20 text-[var(--hub-text)] shadow-sm"
 
       day.in_month? ->
-        base <> " border-purple-100 bg-white/85 hover:border-purple-200 hover:bg-purple-50/60"
+        base <>
+          " border-[color:var(--hub-border)] bg-[var(--hub-surface)] text-[var(--hub-text)] hover:border-[color:var(--hub-accent)]/40 hover:bg-[color:var(--hub-accent)]/12"
 
       true ->
         base <>
-          " border-transparent bg-transparent text-slate-300 hover:border-purple-100 hover:bg-white/60"
+          " border-transparent bg-transparent text-[color:var(--hub-muted)]/45 hover:border-[color:var(--hub-border)] hover:bg-[color:var(--hub-accent)]/10"
     end
   end
 
   defp calendar_dot_class(total_count) when total_count <= 2,
-    do: "mt-1 h-2.5 w-2.5 rounded-full bg-emerald-500"
+    do: "mt-1 h-2.5 w-2.5 rounded-full bg-[var(--tone-income)]"
 
   defp calendar_dot_class(total_count) when total_count <= 4,
-    do: "mt-1 h-2.5 w-2.5 rounded-full bg-amber-400"
+    do: "mt-1 h-2.5 w-2.5 rounded-full bg-[var(--tone-review)]"
 
   defp calendar_dot_class(_total_count),
-    do: "mt-1 h-2.5 w-2.5 rounded-full bg-rose-500"
+    do: "mt-1 h-2.5 w-2.5 rounded-full bg-[var(--tone-expense)]"
 
   defp calendar_focus_label(nil), do: "All roadmap days"
 
@@ -2086,9 +2088,14 @@ defmodule CoreWeb.OfficeLive do
   defp roadmap_canvas_class(rows, expanded_item_ids, editing_timeline_entry_id)
        when is_list(rows) do
     case roadmap_focus_mode(rows, expanded_item_ids, editing_timeline_entry_id) do
-      :none -> "mt-6 overflow-hidden rounded-2xl border border-purple-100 bg-white/85 pb-14"
-      :view -> "mt-6 overflow-hidden rounded-2xl border border-purple-100 bg-white/85 pb-16"
-      :edit -> "mt-6 overflow-hidden rounded-2xl border border-purple-100 bg-white/85 pb-20"
+      :none ->
+        "mt-6 overflow-hidden rounded-2xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] pb-14"
+
+      :view ->
+        "mt-6 overflow-hidden rounded-2xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] pb-16"
+
+      :edit ->
+        "mt-6 overflow-hidden rounded-2xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] pb-20"
     end
   end
 
@@ -2099,10 +2106,10 @@ defmodule CoreWeb.OfficeLive do
   defp roadmap_backdrop_class(rows, expanded_item_ids, editing_timeline_entry_id) do
     case roadmap_focus_mode(rows, expanded_item_ids, editing_timeline_entry_id) do
       :edit ->
-        "pointer-events-none absolute inset-0 z-10 bg-white/35 backdrop-blur-[2.5px] transition duration-300 ease-out"
+        "pointer-events-none absolute inset-0 z-10 bg-black/30 backdrop-blur-[2.5px] transition duration-300 ease-out"
 
       :view ->
-        "pointer-events-none absolute inset-0 z-10 bg-white/22 backdrop-blur-[1.5px] transition duration-300 ease-out"
+        "pointer-events-none absolute inset-0 z-10 bg-black/20 backdrop-blur-[1.5px] transition duration-300 ease-out"
 
       :none ->
         "hidden"
@@ -2131,16 +2138,16 @@ defmodule CoreWeb.OfficeLive do
     expanded_row? = roadmap_row_expanded?(row, expanded_item_ids)
 
     base =
-      "relative rounded-2xl border border-purple-100 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(245,243,255,0.7))] px-2 py-3 transition duration-300 ease-out"
+      "relative rounded-2xl border border-[color:var(--hub-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(139,92,246,0.06))] px-2 py-3 transition duration-300 ease-out"
 
     cond do
       editing_row? ->
         base <>
-          " z-20 border-purple-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(243,232,255,0.78))] shadow-[0_28px_70px_-42px_rgba(109,40,217,0.65)] ring-1 ring-purple-100"
+          " z-20 border-[color:var(--hub-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(139,92,246,0.06))] shadow-[0_28px_70px_-42px_rgba(109,40,217,0.65)] ring-1 ring-[color:var(--hub-accent)]/30"
 
       focus_mode == :view and expanded_row? ->
         base <>
-          " z-20 border-purple-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(243,232,255,0.72))] shadow-[0_24px_56px_-38px_rgba(109,40,217,0.4)] ring-1 ring-purple-100"
+          " z-20 border-[color:var(--hub-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(139,92,246,0.06))] shadow-[0_24px_56px_-38px_rgba(109,40,217,0.4)] ring-1 ring-[color:var(--hub-accent)]/30"
 
       focus_mode != :none ->
         base <> " opacity-85"
@@ -2191,28 +2198,28 @@ defmodule CoreWeb.OfficeLive do
   end
 
   defp roadmap_duration_class(%{item_type: :task, status: "release"}),
-    do: "absolute h-1.5 rounded-full bg-emerald-200/80"
+    do: "absolute h-1.5 rounded-full bg-[color:var(--tone-income)]/45"
 
   defp roadmap_duration_class(%{item_type: :task, status: "qa"}),
-    do: "absolute h-1.5 rounded-full bg-amber-200/80"
+    do: "absolute h-1.5 rounded-full bg-[color:var(--tone-review)]/45"
 
   defp roadmap_duration_class(%{item_type: :task, status: "wip"}),
-    do: "absolute h-1.5 rounded-full bg-sky-200/80"
+    do: "absolute h-1.5 rounded-full bg-[color:var(--tone-info)]/45"
 
   defp roadmap_duration_class(%{item_type: :task}),
-    do: "absolute h-1.5 rounded-full bg-purple-200/80"
+    do: "absolute h-1.5 rounded-full bg-[color:var(--hub-accent)]/40"
 
   defp roadmap_duration_class(%{kind: "release"}),
-    do: "absolute h-1.5 rounded-full bg-emerald-200/80"
+    do: "absolute h-1.5 rounded-full bg-[color:var(--tone-income)]/45"
 
   defp roadmap_duration_class(%{kind: "deadline"}),
-    do: "absolute h-1.5 rounded-full bg-rose-200/80"
+    do: "absolute h-1.5 rounded-full bg-[color:var(--tone-expense)]/45"
 
   defp roadmap_duration_class(%{kind: "note"}),
-    do: "absolute h-1.5 rounded-full bg-sky-200/80"
+    do: "absolute h-1.5 rounded-full bg-[color:var(--tone-info)]/45"
 
   defp roadmap_duration_class(_item),
-    do: "absolute h-1.5 rounded-full bg-purple-200/80"
+    do: "absolute h-1.5 rounded-full bg-[color:var(--hub-accent)]/40"
 
   defp roadmap_preview_anchor_style(item) do
     "left: calc(#{Float.round(roadmap_start_percent(item), 2)}% - 0.5rem); top: 0.18rem; width: 1rem; height: 1rem;"
@@ -2220,48 +2227,48 @@ defmodule CoreWeb.OfficeLive do
 
   defp roadmap_dot_class(item, true, true) do
     roadmap_dot_base(item) <>
-      " z-30 scale-110 ring-4 ring-purple-200 shadow-[0_0_0_10px_rgba(233,213,255,0.55)] animate-pulse"
+      " z-30 scale-110 ring-4 ring-[color:var(--hub-accent)]/30 shadow-[0_0_0_10px_rgba(139,92,246,0.35)] animate-pulse"
   end
 
   defp roadmap_dot_class(item, true, false) do
     roadmap_dot_base(item) <>
-      " z-30 scale-110 ring-4 ring-purple-200 shadow-[0_0_0_10px_rgba(196,181,253,0.48)] animate-[pulse_700ms_ease-out]"
+      " z-30 scale-110 ring-4 ring-[color:var(--hub-accent)]/30 shadow-[0_0_0_10px_rgba(196,181,253,0.48)] animate-[pulse_700ms_ease-out]"
   end
 
   defp roadmap_dot_class(item, false, false) do
     roadmap_dot_base(item) <>
-      " group-hover/roadmap:z-30 group-hover/roadmap:scale-110 group-hover/roadmap:ring-4 group-hover/roadmap:ring-purple-200 group-hover/roadmap:shadow-[0_0_0_10px_rgba(196,181,253,0.42)] group-focus-within/roadmap:z-30 group-focus-within/roadmap:scale-110 group-focus-within/roadmap:ring-4 group-focus-within/roadmap:ring-purple-200 group-focus-within/roadmap:shadow-[0_0_0_10px_rgba(196,181,253,0.42)]"
+      " group-hover/roadmap:z-30 group-hover/roadmap:scale-110 group-hover/roadmap:ring-4 group-hover/roadmap:ring-[color:var(--hub-accent)]/30 group-hover/roadmap:shadow-[0_0_0_10px_rgba(196,181,253,0.42)] group-focus-within/roadmap:z-30 group-focus-within/roadmap:scale-110 group-focus-within/roadmap:ring-4 group-focus-within/roadmap:ring-[color:var(--hub-accent)]/30 group-focus-within/roadmap:shadow-[0_0_0_10px_rgba(196,181,253,0.42)]"
   end
 
   defp roadmap_dot_class(item, false, true) do
     roadmap_dot_base(item) <>
-      " z-30 ring-4 ring-purple-200/70 shadow-[0_0_0_10px_rgba(233,213,255,0.45)] animate-pulse"
+      " z-30 ring-4 ring-[color:var(--hub-accent)]/30 shadow-[0_0_0_10px_rgba(139,92,246,0.35)] animate-pulse"
   end
 
   defp roadmap_dot_base(item) do
-    "absolute inset-0 inline-flex rounded-full border-4 border-white shadow-[0_0_0_1px_rgba(196,181,253,0.55)] transition duration-300 " <>
+    "absolute inset-0 inline-flex rounded-full border-4 border-[color:var(--hub-bg)] shadow-[0_0_0_1px_rgba(196,181,253,0.55)] transition duration-300 " <>
       roadmap_dot_tone(item)
   end
 
-  defp roadmap_dot_tone(%{item_type: :task, status: "release"}), do: "bg-emerald-500"
-  defp roadmap_dot_tone(%{item_type: :task, status: "qa"}), do: "bg-amber-500"
-  defp roadmap_dot_tone(%{item_type: :task, status: "wip"}), do: "bg-sky-500"
-  defp roadmap_dot_tone(%{item_type: :task}), do: "bg-purple-500"
-  defp roadmap_dot_tone(%{kind: "release"}), do: "bg-emerald-500"
-  defp roadmap_dot_tone(%{kind: "deadline"}), do: "bg-rose-500"
-  defp roadmap_dot_tone(%{kind: "note"}), do: "bg-sky-500"
-  defp roadmap_dot_tone(_item), do: "bg-purple-500"
+  defp roadmap_dot_tone(%{item_type: :task, status: "release"}), do: "bg-[var(--tone-income)]"
+  defp roadmap_dot_tone(%{item_type: :task, status: "qa"}), do: "bg-[var(--tone-review)]"
+  defp roadmap_dot_tone(%{item_type: :task, status: "wip"}), do: "bg-[var(--tone-info)]"
+  defp roadmap_dot_tone(%{item_type: :task}), do: "bg-[var(--hub-accent)]"
+  defp roadmap_dot_tone(%{kind: "release"}), do: "bg-[var(--tone-income)]"
+  defp roadmap_dot_tone(%{kind: "deadline"}), do: "bg-[var(--tone-expense)]"
+  defp roadmap_dot_tone(%{kind: "note"}), do: "bg-[var(--tone-info)]"
+  defp roadmap_dot_tone(_item), do: "bg-[var(--hub-accent)]"
 
   defp roadmap_popover_class(true, true) do
-    "fx-preview absolute z-30 max-h-[36rem] translate-y-0 scale-100 overflow-hidden rounded-[1.35rem] opacity-100 pointer-events-auto shadow-[0_34px_90px_-34px_rgba(109,40,217,0.72)] ring-2 ring-purple-200/70 backdrop-blur-sm transition-all duration-300 ease-out"
+    "fx-preview absolute z-30 max-h-[36rem] translate-y-0 scale-100 overflow-hidden rounded-[1.35rem] opacity-100 pointer-events-auto shadow-[0_34px_90px_-34px_rgba(109,40,217,0.72)] ring-2 ring-[color:var(--hub-accent)]/30 backdrop-blur-sm transition-all duration-300 ease-out"
   end
 
   defp roadmap_popover_class(true, false) do
-    "fx-preview absolute z-20 max-h-[18rem] translate-y-0 scale-100 overflow-hidden rounded-[1.2rem] opacity-100 pointer-events-auto shadow-[0_26px_64px_-28px_rgba(67,56,202,0.45)] ring-1 ring-white/80 backdrop-blur-sm transition-all duration-200 ease-out"
+    "fx-preview absolute z-20 max-h-[18rem] translate-y-0 scale-100 overflow-hidden rounded-[1.2rem] opacity-100 pointer-events-auto shadow-[0_26px_64px_-28px_rgba(0,0,0,0.7)] ring-1 ring-[color:var(--hub-border)] backdrop-blur-sm transition-all duration-200 ease-out"
   end
 
   defp roadmap_popover_class(false, false) do
-    "fx-preview absolute z-20 max-h-[18rem] translate-y-0 scale-100 overflow-hidden rounded-2xl opacity-100 pointer-events-auto shadow-[0_18px_42px_-28px_rgba(109,40,217,0.4)] ring-1 ring-white/70 backdrop-blur-sm transition-all duration-300 ease-out"
+    "fx-preview absolute z-20 max-h-[18rem] translate-y-0 scale-100 overflow-hidden rounded-2xl opacity-100 pointer-events-auto shadow-[0_18px_42px_-28px_rgba(109,40,217,0.4)] ring-1 ring-[color:var(--hub-border)] backdrop-blur-sm transition-all duration-300 ease-out"
   end
 
   defp roadmap_preview_class do
@@ -2403,10 +2410,11 @@ defmodule CoreWeb.OfficeLive do
       "inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-semibold transition duration-300"
 
     if current_project && current_project.id == project.id do
-      base <> " border-purple-300 bg-purple-50 text-purple-700 shadow-sm"
+      base <>
+        " border-[color:var(--hub-accent)]/50 bg-[color:var(--hub-accent)]/12 text-[var(--hub-accent-2)] shadow-sm"
     else
       base <>
-        " border-purple-100 bg-white/90 text-slate-600 hover:border-purple-200 hover:text-slate-900"
+        " border-[color:var(--hub-border)] bg-[var(--hub-surface)] text-[var(--hub-muted)] hover:border-[color:var(--hub-border)] hover:text-[var(--hub-text)]"
     end
   end
 
@@ -2415,10 +2423,11 @@ defmodule CoreWeb.OfficeLive do
       "inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-semibold transition duration-300"
 
     if kind == selected_kind do
-      base <> " border-purple-300 bg-purple-50 text-purple-700"
+      base <>
+        " border-[color:var(--hub-accent)]/50 bg-[color:var(--hub-accent)]/12 text-[var(--hub-accent-2)]"
     else
       base <>
-        " border-purple-100 bg-white text-slate-600 hover:border-purple-200 hover:text-slate-900"
+        " border-[color:var(--hub-border)] bg-[var(--hub-surface)] text-[var(--hub-muted)] hover:border-[color:var(--hub-border)] hover:text-[var(--hub-text)]"
     end
   end
 
@@ -2471,30 +2480,35 @@ defmodule CoreWeb.OfficeLive do
   defp stage_item_height(false), do: 1.4
   defp stage_item_height(true), do: 10.75
 
-  defp stage_dot_class("queue", expanded?), do: stage_dot_base("bg-purple-500", expanded?)
-  defp stage_dot_class("wip", expanded?), do: stage_dot_base("bg-sky-500", expanded?)
-  defp stage_dot_class("qa", expanded?), do: stage_dot_base("bg-amber-500", expanded?)
-  defp stage_dot_class("release", expanded?), do: stage_dot_base("bg-emerald-500", expanded?)
-  defp stage_dot_class(_stage, expanded?), do: stage_dot_base("bg-slate-500", expanded?)
+  defp stage_dot_class("queue", expanded?),
+    do: stage_dot_base("bg-[var(--hub-accent)]", expanded?)
+
+  defp stage_dot_class("wip", expanded?), do: stage_dot_base("bg-[var(--tone-info)]", expanded?)
+  defp stage_dot_class("qa", expanded?), do: stage_dot_base("bg-[var(--tone-review)]", expanded?)
+
+  defp stage_dot_class("release", expanded?),
+    do: stage_dot_base("bg-[var(--tone-income)]", expanded?)
+
+  defp stage_dot_class(_stage, expanded?), do: stage_dot_base("bg-[var(--hub-muted)]", expanded?)
 
   defp stage_dot_base(color_class, true) do
-    "absolute left-0 top-1 inline-flex h-4 w-4 rounded-full border-4 border-white shadow-[0_0_0_1px_rgba(196,181,253,0.55)] transition duration-300 " <>
+    "absolute left-0 top-1 inline-flex h-4 w-4 rounded-full border-4 border-[color:var(--hub-bg)] shadow-[0_0_0_1px_rgba(196,181,253,0.55)] transition duration-300 " <>
       color_class <>
-      " z-20 scale-110 ring-4 ring-purple-200 shadow-[0_0_0_10px_rgba(196,181,253,0.48)]"
+      " z-20 scale-110 ring-4 ring-[color:var(--hub-accent)]/30 shadow-[0_0_0_10px_rgba(196,181,253,0.48)]"
   end
 
   defp stage_dot_base(color_class, false) do
-    "absolute left-0 top-1 inline-flex h-4 w-4 rounded-full border-4 border-white shadow-[0_0_0_1px_rgba(196,181,253,0.55)] transition duration-300 " <>
+    "absolute left-0 top-1 inline-flex h-4 w-4 rounded-full border-4 border-[color:var(--hub-bg)] shadow-[0_0_0_1px_rgba(196,181,253,0.55)] transition duration-300 " <>
       color_class <>
-      " pointer-events-none group-hover/stage:z-20 group-hover/stage:scale-110 group-hover/stage:ring-4 group-hover/stage:ring-purple-200 group-hover/stage:shadow-[0_0_0_10px_rgba(196,181,253,0.42)]"
+      " pointer-events-none group-hover/stage:z-20 group-hover/stage:scale-110 group-hover/stage:ring-4 group-hover/stage:ring-[color:var(--hub-accent)]/30 group-hover/stage:shadow-[0_0_0_10px_rgba(196,181,253,0.42)]"
   end
 
   defp stage_title_rail_class(true) do
-    "absolute left-6 right-0 top-0.5 truncate text-sm font-medium text-slate-800 transition duration-200"
+    "absolute left-6 right-0 top-0.5 truncate text-sm font-medium text-[var(--hub-text)] transition duration-200"
   end
 
   defp stage_title_rail_class(false) do
-    "absolute left-6 right-0 top-0.5 truncate text-sm font-medium text-slate-600 transition duration-200 group-hover/stage:text-slate-900"
+    "absolute left-6 right-0 top-0.5 truncate text-sm font-medium text-[var(--hub-muted)] transition duration-200 group-hover/stage:text-[var(--hub-text)]"
   end
 
   defp stage_preview_class do
@@ -2513,7 +2527,7 @@ defmodule CoreWeb.OfficeLive do
   end
 
   defp stage_popover_class do
-    "fx-preview absolute z-[60] max-h-[18rem] translate-y-0 scale-100 overflow-hidden rounded-[1.2rem] opacity-100 pointer-events-auto shadow-[0_26px_64px_-28px_rgba(67,56,202,0.45)] ring-1 ring-white/80 backdrop-blur-sm transition-all duration-200 ease-out"
+    "fx-preview absolute z-[60] max-h-[18rem] translate-y-0 scale-100 overflow-hidden rounded-[1.2rem] opacity-100 pointer-events-auto shadow-[0_26px_64px_-28px_rgba(0,0,0,0.7)] ring-1 ring-[color:var(--hub-border)] backdrop-blur-sm transition-all duration-200 ease-out"
   end
 
   defp stage_popover_style(stage) do
@@ -2535,11 +2549,11 @@ defmodule CoreWeb.OfficeLive do
   end
 
   defp stage_focus_backdrop_class(true) do
-    "pointer-events-none absolute z-30 rounded-[1.6rem] bg-white/44 opacity-100 backdrop-blur-[3px] transition duration-200 ease-out"
+    "pointer-events-none absolute z-30 rounded-[1.6rem] bg-[var(--hub-surface)] opacity-100 backdrop-blur-[3px] transition duration-200 ease-out"
   end
 
   defp stage_focus_backdrop_class(false) do
-    "pointer-events-none absolute z-30 rounded-[1.6rem] bg-white/36 opacity-0 backdrop-blur-[2.5px] transition duration-200 ease-out group-hover/stage:opacity-100"
+    "pointer-events-none absolute z-30 rounded-[1.6rem] bg-[var(--hub-surface)] opacity-0 backdrop-blur-[2.5px] transition duration-200 ease-out group-hover/stage:opacity-100"
   end
 
   defp stage_focus_backdrop_style(item, items, expanded_item_ids) do
@@ -2558,15 +2572,15 @@ defmodule CoreWeb.OfficeLive do
   end
 
   defp priority_badge_class("high") do
-    "inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-600"
+    "inline-flex items-center rounded-full border border-[color:var(--tone-expense)]/35 bg-[color:var(--tone-expense)]/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--tone-expense)]"
   end
 
   defp priority_badge_class("medium") do
-    "inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600"
+    "inline-flex items-center rounded-full border border-[color:var(--tone-review)]/35 bg-[color:var(--tone-review)]/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--tone-review)]"
   end
 
   defp priority_badge_class(_priority) do
-    "inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600"
+    "inline-flex items-center rounded-full border border-[color:var(--tone-income)]/35 bg-[color:var(--tone-income)]/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--tone-income)]"
   end
 
   defp transition_actions("queue") do

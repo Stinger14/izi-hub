@@ -1363,6 +1363,7 @@
     --tone-budget: var(--hub-secondary);
     --tone-debt: #e3b363;
     --tone-review: #e3b363;
+    --tone-info: #7cc4ee;
 
     --btn-primary-bg: linear-gradient(180deg, #7c5bd6 0%, #5b3fb0 100%);
     --btn-primary-hover: #7c5bd6;
