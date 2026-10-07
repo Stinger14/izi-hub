@@ -83,13 +83,13 @@ defmodule CoreWeb.Admin.FinOpsLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="min-h-screen bg-slate-50 text-slate-900">
-        <header class="border-b border-slate-200 bg-white/90 backdrop-blur">
+    <Layouts.app flash={@flash} current_scope={@current_scope} theme="hub">
+      <div class="min-h-screen">
+        <header class="border-b border-[color:var(--hub-border)]">
           <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
             <div>
-              <p class="text-lg font-semibold tracking-tight text-emerald-700">FinOps</p>
-              <p class="mt-1 text-xs text-slate-500">Internal finance ingestion tools for parser validation and review-queue testing.</p>
+              <p class="font-display text-lg text-[var(--hub-accent-2)]">FinOps</p>
+              <p class="mt-1 text-xs text-[var(--hub-muted)]">Internal finance ingestion tools for parser validation and review-queue testing.</p>
             </div>
             <div class="flex items-center gap-3">
               <a href={~p"/admin"} class="btn btn-secondary btn-sm">Back to dashboard</a>
@@ -98,11 +98,11 @@ defmodule CoreWeb.Admin.FinOpsLive do
         </header>
 
         <main class="mx-auto grid max-w-7xl gap-6 px-6 py-10 lg:grid-cols-[1.45fr_0.75fr]">
-          <section class="rounded-lg border border-violet-100 bg-white p-6 shadow-sm">
+          <section class="hub-glass rounded-lg p-6">
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 class="text-xl font-semibold text-slate-950">Sample email ingestion</h1>
-                <p class="mt-1 text-sm text-slate-500">Submit a bank-style email payload to create a pending-review transaction.</p>
+                <h1 class="text-xl font-semibold text-[var(--hub-text)]">Sample email ingestion</h1>
+                <p class="mt-1 text-sm text-[var(--hub-muted)]">Submit a bank-style email payload to create a pending-review transaction.</p>
               </div>
               <div class="flex gap-2">
                 <button type="button" phx-click="load_preset" phx-value-preset="expense" class="btn btn-secondary btn-xs">
@@ -127,11 +127,11 @@ defmodule CoreWeb.Admin.FinOpsLive do
                 </div>
 
                 <div class="finops-compose-panel finops-body-panel">
-                  <.finops_textarea form={@form} field={:text_body} label="Text body" placeholder="Card purchase alert&#10;Merchant: Cafe Central&#10;Amount: USD 54.25" rows="13" required />
+                  <.finops_textarea form={@form} field={:text_body} label="Text body" placeholder={"Card purchase alert\nMerchant: Cafe Central\nAmount: USD 54.25"} rows="13" required />
                 </div>
               </div>
 
-              <div :if={@form_error} class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              <div :if={@form_error} class={["rounded-lg border border-[color:var(--tone-expense)]/30 px-3 py-2 text-sm", CoreWeb.FinanceComponents.tone_class("expense", :soft)]}>
                 <%= @form_error %>
               </div>
 
@@ -142,22 +142,22 @@ defmodule CoreWeb.Admin.FinOpsLive do
           </section>
 
           <section class="space-y-6">
-            <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 class="text-lg font-semibold text-slate-950">What this does</h2>
-              <div class="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+            <div class="hub-glass rounded-lg p-6">
+              <h2 class="text-lg font-semibold text-[var(--hub-text)]">What this does</h2>
+              <div class="mt-4 space-y-3 text-sm leading-6 text-[var(--hub-muted)]">
                 <p>The payload is sent through the finance email parser and only creates `pending_review` transactions.</p>
                 <p>Confirmed ledger metrics, budgets, and health do not change until the pending item is reviewed in Finance.</p>
                 <p>Duplicate `message_id` values are deduped through the transaction `external_id` field.</p>
               </div>
             </div>
 
-            <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 class="text-lg font-semibold text-slate-950">Last result</h2>
+            <div class="hub-glass rounded-lg p-6">
+              <h2 class="text-lg font-semibold text-[var(--hub-text)]">Last result</h2>
               <div class="mt-4">
                 <%= case @result do %>
                   <% %{status: :created, transaction: transaction, target_user: user} -> %>
                     <div class="space-y-3">
-                      <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                      <div class={["rounded-lg border border-[color:var(--tone-income)]/30 px-3 py-2 text-sm", CoreWeb.FinanceComponents.tone_class("income", :soft)]}>
                         Created pending review transaction for <%= user.email %>.
                       </div>
                       <div class="space-y-2 text-sm">
@@ -171,17 +171,17 @@ defmodule CoreWeb.Admin.FinOpsLive do
                     </div>
 
                   <% %{status: :duplicate, target_user: user} -> %>
-                    <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    <div class={["rounded-lg border border-[color:var(--tone-review)]/30 px-3 py-2 text-sm", CoreWeb.FinanceComponents.tone_class("review", :soft)]}>
                       Duplicate message ignored for <%= user.email %>.
                     </div>
 
                   <% %{status: :error, reason: reason, target_user: user} -> %>
-                    <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                    <div class={["rounded-lg border border-[color:var(--tone-expense)]/30 px-3 py-2 text-sm", CoreWeb.FinanceComponents.tone_class("expense", :soft)]}>
                       Ingestion failed for <%= user.email %>: <%= format_reason(reason) %>
                     </div>
 
                   <% _ -> %>
-                    <p class="text-sm text-slate-500">No ingestion attempts yet.</p>
+                    <p class="text-sm text-[var(--hub-muted)]">No ingestion attempts yet.</p>
                 <% end %>
               </div>
             </div>
@@ -256,9 +256,9 @@ defmodule CoreWeb.Admin.FinOpsLive do
 
   defp result_row(assigns) do
     ~H"""
-    <div class="flex items-center justify-between gap-4 border-b border-slate-100 py-2 last:border-b-0">
-      <span class="text-slate-500"><%= @label %></span>
-      <span class="font-semibold text-slate-900"><%= @value %></span>
+    <div class="flex items-center justify-between gap-4 border-b border-[color:var(--hub-border)] py-2 last:border-b-0">
+      <span class="text-[var(--hub-muted)]"><%= @label %></span>
+      <span class="font-semibold text-[var(--hub-text)]"><%= @value %></span>
     </div>
     """
   end

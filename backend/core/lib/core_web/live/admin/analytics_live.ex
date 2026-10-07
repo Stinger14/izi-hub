@@ -31,13 +31,13 @@ defmodule CoreWeb.Admin.AnalyticsLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="min-h-screen bg-purple-50 text-slate-900">
-        <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
+    <Layouts.app flash={@flash} current_scope={@current_scope} theme="hub">
+      <div class="min-h-screen">
+        <header class="border-b border-[color:var(--hub-border)]">
           <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
             <div>
-              <p class="text-lg font-semibold tracking-tight text-purple-500">Analytics</p>
-              <p class="mt-1 text-xs text-slate-500">
+              <p class="font-display text-lg text-[var(--hub-accent-2)]">Analytics</p>
+              <p class="mt-1 text-xs text-[var(--hub-muted)]">
                 Anonymous visitor activity sourced from tracked page-view records.
               </p>
             </div>
@@ -52,76 +52,76 @@ defmodule CoreWeb.Admin.AnalyticsLive do
 
         <main class="mx-auto max-w-6xl px-6 py-10">
           <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div class="rounded-2xl border border-purple-100 bg-white/80 p-5 shadow-sm">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Events (30d)</p>
+            <div class="hub-glass rounded-2xl p-5">
+              <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Events (30d)</p>
               <p class="mt-3 text-3xl font-semibold"><%= @page_views_30d %></p>
-              <p class="mt-1 text-xs text-slate-500">Tracked page-view records</p>
+              <p class="mt-1 text-xs text-[var(--hub-muted)]">Tracked page-view records</p>
             </div>
 
-            <div class="rounded-2xl border border-purple-100 bg-white/80 p-5 shadow-sm">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Unique Visitors (30d)</p>
+            <div class="hub-glass rounded-2xl p-5">
+              <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Unique Visitors (30d)</p>
               <p class="mt-3 text-3xl font-semibold"><%= @unique_sessions_30d %></p>
-              <p class="mt-1 text-xs text-slate-500">Distinct anonymous session IDs</p>
+              <p class="mt-1 text-xs text-[var(--hub-muted)]">Distinct anonymous session IDs</p>
             </div>
 
-            <div class="rounded-2xl border border-purple-100 bg-white/80 p-5 shadow-sm">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Online Now</p>
+            <div class="hub-glass rounded-2xl p-5">
+              <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Online Now</p>
               <p class="mt-3 text-3xl font-semibold"><%= @online_now %></p>
-              <p class="mt-1 text-xs text-slate-500">LiveView presence connections</p>
+              <p class="mt-1 text-xs text-[var(--hub-muted)]">LiveView presence connections</p>
             </div>
 
-            <div class="rounded-2xl border border-purple-100 bg-white/80 p-5 shadow-sm">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Last Event</p>
-              <p class="mt-3 text-sm font-semibold text-slate-900"><%= format_datetime(@last_seen_at) %></p>
-              <p class="mt-1 text-xs text-slate-500">Most recent tracked page view</p>
+            <div class="hub-glass rounded-2xl p-5">
+              <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Last Event</p>
+              <p class="mt-3 text-sm font-semibold text-[var(--hub-text)]"><%= format_datetime(@last_seen_at) %></p>
+              <p class="mt-1 text-xs text-[var(--hub-muted)]">Most recent tracked page view</p>
             </div>
           </section>
 
           <section class="mt-8 grid gap-4 lg:grid-cols-3">
-            <div class="rounded-2xl border border-purple-100 bg-white/80 p-5 shadow-sm">
+            <div class="hub-glass rounded-2xl p-5">
               <h2 class="text-lg font-semibold">Top pages (30d)</h2>
               <%= if @top_pages == [] do %>
-                <p class="mt-4 text-sm text-slate-500">No page-view data yet.</p>
+                <p class="mt-4 text-sm text-[var(--hub-muted)]">No page-view data yet.</p>
               <% else %>
                 <ul class="mt-4 space-y-2">
                   <%= for page <- @top_pages do %>
-                    <li class="flex items-center justify-between rounded-xl border border-purple-100 bg-white px-3 py-2">
-                      <span class="truncate pr-2 text-sm text-slate-700"><%= page.page_path %></span>
-                      <span class="text-sm font-semibold text-slate-900"><%= page.views %></span>
+                    <li class="flex items-center justify-between rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2">
+                      <span class="truncate pr-2 text-sm text-[var(--hub-text)]"><%= page.page_path %></span>
+                      <span class="text-sm font-semibold text-[var(--hub-text)]"><%= page.views %></span>
                     </li>
                   <% end %>
                 </ul>
               <% end %>
             </div>
 
-            <div class="rounded-2xl border border-purple-100 bg-white/80 p-5 shadow-sm">
+            <div class="hub-glass rounded-2xl p-5">
               <h2 class="text-lg font-semibold">Devices (30d)</h2>
               <%= if @devices == [] do %>
-                <p class="mt-4 text-sm text-slate-500">No device data yet.</p>
+                <p class="mt-4 text-sm text-[var(--hub-muted)]">No device data yet.</p>
               <% else %>
                 <ul class="mt-4 space-y-2">
                   <%= for device <- @devices do %>
-                    <li class="flex items-center justify-between rounded-xl border border-purple-100 bg-white px-3 py-2">
-                      <span class="text-sm capitalize text-slate-700"><%= device.device_type || "unknown" %></span>
-                      <span class="text-sm font-semibold text-slate-900"><%= device.count %></span>
+                    <li class="flex items-center justify-between rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2">
+                      <span class="text-sm capitalize text-[var(--hub-text)]"><%= device.device_type || "unknown" %></span>
+                      <span class="text-sm font-semibold text-[var(--hub-text)]"><%= device.count %></span>
                     </li>
                   <% end %>
                 </ul>
               <% end %>
             </div>
 
-            <div class="rounded-2xl border border-purple-100 bg-white/80 p-5 shadow-sm">
+            <div class="hub-glass rounded-2xl p-5">
               <h2 class="text-lg font-semibold">Locations (30d)</h2>
               <%= if @locations == [] do %>
-                <p class="mt-4 text-sm text-slate-500">No location data yet.</p>
+                <p class="mt-4 text-sm text-[var(--hub-muted)]">No location data yet.</p>
               <% else %>
                 <ul class="mt-4 space-y-2">
                   <%= for location <- @locations do %>
-                    <li class="flex items-center justify-between rounded-xl border border-purple-100 bg-white px-3 py-2">
-                      <span class="truncate pr-2 text-sm text-slate-700">
+                    <li class="flex items-center justify-between rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2">
+                      <span class="truncate pr-2 text-sm text-[var(--hub-text)]">
                         <%= format_location(location.city, location.country) %>
                       </span>
-                      <span class="text-sm font-semibold text-slate-900"><%= location.count %></span>
+                      <span class="text-sm font-semibold text-[var(--hub-text)]"><%= location.count %></span>
                     </li>
                   <% end %>
                 </ul>
@@ -129,24 +129,24 @@ defmodule CoreWeb.Admin.AnalyticsLive do
             </div>
           </section>
 
-          <section class="mt-8 rounded-2xl border border-purple-100 bg-white/80 p-5 shadow-sm">
+          <section class="hub-glass mt-8 rounded-2xl p-5">
             <div class="flex items-center justify-between gap-3">
               <div>
                 <h2 class="text-lg font-semibold">Recent visitor activity</h2>
-                <p class="mt-1 text-xs text-slate-500">
+                <p class="mt-1 text-xs text-[var(--hub-muted)]">
                   Display labels are stable anonymous aliases derived from the session ID.
                 </p>
               </div>
-              <p class="text-xs text-slate-500">Last refresh: <%= format_datetime(@last_refreshed_at) %></p>
+              <p class="text-xs text-[var(--hub-muted)]">Last refresh: <%= format_datetime(@last_refreshed_at) %></p>
             </div>
 
             <%= if @recent_page_views == [] do %>
-              <p class="mt-4 text-sm text-slate-500">No tracked page-view activity yet.</p>
+              <p class="mt-4 text-sm text-[var(--hub-muted)]">No tracked page-view activity yet.</p>
             <% else %>
               <div class="mt-4 overflow-x-auto">
-                <table class="min-w-full divide-y divide-purple-100 text-left text-sm">
+                <table class="min-w-full divide-y divide-[color:var(--hub-border)] text-left text-sm">
                   <thead>
-                    <tr class="text-xs uppercase tracking-wide text-slate-500">
+                    <tr class="text-xs uppercase tracking-wide text-[var(--hub-muted)]">
                       <th class="px-3 py-2 font-medium">Visitor</th>
                       <th class="px-3 py-2 font-medium">Page</th>
                       <th class="px-3 py-2 font-medium">Context</th>
@@ -154,21 +154,21 @@ defmodule CoreWeb.Admin.AnalyticsLive do
                       <th class="px-3 py-2 font-medium">Seen</th>
                     </tr>
                   </thead>
-                  <tbody class="divide-y divide-purple-50">
+                  <tbody class="divide-y divide-[color:var(--hub-border)]">
                     <%= for page_view <- @recent_page_views do %>
                       <tr>
                         <td class="px-3 py-3 align-top">
-                          <p class="font-medium text-slate-900"><%= visitor_label(page_view.session_id) %></p>
-                          <p class="mt-1 text-xs text-slate-500">
+                          <p class="font-medium text-[var(--hub-text)]"><%= visitor_label(page_view.session_id) %></p>
+                          <p class="mt-1 text-xs text-[var(--hub-muted)]">
                             <%= format_location(page_view.city, page_view.country) %>
                           </p>
                         </td>
-                        <td class="px-3 py-3 align-top text-slate-700"><%= page_view.page_path %></td>
-                        <td class="px-3 py-3 align-top text-slate-700">
+                        <td class="px-3 py-3 align-top text-[var(--hub-text)]"><%= page_view.page_path %></td>
+                        <td class="px-3 py-3 align-top text-[var(--hub-text)]">
                           <%= format_context(page_view.browser, page_view.os, page_view.device_type) %>
                         </td>
-                        <td class="px-3 py-3 align-top text-slate-700"><%= format_referrer(page_view.referrer) %></td>
-                        <td class="px-3 py-3 align-top text-slate-700"><%= format_datetime(page_view.inserted_at) %></td>
+                        <td class="px-3 py-3 align-top text-[var(--hub-text)]"><%= format_referrer(page_view.referrer) %></td>
+                        <td class="px-3 py-3 align-top text-[var(--hub-text)]"><%= format_datetime(page_view.inserted_at) %></td>
                       </tr>
                     <% end %>
                   </tbody>

@@ -1625,6 +1625,133 @@
     outline-color: var(--hub-accent-hi);
 }
 
+/* Admin dashboard console: light lavender panel + white action pills and
+   hover previews in the base theme; dark glass with violet accents here. */
+.hub-shell .admin-console {
+    border-color: var(--hub-border);
+    background: rgba(23, 22, 28, 0.62);
+    color: var(--hub-text);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    backdrop-filter: blur(16px) saturate(140%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        inset 0 0 96px rgba(221, 214, 254, 0.05),
+        0 24px 48px -28px rgba(0, 0, 0, 0.8);
+}
+
+.hub-shell .admin-console-status,
+.hub-shell .admin-console-preview-kicker {
+    color: var(--hub-accent-2);
+}
+
+.hub-shell .admin-console-dot {
+    background: var(--hub-accent);
+}
+
+.hub-shell .admin-console-action,
+.hub-shell .admin-console-preview-action {
+    border-color: var(--hub-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--hub-text);
+}
+
+.hub-shell .admin-console-action:hover,
+.hub-shell .admin-console-action:focus-visible,
+.hub-shell .admin-console-preview-action:hover,
+.hub-shell .admin-console-preview-action:focus-visible {
+    border-color: rgba(167, 139, 250, 0.5);
+    background: rgba(139, 92, 246, 0.2);
+    color: #ffffff;
+    box-shadow: 0 0 14px -2px rgba(139, 92, 246, 0.45);
+}
+
+.hub-shell .admin-console-action:focus-visible,
+.hub-shell .admin-console-preview-action:focus-visible {
+    outline-color: var(--hub-accent-hi);
+}
+
+.hub-shell .admin-console-preview {
+    border-color: rgba(196, 181, 253, 0.25);
+    background: linear-gradient(180deg, rgba(36, 30, 56, 0.97), rgba(23, 22, 28, 0.97));
+    color: var(--hub-text);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        0 24px 42px -24px rgba(0, 0, 0, 0.85);
+}
+
+.hub-shell .admin-console-item:hover .admin-console-preview,
+.hub-shell .admin-console-item:focus-within .admin-console-preview {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 24px 46px -22px rgba(139, 92, 246, 0.45);
+}
+
+.hub-shell .admin-console-preview::after {
+    background: rgba(139, 92, 246, 0.18);
+}
+
+.hub-shell .admin-console-preview-title {
+    color: var(--hub-text);
+}
+
+/* Admin FinOps compose form: light panels and glowing fields in the base
+   theme. On glass the valid/invalid glows go through the income/expense
+   tones so they match tone_class/2. */
+.hub-shell .finops-compose-panel {
+    border-color: var(--hub-border);
+    background: rgba(255, 255, 255, 0.025);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.hub-shell .finops-body-panel {
+    background: transparent;
+}
+
+.hub-shell .finops-glow-label {
+    color: var(--hub-muted);
+}
+
+.hub-shell .finops-glow-label-icon {
+    color: var(--hub-secondary);
+}
+
+.hub-shell .finops-glow-control,
+.hub-shell .finops-glow-control:placeholder-shown,
+.hub-shell .finops-glow-control:not(:required):placeholder-shown {
+    border-color: var(--hub-border);
+    background: var(--hub-surface);
+    color: var(--hub-text);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.hub-shell .finops-glow-control::placeholder {
+    color: var(--hub-muted);
+}
+
+.hub-shell .finops-glow-control:focus {
+    border-color: var(--hub-accent);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+}
+
+.hub-shell .finops-glow-control:required:valid,
+.hub-shell .finops-glow-control:not(:required):not(:placeholder-shown):valid {
+    border-color: color-mix(in srgb, var(--tone-income) 60%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone-income) 16%, transparent);
+}
+
+.hub-shell .finops-glow-control:required:invalid {
+    border-color: color-mix(in srgb, var(--tone-expense) 60%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone-expense) 16%, transparent);
+}
+
+/* Untouched (empty) fields stay neutral rather than glowing invalid,
+   mirroring the base theme's rule order. */
+.hub-shell .finops-glow-control:required:placeholder-shown,
+.hub-shell .finops-glow-control:not(:required):placeholder-shown {
+    border-color: var(--hub-border);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 /* fx-stamp hardcodes a light-theme ink color; keep it readable on glass. */
 .hub-shell .fx-stamp {
     color: var(--hub-accent-2);
