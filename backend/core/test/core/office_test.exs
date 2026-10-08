@@ -165,6 +165,163 @@ defmodule Core.OfficeTest do
     assert updated_entry.kind == "deadline"
   end
 
+  describe "live updates" do
+    test "successful writes broadcast on the user's topic" do
+      user = user_fixture()
+      project = Office.default_project_for_user(user)
+      :ok = Office.subscribe(user)
+      user_id = user.id
+
+      {:ok, task} =
+        elsewhere(fn -> Office.create_work_item(user, project, %{"title" => "Broadcast me"}) end)
+
+      assert_receive {:office_changed, ^user_id}
+
+      {:ok, _} = elsewhere(fn -> Office.transition_work_item(task, "wip", user) end)
+      assert_receive {:office_changed, ^user_id}
+    end
+
+    test "the process that made the change does not get its own echo" do
+      user = user_fixture()
+      :ok = Office.subscribe(user)
+
+      {:ok, _} =
+        Office.create_work_item(user, Office.default_project_for_user(user), %{"title" => "Mine"})
+
+      refute_receive {:office_changed, _}
+    end
+
+    test "failed writes do not broadcast" do
+      user = user_fixture()
+      project = Office.default_project_for_user(user)
+      :ok = Office.subscribe(user)
+
+      assert {:error, _} =
+               elsewhere(fn -> Office.create_work_item(user, project, %{"title" => ""}) end)
+
+      refute_receive {:office_changed, _}
+    end
+
+    test "other users' changes are not received" do
+      me = user_fixture()
+      other = user_fixture()
+      :ok = Office.subscribe(me)
+
+      {:ok, _} =
+        Office.create_work_item(other, Office.default_project_for_user(other), %{
+          "title" => "Theirs"
+        })
+
+      refute_receive {:office_changed, _}
+    end
+  end
+
+  describe "cross-project views" do
+    setup do
+      user = user_fixture()
+      default = Office.default_project_for_user(user)
+      {:ok, side} = Office.create_project(user, %{"name" => "Side project"})
+      %{user: user, default: default, side: side, today: ~D[2026-10-08]}
+    end
+
+    test "focus_tasks groups open tasks across projects by effective date", ctx do
+      %{user: user, default: default, side: side, today: today} = ctx
+
+      {:ok, _} =
+        Office.create_work_item(user, default, %{
+          "title" => "Late",
+          "scheduled_for" => "2026-10-01"
+        })
+
+      {:ok, _} =
+        Office.create_work_item(user, side, %{"title" => "Now", "scheduled_for" => "2026-10-08"})
+
+      {:ok, _} =
+        Office.create_work_item(user, default, %{
+          "title" => "Due today",
+          "scheduled_for" => "2026-10-02",
+          "due_at" => "2026-10-08T17:00"
+        })
+
+      {:ok, _} =
+        Office.create_work_item(user, side, %{"title" => "Later", "scheduled_for" => "2026-10-20"})
+
+      {:ok, _} = Office.create_work_item(user, default, %{"title" => "Someday"})
+
+      {:ok, done} =
+        Office.create_work_item(user, default, %{
+          "title" => "Shipped",
+          "scheduled_for" => "2026-10-08"
+        })
+
+      done = release!(done, user)
+      assert done.status == "release"
+
+      focus = Office.focus_tasks(user, today)
+
+      assert titles(focus.overdue) == ["Late"]
+      assert Enum.sort(titles(focus.today)) == ["Due today", "Now"]
+      assert titles(focus.up_next) == ["Later", "Someday"]
+      assert focus.open_count == 5
+      assert Enum.any?(focus.today, &(&1.task.project.name == "Side project"))
+    end
+
+    test "archived projects are excluded everywhere", %{user: user, side: side, today: today} do
+      {:ok, _} =
+        Office.create_work_item(user, side, %{
+          "title" => "Hidden",
+          "scheduled_for" => "2026-10-08"
+        })
+
+      {:ok, _} = Office.archive_project(user, side)
+
+      assert Office.focus_tasks(user, today).open_count == 0
+      assert Office.calendar_counts_for_user(user, ~D[2026-10-01], ~D[2026-10-31]) == %{}
+      assert Office.agenda_for_day(user, today) == %{tasks: [], entries: []}
+    end
+
+    test "calendar counts and the day agenda agree", %{user: user, default: default, side: side} do
+      {:ok, _} =
+        Office.create_work_item(user, default, %{"title" => "A", "scheduled_for" => "2026-10-08"})
+
+      {:ok, _} =
+        Office.create_work_item(user, side, %{"title" => "B", "scheduled_for" => "2026-10-08"})
+
+      {:ok, _} =
+        Office.create_timeline_entry(user, side, %{
+          "title" => "Review",
+          "kind" => "deadline",
+          "starts_at" => "2026-10-08T15:00"
+        })
+
+      counts = Office.calendar_counts_for_user(user, ~D[2026-10-01], ~D[2026-10-31])
+      assert counts[~D[2026-10-08]] == %{task_count: 2, event_count: 1, total_count: 3}
+
+      agenda = Office.agenda_for_day(user, ~D[2026-10-08])
+      assert Enum.sort(Enum.map(agenda.tasks, & &1.title)) == ["A", "B"]
+      assert Enum.map(agenda.entries, & &1.title) == ["Review"]
+    end
+
+    test "next_status follows the forward path" do
+      assert Office.next_status("queue") == "wip"
+      assert Office.next_status("wip") == "qa"
+      assert Office.next_status("qa") == "release"
+      assert Office.next_status("release") == nil
+    end
+  end
+
+  # Run a write in another process, like a different LiveView would.
+  defp elsewhere(fun), do: fun |> Task.async() |> Task.await()
+
+  defp titles(group), do: Enum.map(group, & &1.task.title)
+
+  defp release!(task, user) do
+    Enum.reduce(["wip", "qa", "release"], task, fn status, acc ->
+      {:ok, updated} = Office.transition_work_item(acc, status, user)
+      updated
+    end)
+  end
+
   defp user_fixture do
     unique = System.unique_integer([:positive])
 
