@@ -88,11 +88,9 @@ defmodule CoreWeb.ContributionsLive do
                         <a href={account.repo_url} class="btn btn-ghost btn-xs">Profile</a>
                       </div>
 
-                      <div class="mt-4 overflow-x-auto rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] p-3">
-                        <%= if account.contributions_svg do %>
-                          <div class="min-w-[720px] text-[var(--hub-text)]">
-                            <%= Phoenix.HTML.raw(account.contributions_svg) %>
-                          </div>
+                      <div class="mt-4 rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] p-3">
+                        <%= if account.contributions do %>
+                          <.contribution_grid calendar={account.contributions} />
                         <% else %>
                           <p class="text-sm text-[var(--hub-muted)]">Contribution map unavailable.</p>
                         <% end %>
@@ -242,6 +240,50 @@ defmodule CoreWeb.ContributionsLive do
 
   defp category_label(:open_source), do: "Open source"
   defp category_label(_category), do: "Personal"
+
+  attr :calendar, :map, required: true
+
+  @doc false
+  def contribution_grid(assigns) do
+    ~H"""
+    <div>
+      <p class="text-xs text-[var(--hub-muted)]">
+        <%= @calendar.total %> contributions in the last year
+      </p>
+      <div class="mt-3 overflow-x-auto pb-1">
+        <div class="grid w-max grid-flow-col grid-rows-7 gap-[3px]">
+          <%= for {week, idx} <- Enum.with_index(@calendar.weeks) do %>
+            <%!-- the first week can start mid-week: pad so it lines up on the right weekday row --%>
+            <span :for={_ <- leading_pad(week, idx)} class="h-[11px] w-[11px]"></span>
+            <span
+              :for={day <- week}
+              title={contribution_title(day)}
+              class={["h-[11px] w-[11px] rounded-[3px]", contribution_level_class(day.level)]}
+            >
+            </span>
+          <% end %>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp leading_pad([%{weekday: weekday} | _], 0), do: List.duplicate(nil, weekday)
+  defp leading_pad(_week, _idx), do: []
+
+  defp contribution_title(%{count: 1, date: date}),
+    do: "1 contribution on #{Calendar.strftime(date, "%b %-d, %Y")}"
+
+  defp contribution_title(%{count: count, date: date}),
+    do: "#{count} contributions on #{Calendar.strftime(date, "%b %-d, %Y")}"
+
+  defp contribution_level_class(0),
+    do: "bg-[var(--hub-surface)] ring-1 ring-inset ring-[color:var(--hub-border)]"
+
+  defp contribution_level_class(1), do: "bg-[color:var(--hub-accent)]/30"
+  defp contribution_level_class(2), do: "bg-[color:var(--hub-accent)]/55"
+  defp contribution_level_class(3), do: "bg-[color:var(--hub-accent)]/80"
+  defp contribution_level_class(_), do: "bg-[var(--hub-accent-2)]"
 
   defp category_badge_class(:open_source) do
     [
