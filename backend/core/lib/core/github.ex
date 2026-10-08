@@ -23,6 +23,23 @@ defmodule Core.GitHub do
   }
   """
 
+  @developer_stats_query """
+  query($login: String!) {
+    user(login: $login) {
+      login
+      repositories(privacy: PUBLIC, ownerAffiliations: OWNER) { totalCount }
+      contributionsCollection {
+        contributionCalendar {
+          totalContributions
+          weeks {
+            contributionDays { date contributionCount contributionLevel weekday }
+          }
+        }
+      }
+    }
+  }
+  """
+
   def fetch_accounts do
     Enum.map(@users, &fetch_account/1)
   end
@@ -118,50 +135,96 @@ defmodule Core.GitHub do
 
   defp fetch_contribution_calendar(username) do
     fetch_cache({:contributions, username}, fn ->
-      case github_token() do
-        "" ->
-          Logger.warning("GitHub contribution calendar skipped: no GITHUB_TOKEN configured")
-          nil
-
-        _token ->
-          @graphql_url
-          |> Req.post(
-            headers: github_headers(),
-            json: %{query: @calendar_query, variables: %{login: username}}
-          )
-          |> case do
-            {:ok, %{status: 200, body: body}} ->
-              case parse_contribution_calendar(body) do
-                {:ok, calendar} ->
-                  calendar
-
-                {:error, reason} ->
-                  Logger.warning(
-                    "GitHub contribution calendar for #{username} failed: #{inspect(reason)}"
-                  )
-
-                  nil
-              end
-
-            {:ok, %{status: status, body: body}} ->
-              message = if is_map(body), do: body["message"]
-
-              Logger.warning(
-                "GitHub contribution calendar for #{username} returned HTTP #{status}" <>
-                  if(message, do: ": #{message}", else: "")
-              )
-
-              nil
-
-            {:error, reason} ->
-              Logger.warning(
-                "GitHub contribution calendar for #{username} errored: #{inspect(reason)}"
-              )
-
-              nil
-          end
+      case graphql(
+             "contribution calendar",
+             username,
+             @calendar_query,
+             &parse_contribution_calendar/1
+           ) do
+        {:ok, calendar} -> calendar
+        {:error, _reason} -> nil
       end
     end)
+  end
+
+  @doc """
+  Public stats for the hub's Developer card: public repo count, contributions
+  in the last year and the last day with a contribution. Returns
+  `{:error, :not_found}` for an unknown login, so the card can say so, and
+  `{:error, :unavailable}` for anything else (already logged).
+  """
+  def developer_stats(login) when is_binary(login) do
+    fetch_cache({:developer_stats, String.downcase(login)}, fn ->
+      case graphql("developer stats", login, @developer_stats_query, &parse_developer_stats/1) do
+        {:ok, stats} -> {:ok, stats}
+        {:error, :user_not_found} -> {:error, :not_found}
+        {:error, _reason} -> {:error, :unavailable}
+      end
+    end)
+  end
+
+  @doc false
+  def parse_developer_stats(%{"data" => %{"user" => %{} = user}} = body) do
+    with {:ok, calendar} <- parse_contribution_calendar(body) do
+      last_active_on =
+        calendar.weeks
+        |> List.flatten()
+        |> Enum.filter(&(&1.count > 0))
+        |> Enum.map(& &1.date)
+        |> Enum.max(Date, fn -> nil end)
+
+      {:ok,
+       %{
+         login: user["login"],
+         public_repos: get_in(user, ["repositories", "totalCount"]) || 0,
+         contributions_last_year: calendar.total,
+         last_active_on: last_active_on
+       }}
+    end
+  end
+
+  def parse_developer_stats(%{"errors" => errors} = body) do
+    if Enum.any?(errors, &(&1["type"] == "NOT_FOUND")),
+      do: {:error, :user_not_found},
+      else: parse_contribution_calendar(body)
+  end
+
+  def parse_developer_stats(body), do: parse_contribution_calendar(body)
+
+  # Shared GraphQL POST: returns {:ok, parsed} or {:error, reason}, logging
+  # every failure (missing token, HTTP status with GitHub's message, GraphQL
+  # errors) so a broken token never fails silently.
+  defp graphql(label, login, query, parser) do
+    case github_token() do
+      "" ->
+        Logger.warning("GitHub #{label} skipped: no GITHUB_TOKEN configured")
+        {:error, :no_token}
+
+      _token ->
+        @graphql_url
+        |> Req.post(headers: github_headers(), json: %{query: query, variables: %{login: login}})
+        |> case do
+          {:ok, %{status: 200, body: body}} ->
+            with {:error, reason} = error <- parser.(body) do
+              Logger.warning("GitHub #{label} for #{login} failed: #{inspect(reason)}")
+              error
+            end
+
+          {:ok, %{status: status, body: body}} ->
+            message = if is_map(body), do: body["message"]
+
+            Logger.warning(
+              "GitHub #{label} for #{login} returned HTTP #{status}" <>
+                if(message, do: ": #{message}", else: "")
+            )
+
+            {:error, {:http_error, status}}
+
+          {:error, reason} ->
+            Logger.warning("GitHub #{label} for #{login} errored: #{inspect(reason)}")
+            {:error, reason}
+        end
+    end
   end
 
   defp format_event(event) do
