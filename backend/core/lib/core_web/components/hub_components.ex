@@ -351,26 +351,120 @@ defmodule CoreWeb.HubComponents do
     end
   end
 
+  attr :current_scope, :any, default: nil
+  attr :focus, :map, default: nil
+  attr :form, :any, default: nil
+  attr :selected_date, :any, default: nil
+
   def tasks_panel(assigns) do
     ~H"""
     <.hub_card id="tasks" kicker="Focus" title="Tasks" icon="hero-check" class="h-full sm:p-6">
-      <div class="flex items-center gap-3 rounded-xl border border-dashed border-[color:var(--hub-border)] px-4 py-6">
-        <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--hub-surface)] text-[var(--hub-secondary)]">
-          <.icon name="hero-plus" class="h-4 w-4" />
+      <:actions>
+        <span
+          :if={@focus}
+          class="rounded-full border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-2.5 py-1 text-xs text-[var(--hub-muted)]"
+        >
+          <%= @focus.open_count %> open
         </span>
-        <div>
-          <p class="text-sm font-semibold text-[var(--hub-text)]">No tasks yet</p>
-          <p class="mt-0.5 text-xs text-[var(--hub-muted)]">Your tasks will appear here.</p>
-        </div>
-      </div>
+      </:actions>
+
+      <%= if is_nil(@current_scope) do %>
+        <.card_empty_state message="Sign in to see your IziOffice tasks." href={~p"/login"} action="Sign in" />
+      <% else %>
+        <.form for={@form} id="quick-add-task" phx-submit="quick_add_task" class="flex gap-2">
+          <input
+            type="text"
+            name={@form[:title].name}
+            value={@form[:title].value}
+            placeholder={"Add a task for #{task_day_label(@selected_date)}…"}
+            aria-label="New task title"
+            autocomplete="off"
+            maxlength="140"
+            class="min-w-0 flex-1 rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] placeholder:text-[var(--hub-muted)] focus:border-[color:var(--hub-accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
+          />
+          <button type="submit" class="btn btn-primary btn-sm">Add</button>
+        </.form>
+        <p :for={{msg, _} <- @form[:title].errors} class={["mt-2 text-xs", tone_class("expense", :text)]}>
+          Title <%= msg %>
+        </p>
+
+        <%= if @focus.open_count == 0 do %>
+          <.card_empty_state message="Nothing open. Add a task above or plan your week in IziOffice." />
+        <% else %>
+          <div class="mt-4 space-y-4">
+            <.task_group :if={@focus.overdue != []} label="Overdue" tone="expense" tasks={@focus.overdue} />
+            <.task_group :if={@focus.today != []} label="Today" tone="income" tasks={@focus.today} />
+            <.task_group :if={@focus.up_next != []} label="Up next" tone="muted" tasks={@focus.up_next} />
+          </div>
+        <% end %>
+
+        <a
+          href={~p"/office"}
+          class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)]"
+        >
+          Open IziOffice <.icon name="hero-arrow-right" class="h-4 w-4" />
+        </a>
+      <% end %>
     </.hub_card>
     """
   end
+
+  attr :label, :string, required: true
+  attr :tone, :string, required: true
+  attr :tasks, :list, required: true
+
+  defp task_group(assigns) do
+    ~H"""
+    <section>
+      <p class={["text-[10px] font-semibold uppercase tracking-[0.16em]", tone_class(@tone, :text)]}>
+        <%= @label %>
+      </p>
+      <ul class="mt-2 divide-y divide-[color:var(--hub-border)] rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)]">
+        <li :for={%{task: task, date: date} <- @tasks} id={"focus-task-#{task.id}"} class="flex items-center gap-3 px-3 py-2.5">
+          <span class={["h-2.5 w-2.5 shrink-0 rounded-full", stage_dot_class(task.status)]} title={stage_label(task.status)}></span>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-medium text-[var(--hub-text)]"><%= task.title %></p>
+            <p class="truncate text-[11px] text-[var(--hub-muted)]">
+              <%= task.project.name %><%= if date, do: " · #{Calendar.strftime(date, "%b %-d")}" %> · <%= stage_label(task.status) %>
+            </p>
+          </div>
+          <button
+            :if={next = Core.Office.next_status(task.status)}
+            type="button"
+            phx-click="advance_task"
+            phx-value-id={task.id}
+            title={"Move to #{stage_label(next)}"}
+            class="shrink-0 rounded-lg border border-[color:var(--hub-border)] px-2 py-1 text-[11px] font-semibold text-[var(--hub-secondary)] transition hover:border-[color:var(--hub-accent)]/50 hover:text-[var(--hub-accent-2)]"
+          >
+            → <%= stage_label(next) %>
+          </button>
+        </li>
+      </ul>
+    </section>
+    """
+  end
+
+  defp task_day_label(nil), do: "today"
+  defp task_day_label(%Date{} = date), do: Calendar.strftime(date, "%b %-d")
+
+  # Same stage colors as IziOffice's board.
+  defp stage_dot_class("queue"), do: "bg-[var(--hub-accent)]"
+  defp stage_dot_class("wip"), do: "bg-[var(--tone-info)]"
+  defp stage_dot_class("qa"), do: "bg-[var(--tone-review)]"
+  defp stage_dot_class("release"), do: "bg-[var(--tone-income)]"
+  defp stage_dot_class(_), do: "bg-[var(--hub-muted)]"
+
+  defp stage_label("queue"), do: "Queue"
+  defp stage_label("wip"), do: "WIP"
+  defp stage_label("qa"), do: "QA"
+  defp stage_label("release"), do: "Release"
+  defp stage_label(other), do: other
 
   attr :month, Date, required: true
   attr :days, :list, required: true
   attr :weekdays, :list, required: true
   attr :selected_date, :any, default: nil
+  attr :agenda, :map, default: nil
 
   def calendar_card(assigns) do
     ~H"""
@@ -408,17 +502,51 @@ defmodule CoreWeb.HubComponents do
           phx-click="select_calendar_date"
           phx-value-date={Date.to_iso8601(day.date)}
           aria-pressed={to_string(day.selected?)}
+          aria-label={calendar_day_aria(day)}
           class={calendar_day_class(day)}
         >
-          <%= day.label %>
+          <span><%= day.label %></span>
+          <span :if={day.total_count > 0} class={["h-1 w-1 rounded-full", calendar_dot_class(day.total_count)]}></span>
         </button>
       </div>
-      <p class="mt-2 border-t border-[color:var(--hub-border)] pt-2 text-[11px] text-[var(--hub-muted)]">
-        <%= if @selected_date, do: Calendar.strftime(@selected_date, "%a, %b %-d"), else: "Select a date" %>
-      </p>
+      <div class="mt-2 border-t border-[color:var(--hub-border)] pt-2">
+        <p class="text-[11px] text-[var(--hub-muted)]">
+          <%= if @selected_date, do: Calendar.strftime(@selected_date, "%a, %b %-d"), else: "Select a date to see its agenda" %>
+        </p>
+        <div :if={@agenda} id="calendar-agenda" class="mt-2 space-y-1.5">
+          <p :if={@agenda.tasks == [] and @agenda.entries == []} class="text-xs text-[var(--hub-muted)]">
+            Nothing planned.
+          </p>
+          <div :for={task <- @agenda.tasks} class="flex items-center gap-2 text-xs">
+            <span class={["h-2 w-2 shrink-0 rounded-full", stage_dot_class(task.status)]}></span>
+            <span class="min-w-0 flex-1 truncate text-[var(--hub-text)]"><%= task.title %></span>
+            <span class="shrink-0 text-[var(--hub-muted)]"><%= task.project.name %></span>
+          </div>
+          <div :for={entry <- @agenda.entries} class="flex items-center gap-2 text-xs">
+            <span class={["h-2 w-2 shrink-0 rotate-45 rounded-[2px]", entry_dot_class(entry.kind)]}></span>
+            <span class="min-w-0 flex-1 truncate text-[var(--hub-text)]"><%= entry.title %></span>
+            <span class="shrink-0 text-[var(--hub-muted)]"><%= String.capitalize(entry.kind) %></span>
+          </div>
+        </div>
+      </div>
     </.hub_card>
     """
   end
+
+  defp calendar_day_aria(%{total_count: 0} = day), do: Calendar.strftime(day.date, "%B %-d")
+
+  defp calendar_day_aria(day),
+    do: "#{Calendar.strftime(day.date, "%B %-d")}, #{day.total_count} planned"
+
+  # Office's busy-ness scale: green 1-2, gold 3-4, red 5+.
+  defp calendar_dot_class(count) when count <= 2, do: "bg-[var(--tone-income)]"
+  defp calendar_dot_class(count) when count <= 4, do: "bg-[var(--tone-review)]"
+  defp calendar_dot_class(_count), do: "bg-[var(--tone-expense)]"
+
+  defp entry_dot_class("release"), do: "bg-[var(--tone-income)]"
+  defp entry_dot_class("deadline"), do: "bg-[var(--tone-expense)]"
+  defp entry_dot_class("note"), do: "bg-[var(--tone-info)]"
+  defp entry_dot_class(_), do: "bg-[var(--hub-accent)]"
 
   def music_card(assigns) do
     ~H"""
@@ -515,7 +643,8 @@ defmodule CoreWeb.HubComponents do
   end
 
   defp calendar_day_class(day) do
-    base = "grid h-8 w-full place-items-center rounded-lg text-xs leading-none transition-colors"
+    base =
+      "flex h-8 w-full flex-col items-center justify-center gap-0.5 rounded-lg text-xs leading-none transition-colors"
 
     cond do
       day.selected? ->

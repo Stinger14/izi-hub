@@ -18,6 +18,8 @@ defmodule CoreWeb.OfficeLive do
   ]
 
   def mount(_params, _session, socket) do
+    if connected?(socket), do: Office.subscribe(socket.assigns.current_scope.user)
+
     {:ok,
      socket
      |> assign_new(:current_scope, fn -> nil end)
@@ -58,6 +60,19 @@ defmodule CoreWeb.OfficeLive do
        projects: projects,
        current_project: current_project
      )
+     |> assign_workbench()}
+  end
+
+  # Another tab or the hub changed this user's Office data: reload the project
+  # list and the board. If the current project was archived or deleted,
+  # get_project_for_user/2 falls back to the default project.
+  def handle_info({:office_changed, _user_id}, socket) do
+    user = socket.assigns.current_scope.user
+    current_project = Office.get_project_for_user(user, socket.assigns.current_project.slug)
+
+    {:noreply,
+     socket
+     |> assign(projects: Office.list_projects_for_user(user), current_project: current_project)
      |> assign_workbench()}
   end
 
@@ -1593,7 +1608,7 @@ defmodule CoreWeb.OfficeLive do
   defp assign_workbench(socket) do
     workbench = Office.list_workbench_for_project(socket.assigns.current_project)
     canvas = workbench.canvas
-    calendar_details = calendar_details(workbench)
+    calendar_details = Office.calendar_counts(workbench.work_items, workbench.timeline_entries)
     selected_date = socket.assigns.selected_date
 
     roadmap_rows =
@@ -1842,45 +1857,6 @@ defmodule CoreWeb.OfficeLive do
   defp maybe_filter_roadmap_items(items, %Date{} = selected_date) do
     Enum.filter(items, fn item ->
       Date.compare(NaiveDateTime.to_date(item.starts_at), selected_date) == :eq
-    end)
-  end
-
-  defp calendar_details(workbench) do
-    workbench.work_items
-    |> Enum.reduce(%{}, fn work_item, acc ->
-      acc
-      |> maybe_track_task_date(work_item.id, work_item.scheduled_for)
-      |> maybe_track_task_date(work_item.id, due_date(work_item.due_at))
-    end)
-    |> then(fn acc ->
-      Enum.reduce(workbench.timeline_entries, acc, fn entry, inner_acc ->
-        track_event_date(inner_acc, entry.id, NaiveDateTime.to_date(entry.starts_at))
-      end)
-    end)
-    |> Enum.into(%{}, fn {date, detail} ->
-      task_count = MapSet.size(detail.tasks)
-      event_count = MapSet.size(detail.events)
-
-      {date,
-       %{
-         task_count: task_count,
-         event_count: event_count,
-         total_count: task_count + event_count
-       }}
-    end)
-  end
-
-  defp maybe_track_task_date(details, _task_id, nil), do: details
-
-  defp maybe_track_task_date(details, task_id, %Date{} = date) do
-    Map.update(details, date, %{tasks: MapSet.new([task_id]), events: MapSet.new()}, fn detail ->
-      %{detail | tasks: MapSet.put(detail.tasks, task_id)}
-    end)
-  end
-
-  defp track_event_date(details, event_id, %Date{} = date) do
-    Map.update(details, date, %{tasks: MapSet.new(), events: MapSet.new([event_id])}, fn detail ->
-      %{detail | events: MapSet.put(detail.events, event_id)}
     end)
   end
 

@@ -3,7 +3,7 @@ defmodule CoreWeb.HubLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias Core.{Accounts, Finance}
+  alias Core.{Accounts, Finance, Office}
 
   describe "/hub" do
     test "renders the dashboard widgets inside the hub theme", %{conn: conn} do
@@ -70,6 +70,102 @@ defmodule CoreWeb.HubLiveTest do
 
       assert view |> element("button", "Translate") |> render_click() =~
                ~s(id="translator-popover")
+    end
+  end
+
+  describe "/hub tasks and calendar" do
+    test "asks guests to sign in", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/hub")
+      assert html =~ "Sign in to see your IziOffice tasks."
+    end
+
+    test "groups open tasks from IziOffice", %{conn: conn} do
+      user = user_fixture()
+      project = Office.default_project_for_user(user)
+      today = Date.utc_today()
+
+      {:ok, _} =
+        Office.create_work_item(user, project, %{
+          "title" => "Write release notes",
+          "scheduled_for" => Date.to_iso8601(today)
+        })
+
+      {:ok, _} =
+        Office.create_work_item(user, project, %{
+          "title" => "Fix flaky test",
+          "scheduled_for" => Date.to_iso8601(Date.add(today, -2))
+        })
+
+      {:ok, _view, html} = live(init_test_session(conn, user_id: user.id), ~p"/hub")
+
+      assert html =~ "2 open"
+      assert html =~ "Overdue"
+      assert html =~ "Fix flaky test"
+      assert html =~ "Today"
+      assert html =~ "Write release notes"
+      assert html =~ "→ WIP"
+    end
+
+    test "quick add creates a task in the default project for the selected day", %{conn: conn} do
+      user = user_fixture()
+      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/hub")
+      day = Date.add(Date.utc_today(), 3)
+
+      render_click(view, "select_calendar_date", %{"date" => Date.to_iso8601(day)})
+      html = view |> form("#quick-add-task", task: %{title: "Plan sprint"}) |> render_submit()
+
+      assert html =~ "Plan sprint"
+      [task] = Office.list_work_items_for_project(Office.default_project_for_user(user).id)
+      assert task.title == "Plan sprint"
+      assert task.scheduled_for == day
+    end
+
+    test "advances a task to its next stage", %{conn: conn} do
+      user = user_fixture()
+
+      {:ok, task} =
+        Office.create_work_item(user, Office.default_project_for_user(user), %{
+          "title" => "Ship it"
+        })
+
+      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/hub")
+
+      html = view |> element("#focus-task-#{task.id} button") |> render_click()
+
+      assert html =~ "→ QA"
+      assert Office.get_user_work_item(user, task.id).status == "wip"
+    end
+
+    test "shows calendar dots and the selected day's agenda", %{conn: conn} do
+      user = user_fixture()
+      project = Office.default_project_for_user(user)
+      today = Date.utc_today()
+
+      {:ok, _} =
+        Office.create_work_item(user, project, %{
+          "title" => "Standup notes",
+          "scheduled_for" => Date.to_iso8601(today)
+        })
+
+      {:ok, view, html} = live(init_test_session(conn, user_id: user.id), ~p"/hub")
+      assert html =~ "#{Calendar.strftime(today, "%B %-d")}, 1 planned"
+
+      html = render_click(view, "select_calendar_date", %{"date" => Date.to_iso8601(today)})
+      assert html =~ ~s(id="calendar-agenda")
+      assert html =~ "Standup notes"
+    end
+
+    test "reflects changes made in IziOffice without reloading", %{conn: conn} do
+      user = user_fixture()
+      {:ok, view, html} = live(init_test_session(conn, user_id: user.id), ~p"/hub")
+      refute html =~ "Made in Office"
+
+      {:ok, _} =
+        Office.create_work_item(user, Office.default_project_for_user(user), %{
+          "title" => "Made in Office"
+        })
+
+      assert render(view) =~ "Made in Office"
     end
   end
 

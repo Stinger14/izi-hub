@@ -3,19 +3,24 @@ defmodule CoreWeb.HubLive do
 
   import CoreWeb.HubComponents
 
-  alias Core.{Accounts, Finance, GitHub}
+  alias Core.{Accounts, Finance, GitHub, Office}
   alias CoreWeb.FinanceComponents
   alias Phoenix.LiveView.AsyncResult
 
   def mount(_params, _session, socket) do
     month = month_start(Date.utc_today())
 
+    case socket.assigns[:current_scope] do
+      %{user: user} -> if connected?(socket), do: Office.subscribe(user)
+      _ -> :ok
+    end
+
     {:ok,
      socket
      |> assign_new(:current_scope, fn -> nil end)
      |> assign(
        calendar_month: month,
-       calendar_days: calendar_days(month, nil),
+       calendar_days: [],
        calendar_weekdays: ~w(Sun Mon Tue Wed Thu Fri Sat),
        selected_date: nil,
        stats_variant: "developer",
@@ -23,6 +28,8 @@ defmodule CoreWeb.HubLive do
        translator_text: "",
        translator_direction: "en-es"
      )
+     |> assign(task_form: task_form(%{}))
+     |> assign_office()
      |> assign_finance_card("personal")
      |> assign(github_editing: false, github_form: github_form(%{}))
      |> assign_developer()}
@@ -99,14 +106,44 @@ defmodule CoreWeb.HubLive do
     end
   end
 
+  def handle_event("quick_add_task", %{"task" => %{"title" => title}}, socket) do
+    with %{} = user <- current_user(socket),
+         title when title != "" <- String.trim(title) do
+      date = socket.assigns.selected_date || Date.utc_today()
+
+      case Office.create_work_item(user, Office.default_project_for_user(user), %{
+             "title" => title,
+             "scheduled_for" => Date.to_iso8601(date)
+           }) do
+        {:ok, _task} ->
+          {:noreply, socket |> assign(task_form: task_form(%{})) |> assign_office()}
+
+        {:error, changeset} ->
+          {:noreply, assign(socket, task_form: to_form(changeset, as: :task))}
+      end
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("advance_task", %{"id" => id}, socket) do
+    with %{} = user <- current_user(socket),
+         %{} = task <- Office.get_user_work_item(user, id),
+         next when is_binary(next) <- Office.next_status(task.status) do
+      Office.transition_work_item(task, next, user)
+    end
+
+    {:noreply, assign_office(socket)}
+  end
+
   def handle_event("prev_calendar_month", _params, socket) do
     month = previous_month(socket.assigns.calendar_month)
 
     {:noreply,
      assign(socket,
-       calendar_month: month,
-       calendar_days: calendar_days(month, socket.assigns.selected_date)
-     )}
+       calendar_month: month
+     )
+     |> assign_office()}
   end
 
   def handle_event("next_calendar_month", _params, socket) do
@@ -114,9 +151,9 @@ defmodule CoreWeb.HubLive do
 
     {:noreply,
      assign(socket,
-       calendar_month: month,
-       calendar_days: calendar_days(month, socket.assigns.selected_date)
-     )}
+       calendar_month: month
+     )
+     |> assign_office()}
   end
 
   def handle_event("select_calendar_date", %{"date" => value}, socket) do
@@ -125,16 +162,18 @@ defmodule CoreWeb.HubLive do
         month = month_start(date)
 
         {:noreply,
-         assign(socket,
-           selected_date: date,
-           calendar_month: month,
-           calendar_days: calendar_days(month, date)
-         )}
+         socket
+         |> assign(selected_date: date, calendar_month: month)
+         |> assign_office()}
 
       {:error, _reason} ->
         {:noreply, socket}
     end
   end
+
+  # Office broadcasts {:office_changed, user_id} after every write (here, in
+  # IziOffice, or in another tab); reload the tasks panel and calendar.
+  def handle_info({:office_changed, _user_id}, socket), do: {:noreply, assign_office(socket)}
 
   def render(assigns) do
     ~H"""
@@ -294,13 +333,14 @@ defmodule CoreWeb.HubLive do
           </div>
 
           <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <.tasks_panel />
+            <.tasks_panel current_scope={@current_scope} focus={@focus} form={@task_form} selected_date={@selected_date} />
             <aside class="grid content-start gap-5" aria-label="Sidebar">
               <.calendar_card
                 month={@calendar_month}
                 days={@calendar_days}
                 weekdays={@calendar_weekdays}
                 selected_date={@selected_date}
+                agenda={@agenda}
               />
               <.music_card />
               <.library_shortcuts current_scope={@current_scope} />
@@ -392,7 +432,37 @@ defmodule CoreWeb.HubLive do
     end
   end
 
-  defp calendar_days(calendar_month, selected_date) do
+  defp task_form(params), do: to_form(params, as: :task)
+
+  # Tasks panel + calendar data from Core.Office (all active projects). Guests
+  # get a plain calendar and no tasks.
+  defp assign_office(socket) do
+    month = socket.assigns.calendar_month
+    selected = socket.assigns.selected_date
+
+    case current_user(socket) do
+      nil ->
+        assign(socket,
+          focus: nil,
+          agenda: nil,
+          calendar_days: calendar_days(month, selected, %{})
+        )
+
+      user ->
+        last_day = Date.add(month, Date.days_in_month(month) - 1)
+        grid_first = Date.add(month, -rem(Date.day_of_week(month), 7))
+        grid_last = Date.add(last_day, 6 - rem(Date.day_of_week(last_day), 7))
+        counts = Office.calendar_counts_for_user(user, grid_first, grid_last)
+
+        assign(socket,
+          focus: Office.focus_tasks(user, Date.utc_today()),
+          agenda: selected && Office.agenda_for_day(user, selected),
+          calendar_days: calendar_days(month, selected, counts)
+        )
+    end
+  end
+
+  defp calendar_days(calendar_month, selected_date, counts) do
     first_day = month_start(calendar_month)
     last_day = Date.add(first_day, Date.days_in_month(first_day) - 1)
     grid_start = Date.add(first_day, -rem(Date.day_of_week(first_day), 7))
@@ -406,6 +476,7 @@ defmodule CoreWeb.HubLive do
         date: date,
         in_month?: date.month == calendar_month.month and date.year == calendar_month.year,
         selected?: match?(%Date{}, selected_date) and Date.compare(date, selected_date) == :eq,
+        total_count: counts |> Map.get(date, %{}) |> Map.get(:total_count, 0),
         label: Integer.to_string(date.day)
       }
     end)

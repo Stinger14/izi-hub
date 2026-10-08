@@ -519,6 +519,20 @@ defmodule CoreWeb.OfficeLiveTest do
     assert html =~ "Stage:"
   end
 
+  test "reloads the board when office data changes elsewhere", %{conn: conn} do
+    user = user_fixture()
+    conn = init_test_session(conn, user_id: user.id)
+    {:ok, view, html} = live(conn, ~p"/office")
+    refute html =~ "Added from the hub"
+
+    {:ok, _} =
+      Office.create_work_item(user, Office.default_project_for_user(user), %{
+        "title" => "Added from the hub"
+      })
+
+    assert render(view) =~ "Added from the hub"
+  end
+
   defp user_fixture do
     unique = System.unique_integer([:positive])
 
