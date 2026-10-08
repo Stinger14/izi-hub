@@ -3,7 +3,6 @@ defmodule CoreWeb.OfficeLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias Core.Accounts
   alias Core.Office
 
   test "redirects unauthenticated users to login", %{conn: conn} do
@@ -531,19 +530,5 @@ defmodule CoreWeb.OfficeLiveTest do
       })
 
     assert render(view) =~ "Added from the hub"
-  end
-
-  defp user_fixture do
-    unique = System.unique_integer([:positive])
-
-    {:ok, user} =
-      Accounts.register_user(%{
-        email: "office_live_user_#{unique}@example.com",
-        password: "Password123!",
-        username: "office_live_user_#{unique}",
-        full_name: "Office Live User"
-      })
-
-    user
   end
 end

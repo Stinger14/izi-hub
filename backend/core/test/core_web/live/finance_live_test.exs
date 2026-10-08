@@ -612,18 +612,4 @@ defmodule CoreWeb.FinanceLiveTest do
     assert html =~ "page 2 of 2"
     assert html =~ "TxnItem-01"
   end
-
-  defp user_fixture do
-    unique = System.unique_integer([:positive])
-
-    {:ok, user} =
-      Accounts.register_user(%{
-        email: "finance_live_user_#{unique}@example.com",
-        password: "Password123!",
-        username: "finance_live_user_#{unique}",
-        full_name: "Finance Live User"
-      })
-
-    user
-  end
 end

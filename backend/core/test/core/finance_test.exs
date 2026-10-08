@@ -782,18 +782,4 @@ defmodule Core.FinanceTest do
                "category_id" => personal_category.id
              })
   end
-
-  defp user_fixture do
-    unique = System.unique_integer([:positive])
-
-    {:ok, user} =
-      Accounts.register_user(%{
-        email: "finance_user_#{unique}@example.com",
-        password: "Password123!",
-        username: "finance_user_#{unique}",
-        full_name: "Finance User"
-      })
-
-    user
-  end
 end

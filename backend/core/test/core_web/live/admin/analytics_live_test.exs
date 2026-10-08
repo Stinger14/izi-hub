@@ -3,9 +3,7 @@ defmodule CoreWeb.Admin.AnalyticsLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias Core.Accounts
   alias Core.Analytics
-  alias Core.Repo
 
   test "renders analytics page for admins with recent visitor activity", %{conn: conn} do
     admin = admin_fixture()
@@ -34,27 +32,5 @@ defmodule CoreWeb.Admin.AnalyticsLiveTest do
     assert html =~ "/cv/download"
     assert html =~ "Santo Domingo, DO"
     assert html =~ "google.com"
-  end
-
-  defp user_fixture do
-    unique = System.unique_integer([:positive])
-
-    {:ok, user} =
-      Accounts.register_user(%{
-        email: "analytics_user_#{unique}@example.com",
-        password: "Password123!",
-        username: "analytics_user_#{unique}",
-        full_name: "Analytics User"
-      })
-
-    user
-  end
-
-  defp admin_fixture do
-    user = user_fixture()
-
-    user
-    |> Ecto.Changeset.change(%{role: "admin", is_active: true})
-    |> Repo.update!()
   end
 end

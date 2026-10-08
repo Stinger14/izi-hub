@@ -1,5 +1,9 @@
 import Config
 
+# Only in tests: hash passwords with the cheapest bcrypt cost so user fixtures
+# are fast. Production keeps the library default (12 rounds).
+config :bcrypt_elixir, :log_rounds, 1
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used

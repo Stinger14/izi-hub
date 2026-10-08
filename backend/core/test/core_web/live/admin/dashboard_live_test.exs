@@ -3,9 +3,7 @@ defmodule CoreWeb.Admin.DashboardLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias Core.Accounts
   alias Core.Analytics
-  alias Core.Repo
 
   test "redirects unauthenticated users to login", %{conn: conn} do
     assert {:error, {:redirect, %{to: "/login?error=auth"}}} = live(conn, ~p"/admin")
@@ -32,25 +30,5 @@ defmodule CoreWeb.Admin.DashboardLiveTest do
     assert html =~ "Analytics"
     assert html =~ "FinOps"
     assert html =~ "2"
-  end
-
-  defp user_fixture do
-    {:ok, user} =
-      Accounts.register_user(%{
-        email: "dashboard_user_#{System.unique_integer([:positive])}@example.com",
-        password: "Password123!",
-        username: "dashboard_user_#{System.unique_integer([:positive])}",
-        full_name: "Dashboard User"
-      })
-
-    user
-  end
-
-  defp admin_fixture do
-    user = user_fixture()
-
-    user
-    |> Ecto.Changeset.change(%{role: "admin", is_active: true})
-    |> Repo.update!()
   end
 end

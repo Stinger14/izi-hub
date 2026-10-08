@@ -86,6 +86,7 @@ custom classes must fully style the input
 
 ## Test guidelines
 
+- Use the shared fixtures in `test/support/fixtures.ex` (`user_fixture/1`, `admin_fixture/1`, `valid_password/0`), imported by `DataCase` and `ConnCase` — don't define per-file user fixtures. `config/test.exs` sets bcrypt to 1 log round so fixtures are cheap; never copy that setting into dev/prod config.
 - **Always use `start_supervised!/1`** to start processes in tests as it guarantees cleanup between tests
 - **Avoid** `Process.sleep/1` and `Process.alive?/1` in tests
   - Instead of sleeping to wait for a process to finish, **always** use `Process.monitor/1` and assert on the DOWN message:

@@ -311,18 +311,4 @@ defmodule CoreWeb.HubLiveTest do
       assert html =~ "IziHub v#{Application.spec(:core, :vsn)}"
     end
   end
-
-  defp user_fixture do
-    unique = System.unique_integer([:positive])
-
-    {:ok, user} =
-      Accounts.register_user(%{
-        email: "hub_live_user_#{unique}@example.com",
-        password: "Password123!",
-        username: "hub_live_user_#{unique}",
-        full_name: "Hub Live User"
-      })
-
-    user
-  end
 end
