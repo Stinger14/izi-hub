@@ -68,14 +68,30 @@ defmodule CoreWeb.FinanceComponents do
 
             <.household_picker :if={@households != []} households={@households} selected_household_id={@selected_household_id} />
 
+            <%!-- Households: with none yet, the "+ Household" toggle above opens
+                 the create panel; once you have one, this labelled button does. --%>
             <button
+              :if={@households != []}
               type="button"
               phx-click="open_household_panel"
               aria-label="Add household"
-              title="Add household"
-              class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] text-[color:var(--fin-muted)] transition hover:bg-[color:var(--fin-card)] hover:text-[color:var(--fin-text)]"
+              title="Create another household"
+              class="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 text-xs font-semibold text-[color:var(--fin-muted)] transition hover:bg-[color:var(--fin-card)] hover:text-[color:var(--fin-text)]"
             >
-              <.icon name="hero-plus" class="h-4 w-4" />
+              <.icon name="hero-home" class="h-4 w-4" /> New household
+            </button>
+
+            <%!-- Adds an account to whichever scope is active (personal or the
+                 selected household), via the same quick-add panel as My Cards. --%>
+            <button
+              type="button"
+              phx-click="open_focus_panel"
+              phx-value-panel="account"
+              aria-label="New account in current scope"
+              title={"Add an account to #{if @ownership_scope == "household", do: "this household", else: "your personal finances"}"}
+              class="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 text-xs font-semibold text-[color:var(--fin-text)] transition hover:bg-[color:var(--fin-card)]"
+            >
+              <.icon name="hero-plus" class="h-4 w-4" /> Account
             </button>
           </div>
         </div>
@@ -131,14 +147,30 @@ defmodule CoreWeb.FinanceComponents do
 
             <.household_picker :if={@households != []} households={@households} selected_household_id={@selected_household_id} />
 
+            <%!-- Households: with none yet, the "+ Household" toggle above opens
+                 the create panel; once you have one, this labelled button does. --%>
             <button
+              :if={@households != []}
               type="button"
               phx-click="open_household_panel"
               aria-label="Add household"
-              title="Add household"
-              class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] text-[color:var(--fin-muted)] transition hover:bg-[color:var(--fin-card)] hover:text-[color:var(--fin-text)]"
+              title="Create another household"
+              class="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 text-xs font-semibold text-[color:var(--fin-muted)] transition hover:bg-[color:var(--fin-card)] hover:text-[color:var(--fin-text)]"
             >
-              <.icon name="hero-plus" class="h-4 w-4" />
+              <.icon name="hero-home" class="h-4 w-4" /> New household
+            </button>
+
+            <%!-- Adds an account to whichever scope is active (personal or the
+                 selected household), via the same quick-add panel as My Cards. --%>
+            <button
+              type="button"
+              phx-click="open_focus_panel"
+              phx-value-panel="account"
+              aria-label="New account in current scope"
+              title={"Add an account to #{if @ownership_scope == "household", do: "this household", else: "your personal finances"}"}
+              class="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 text-xs font-semibold text-[color:var(--fin-text)] transition hover:bg-[color:var(--fin-card)]"
+            >
+              <.icon name="hero-plus" class="h-4 w-4" /> Account
             </button>
 
             <button

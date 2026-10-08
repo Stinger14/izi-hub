@@ -612,4 +612,55 @@ defmodule CoreWeb.FinanceLiveTest do
     assert html =~ "page 2 of 2"
     assert html =~ "TxnItem-01"
   end
+
+  describe "header + Account button" do
+    test "adds the account to the personal scope when Personal is selected", %{conn: conn} do
+      user = user_fixture()
+      {:ok, household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
+      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+
+      view |> element("button[aria-label=\"New account in current scope\"]") |> render_click()
+      submit_account(view, "Personal wallet")
+
+      assert {:ok, [account]} = Finance.list_accounts(user, user)
+      assert account.name == "Personal wallet"
+      assert {:ok, []} = Finance.list_accounts(user, household)
+    end
+
+    test "adds the account to the household when Household is selected", %{conn: conn} do
+      user = user_fixture()
+      {:ok, household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
+      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+
+      render_click(view, "set_ownership_scope", %{"scope" => "household"})
+      view |> element("button[aria-label=\"New account in current scope\"]") |> render_click()
+      submit_account(view, "Shared groceries")
+
+      assert {:ok, [account]} = Finance.list_accounts(user, household)
+      assert account.name == "Shared groceries"
+      assert {:ok, []} = Finance.list_accounts(user, user)
+    end
+
+    test "is labelled as an account action, not a household one", %{conn: conn} do
+      user = user_fixture()
+      {:ok, _view, html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+
+      assert html =~ "New account in current scope"
+      # with no household yet, household creation lives on the "+ Household" toggle only
+      refute html =~ ~s(aria-label="Add household")
+    end
+  end
+
+  defp submit_account(view, name) do
+    view
+    |> form("form[phx-submit=\"create_account\"]",
+      account: %{
+        "name" => name,
+        "kind" => "checking",
+        "currency" => "DOP",
+        "current_balance" => "100.00"
+      }
+    )
+    |> render_submit()
+  end
 end
