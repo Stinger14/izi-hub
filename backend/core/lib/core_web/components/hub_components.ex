@@ -8,7 +8,7 @@ defmodule CoreWeb.HubComponents do
   """
   use CoreWeb, :html
 
-  import CoreWeb.FinanceComponents, only: [fin_card: 1, tone_class: 2]
+  import CoreWeb.FinanceComponents, only: [fin_card: 1, tone_class: 2, money_totals: 1]
 
   @stats_variants ~w(creator developer)
 
@@ -73,32 +73,84 @@ defmodule CoreWeb.HubComponents do
   end
 
   attr :current_scope, :any, default: nil
+  attr :finance, :map, default: nil
+  attr :scope, :string, default: "personal"
+  attr :household, :any, default: nil
 
   def finance_card(assigns) do
     ~H"""
     <.fin_card class="flex h-full flex-col">
-      <div class="flex items-start justify-between gap-3">
+      <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--hub-accent-2)]">
-            Finance
+            Finance<%= if @scope == "household" && @household, do: " · #{@household.name}" %>
           </p>
           <h2 class="font-display text-2xl text-[var(--fin-text)]">Your money, at a glance</h2>
         </div>
-        <span class={[
-          "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold",
-          tone_class("muted", :soft)
-        ]}>
-          Not connected
-        </span>
+        <div
+          :if={@household}
+          role="group"
+          aria-label="Finance scope"
+          class="inline-flex rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-surface)] p-0.5"
+        >
+          <button
+            :for={{scope, label} <- [{"personal", "Personal"}, {"household", "Household"}]}
+            type="button"
+            phx-click="set_finance_scope"
+            phx-value-scope={scope}
+            aria-pressed={to_string(scope == @scope)}
+            class={stats_toggle_class(scope == @scope)}
+          >
+            <%= label %>
+          </button>
+        </div>
       </div>
-      <div class="mt-5 grid grid-cols-2 gap-3">
-        <.hub_stat label="Balances" hint="Connect an account" />
-        <.hub_stat label="Monthly spending" hint="No data yet" />
-      </div>
+
+      <%= cond do %>
+        <% is_nil(@current_scope) -> %>
+          <.card_empty_state
+            message="Sign in to see your balances and this month's spending."
+            href={~p"/login"}
+            action="Sign in"
+          />
+        <% is_nil(@finance) or @finance.accounts_count == 0 -> %>
+          <.card_empty_state
+            message="No accounts yet. Add one to see your balance and spending here."
+            href={~p"/finance"}
+            action="Add an account"
+          />
+        <% true -> %>
+          <div class="mt-5 grid grid-cols-2 gap-3">
+            <.hub_stat
+              label="Total balance"
+              value={money_totals(@finance.balance)}
+              hint={"#{@finance.accounts_count} active #{if @finance.accounts_count == 1, do: "account", else: "accounts"}"}
+            />
+            <.hub_stat
+              label="Spent this month"
+              value={money_totals(@finance.month_spent)}
+              hint={"Income #{money_totals(@finance.month_income)}"}
+            />
+          </div>
+          <div :if={@finance.budget_remaining_pct} class="mt-4">
+            <div class="flex items-center justify-between text-[11px] text-[var(--hub-muted)]">
+              <span>Budget left this month</span>
+              <span class={tone_class("income", :text)}><%= money_totals(@finance.budget_remaining) %></span>
+            </div>
+            <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--hub-surface)]">
+              <div
+                class={["h-full rounded-full", tone_class(budget_bar_tone(@finance.budget_remaining_pct), :bar)]}
+                style={"width: #{@finance.budget_remaining_pct}%"}
+              >
+              </div>
+            </div>
+          </div>
+      <% end %>
+
       <div class="mt-auto pt-5">
         <a
           href={if @current_scope, do: ~p"/finance", else: ~p"/login"}
-          class="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-semibold text-[var(--fin-accent)] transition hover:bg-[var(--fin-surface)] hover:text-[var(--hub-primary)]"
+          class="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-semibold text-[var(--fin-accent)] transition hover:bg-[var(--fin-surface)] hover:text-[var(--hub-accent-2)]"
         >
           Open Finance <.icon name="hero-arrow-right" class="h-4 w-4" />
         </a>
@@ -107,12 +159,38 @@ defmodule CoreWeb.HubComponents do
     """
   end
 
+  defp budget_bar_tone(pct) when pct <= 10, do: "expense"
+  defp budget_bar_tone(pct) when pct <= 30, do: "review"
+  defp budget_bar_tone(_pct), do: "income"
+
+  attr :message, :string, required: true
+  attr :href, :string, default: nil
+  attr :action, :string, default: nil
+
+  defp card_empty_state(assigns) do
+    ~H"""
+    <div class="mt-5 rounded-xl border border-dashed border-[color:var(--hub-accent)]/20 bg-[color:var(--hub-accent)]/5 px-4 py-4">
+      <p class="text-sm text-[var(--hub-muted)]"><%= @message %></p>
+      <a
+        :if={@href}
+        href={@href}
+        class="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)]"
+      >
+        <%= @action %> <.icon name="hero-arrow-right" class="h-4 w-4" />
+      </a>
+    </div>
+    """
+  end
+
   attr :variant, :string, required: true, values: ~w(creator developer)
   attr :current_scope, :any, default: nil
+  attr :developer, :any, required: true
+  attr :github_form, :any, required: true
+  attr :github_editing, :boolean, default: false
 
   def role_stats_card(assigns) do
     ~H"""
-    <section class="hub-glass flex h-full flex-col rounded-2xl border border-[color:var(--hub-border)] bg-[var(--hub-card)] p-5 shadow-[0_16px_32px_-24px_var(--hub-shadow)] sm:p-6">
+    <section class="hub-glass flex h-full flex-col rounded-2xl p-5 sm:p-6">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--hub-accent-2)]">
@@ -141,36 +219,136 @@ defmodule CoreWeb.HubComponents do
       </div>
 
       <%= if @variant == "creator" do %>
-        <div class="mt-5 flex items-center gap-3 rounded-xl border border-dashed border-[color:var(--hub-border)] px-3 py-2.5">
+        <div class="mt-5 flex items-center gap-3 rounded-xl border border-dashed border-[color:var(--hub-accent)]/20 bg-[color:var(--hub-accent)]/5 px-4 py-4">
           <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--hub-surface)] text-xs font-bold text-[var(--hub-muted)]">
             f
           </span>
           <div class="min-w-0">
-            <p class="truncate text-sm font-semibold text-[var(--hub-text)]">Facebook account</p>
-            <p class="text-[11px] text-[var(--hub-muted)]">Not connected</p>
+            <p class="text-sm font-semibold text-[var(--hub-text)]">Facebook stats are coming soon</p>
+            <p class="text-[11px] text-[var(--hub-muted)]">
+              Followers, video views and interactions will show here once the Meta integration lands.
+            </p>
           </div>
         </div>
-        <div class="mt-3 grid grid-cols-3 gap-3">
-          <.hub_stat label="Followers" hint="Growth —" />
-          <.hub_stat label="Video views" />
-          <.hub_stat label="Interactions" />
-        </div>
       <% else %>
-        <div class="mt-5 grid grid-cols-3 gap-3">
-          <.hub_stat label="Repositories" />
-          <.hub_stat label="Contributions" hint="Last 12 months" />
-          <.hub_stat label="Last activity" />
-        </div>
-        <a
-          :if={@current_scope}
-          href={~p"/contributions"}
-          class="mt-auto inline-flex items-center gap-1 self-start rounded-lg px-2 pt-5 text-sm font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-primary)]"
-        >
-          GitHub details <.icon name="hero-arrow-right" class="h-4 w-4" />
-        </a>
+        <.async_result :let={developer} assign={@developer}>
+          <:loading>
+            <div class="mt-5 grid grid-cols-3 gap-3" aria-busy="true">
+              <.hub_stat label="Repositories" value="…" />
+              <.hub_stat label="Contributions" value="…" hint="Last 12 months" />
+              <.hub_stat label="Last activity" value="…" />
+            </div>
+          </:loading>
+          <:failed>
+            <.card_empty_state message="GitHub stats are unavailable right now." />
+          </:failed>
+          <%= case {developer, @github_editing} do %>
+            <% {:signed_out, _} -> %>
+              <.card_empty_state
+                message="Sign in to link your GitHub account."
+                href={~p"/login"}
+                action="Sign in"
+              />
+            <% {:not_linked, _} -> %>
+              <.github_link_form form={@github_form} linked={false} />
+            <% {_linked, true} -> %>
+              <.github_link_form form={@github_form} linked={true} />
+            <% {{_login, {:ok, stats}}, _} -> %>
+              <div class="mt-5 grid grid-cols-3 gap-3">
+                <.hub_stat label="Repositories" value={to_string(stats.public_repos)} hint="Public" />
+                <.hub_stat
+                  label="Contributions"
+                  value={to_string(stats.contributions_last_year)}
+                  hint="Last 12 months"
+                />
+                <.hub_stat label="Last activity" value={last_active_label(stats.last_active_on)} />
+              </div>
+              <.github_identity login={stats.login} />
+            <% {{login, {:error, :not_found}}, _} -> %>
+              <.card_empty_state message={"GitHub user @#{login} was not found."} />
+              <.github_identity login={login} />
+            <% {{login, _error}, _} -> %>
+              <.card_empty_state message="GitHub stats are unavailable right now. Try again in a few minutes." />
+              <.github_identity login={login} />
+          <% end %>
+        </.async_result>
       <% end %>
     </section>
     """
+  end
+
+  attr :login, :string, required: true
+
+  defp github_identity(assigns) do
+    ~H"""
+    <div class="mt-auto flex flex-wrap items-center justify-between gap-2 pt-5 text-sm">
+      <span class="text-[var(--hub-muted)]">
+        @<%= @login %>
+        <button
+          type="button"
+          phx-click="edit_github"
+          class="ml-1 font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)]"
+        >
+          Change
+        </button>
+      </span>
+      <a
+        href={~p"/contributions"}
+        class="inline-flex items-center gap-1 font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)]"
+      >
+        Details <.icon name="hero-arrow-right" class="h-4 w-4" />
+      </a>
+    </div>
+    """
+  end
+
+  attr :form, :any, required: true
+  attr :linked, :boolean, default: false
+
+  defp github_link_form(assigns) do
+    ~H"""
+    <.form for={@form} id="github-link-form" phx-submit="save_github" class="mt-5">
+      <label for="github-username" class="text-sm text-[var(--hub-muted)]">
+        Link your GitHub username to show your public activity here.
+      </label>
+      <div class="mt-2 flex flex-wrap gap-2">
+        <input
+          id="github-username"
+          type="text"
+          name={@form[:github_username].name}
+          value={@form[:github_username].value}
+          placeholder="your-github-login"
+          autocomplete="off"
+          spellcheck="false"
+          class="min-w-0 flex-1 rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] placeholder:text-[var(--hub-muted)] focus:border-[color:var(--hub-accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
+        />
+        <button type="submit" class="btn btn-primary btn-sm">
+          <%= if @linked, do: "Save", else: "Connect GitHub" %>
+        </button>
+        <button :if={@linked} type="button" phx-click="cancel_github" class="btn btn-secondary btn-sm">
+          Cancel
+        </button>
+      </div>
+      <p
+        :for={{msg, _} <- @form[:github_username].errors}
+        class={["mt-2 text-xs", tone_class("expense", :text)]}
+      >
+        <%= msg %>
+      </p>
+      <p :if={@linked} class="mt-2 text-xs text-[var(--hub-muted)]">Leave it empty to unlink.</p>
+    </.form>
+    """
+  end
+
+  defp last_active_label(nil), do: "—"
+
+  defp last_active_label(%Date{} = date) do
+    case Date.diff(Date.utc_today(), date) do
+      0 -> "Today"
+      1 -> "Yesterday"
+      days when days < 7 -> "#{days} days ago"
+      _ -> Calendar.strftime(date, "%b %-d")
+    end
   end
 
   def tasks_panel(assigns) do

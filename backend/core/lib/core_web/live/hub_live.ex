@@ -3,6 +3,10 @@ defmodule CoreWeb.HubLive do
 
   import CoreWeb.HubComponents
 
+  alias Core.{Accounts, Finance, GitHub}
+  alias CoreWeb.FinanceComponents
+  alias Phoenix.LiveView.AsyncResult
+
   def mount(_params, _session, socket) do
     month = month_start(Date.utc_today())
 
@@ -14,11 +18,14 @@ defmodule CoreWeb.HubLive do
        calendar_days: calendar_days(month, nil),
        calendar_weekdays: ~w(Sun Mon Tue Wed Thu Fri Sat),
        selected_date: nil,
-       stats_variant: "creator",
+       stats_variant: "developer",
        translator_open: false,
        translator_text: "",
        translator_direction: "en-es"
-     )}
+     )
+     |> assign_finance_card("personal")
+     |> assign(github_editing: false, github_form: github_form(%{}))
+     |> assign_developer()}
   end
 
   def handle_event("toggle_translator", _params, socket) do
@@ -50,6 +57,45 @@ defmodule CoreWeb.HubLive do
       {:noreply, assign(socket, :stats_variant, variant)}
     else
       {:noreply, socket}
+    end
+  end
+
+  def handle_event("set_finance_scope", %{"scope" => scope}, socket)
+      when scope in ["personal", "household"] do
+    {:noreply, assign_finance_card(socket, scope)}
+  end
+
+  def handle_event("set_finance_scope", _params, socket), do: {:noreply, socket}
+
+  def handle_event("edit_github", _params, socket) do
+    login = current_user(socket) && current_user(socket).github_username
+
+    {:noreply,
+     assign(socket, github_editing: true, github_form: github_form(%{"github_username" => login}))}
+  end
+
+  def handle_event("cancel_github", _params, socket) do
+    {:noreply, assign(socket, github_editing: false, github_form: github_form(%{}))}
+  end
+
+  def handle_event("save_github", %{"github" => params}, socket) do
+    case current_user(socket) do
+      nil ->
+        {:noreply, socket}
+
+      user ->
+        case Accounts.update_github_username(user, params) do
+          {:ok, user} ->
+            {:noreply,
+             socket
+             |> assign(:current_scope, %{socket.assigns.current_scope | user: user})
+             |> assign(github_editing: false, github_form: github_form(%{}))
+             |> assign_developer()}
+
+          {:error, changeset} ->
+            {:noreply,
+             assign(socket, github_editing: true, github_form: to_form(changeset, as: :github))}
+        end
     end
   end
 
@@ -232,8 +278,19 @@ defmodule CoreWeb.HubLive do
           </div>
 
           <div class="grid gap-5 lg:grid-cols-2">
-            <.finance_card current_scope={@current_scope} />
-            <.role_stats_card variant={@stats_variant} current_scope={@current_scope} />
+            <.finance_card
+              current_scope={@current_scope}
+              finance={@finance}
+              scope={@finance_scope}
+              household={@finance_household}
+            />
+            <.role_stats_card
+              variant={@stats_variant}
+              current_scope={@current_scope}
+              developer={@developer}
+              github_form={@github_form}
+              github_editing={@github_editing}
+            />
           </div>
 
           <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -254,6 +311,85 @@ defmodule CoreWeb.HubLive do
       </main>
     </Layouts.app>
     """
+  end
+
+  defp current_user(%{assigns: %{current_scope: %{user: user}}}), do: user
+  defp current_user(_socket), do: nil
+
+  defp github_form(params), do: to_form(params, as: :github)
+
+  # Developer card data loads async so a slow GitHub call never blocks the hub.
+  defp assign_developer(socket) do
+    case current_user(socket) do
+      %{github_username: login} when is_binary(login) ->
+        assign_async(socket, :developer, fn ->
+          {:ok, %{developer: {login, GitHub.developer_stats(login)}}}
+        end)
+
+      %{} ->
+        assign(socket, :developer, AsyncResult.ok(:not_linked))
+
+      nil ->
+        assign(socket, :developer, AsyncResult.ok(:signed_out))
+    end
+  end
+
+  # Finance card: reuses Core.Finance so the hub shows the same numbers as the
+  # Finance dashboard. Household scope is offered only to household members.
+  defp assign_finance_card(socket, scope) do
+    case current_user(socket) do
+      nil ->
+        assign(socket, finance: nil, finance_scope: "personal", finance_household: nil)
+
+      user ->
+        household = user |> Accounts.list_households_for_user() |> List.first()
+        scope = if scope == "household" and household, do: "household", else: "personal"
+        owner = if scope == "household", do: household, else: user
+
+        assign(socket,
+          finance: finance_snapshot(user, owner, Date.utc_today()),
+          finance_scope: scope,
+          finance_household: household
+        )
+    end
+  end
+
+  defp finance_snapshot(user, owner, today) do
+    with {:ok, accounts} <- Finance.list_accounts(user, owner),
+         {:ok, budgets} <- Finance.list_budgets(user, owner) do
+      month =
+        Finance.get_currency_summary(
+          owner,
+          Date.beginning_of_month(today),
+          Date.end_of_month(today),
+          exclude_debt_payment_expenses: true
+        )
+
+      statuses = Enum.map(budgets, &Finance.check_budget_status/1)
+
+      %{
+        accounts_count: length(accounts),
+        balance: FinanceComponents.currency_totals(accounts, & &1.current_balance, & &1.currency),
+        month_spent: month.expenses,
+        month_income: month.income,
+        budget_remaining:
+          FinanceComponents.currency_totals(statuses, & &1.remaining, & &1.budget.currency),
+        budget_remaining_pct:
+          case statuses do
+            [] ->
+              nil
+
+            _ ->
+              statuses
+              |> Enum.map(& &1.percentage)
+              |> Enum.sum()
+              |> Kernel./(length(statuses))
+              |> FinanceComponents.budget_remaining_pct()
+          end
+      }
+    else
+      _ -> nil
+    end
   end
 
   defp calendar_days(calendar_month, selected_date) do
