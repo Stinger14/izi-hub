@@ -102,7 +102,9 @@ defmodule Core.MixProject do
     [
       setup: ["deps.get", "ecto.setup"],
       "assets.build": ["esbuild default", "tailwind default"],
-      "assets.deploy": ["esbuild default --minify", "phx.digest", "tailwind default --minify"],
+      # phx.digest must run last: it fingerprints and gzips whatever is in
+      # priv/static, so the CSS and JS have to be built before it.
+      "assets.deploy": ["tailwind default --minify", "esbuild default --minify", "phx.digest"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
