@@ -67,6 +67,7 @@ defmodule CoreWeb.OfficeLive do
   # list and the board. If the current project was archived or deleted,
   # get_project_for_user/2 falls back to the default project.
   def handle_info({:office_changed, _user_id}, socket) do
+    CoreWeb.LiveReload.drain(:office_changed)
     user = socket.assigns.current_scope.user
     current_project = Office.get_project_for_user(user, socket.assigns.current_project.slug)
 

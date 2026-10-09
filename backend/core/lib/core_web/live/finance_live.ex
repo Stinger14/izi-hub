@@ -33,6 +33,8 @@ defmodule CoreWeb.FinanceLive do
   @saving_rate_goal 30.0
 
   def mount(_params, _session, socket) do
+    if connected?(socket), do: Finance.subscribe(socket.assigns.current_scope.user)
+
     {:ok,
      socket
      |> assign_new(:current_scope, fn -> nil end)
@@ -61,6 +63,14 @@ defmodule CoreWeb.FinanceLive do
      )
      |> assign_forms()
      |> assign_finance_data()}
+  end
+
+  # A finance write elsewhere (another tab, the hub, email ingestion, another
+  # household member) — recompute everything through the single derivation
+  # point. Open forms and panels are separate assigns and stay as they are.
+  def handle_info({:finance_changed, _owner}, socket) do
+    CoreWeb.LiveReload.drain(:finance_changed)
+    {:noreply, assign_finance_data(socket)}
   end
 
   def handle_event("show_section", %{"section" => section}, socket) when section in @sections do
@@ -259,6 +269,9 @@ defmodule CoreWeb.FinanceLive do
 
     case Accounts.create_household(user, params) do
       {:ok, household} ->
+        # Start hearing about this household's changes right away.
+        if connected?(socket), do: Finance.subscribe_household(household)
+
         {:noreply,
          socket
          |> put_flash(:info, "Household created")

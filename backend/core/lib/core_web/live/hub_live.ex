@@ -4,15 +4,21 @@ defmodule CoreWeb.HubLive do
   import CoreWeb.HubComponents
 
   alias Core.{Accounts, Finance, GitHub, Office}
-  alias CoreWeb.FinanceComponents
+  alias CoreWeb.{FinanceComponents, LiveReload}
   alias Phoenix.LiveView.AsyncResult
 
   def mount(_params, _session, socket) do
     month = month_start(Date.utc_today())
 
     case socket.assigns[:current_scope] do
-      %{user: user} -> if connected?(socket), do: Office.subscribe(user)
-      _ -> :ok
+      %{user: user} ->
+        if connected?(socket) do
+          Office.subscribe(user)
+          Finance.subscribe(user)
+        end
+
+      _ ->
+        :ok
     end
 
     {:ok,
@@ -173,7 +179,17 @@ defmodule CoreWeb.HubLive do
 
   # Office broadcasts {:office_changed, user_id} after every write (here, in
   # IziOffice, or in another tab); reload the tasks panel and calendar.
-  def handle_info({:office_changed, _user_id}, socket), do: {:noreply, assign_office(socket)}
+  def handle_info({:office_changed, _user_id}, socket) do
+    LiveReload.drain(:office_changed)
+    {:noreply, assign_office(socket)}
+  end
+
+  # Finance writes (here, in Finance, from email ingestion, or by another
+  # household member) refresh the Finance card in the scope it's showing.
+  def handle_info({:finance_changed, _owner}, socket) do
+    LiveReload.drain(:finance_changed)
+    {:noreply, assign_finance_card(socket, socket.assigns.finance_scope)}
+  end
 
   def render(assigns) do
     ~H"""

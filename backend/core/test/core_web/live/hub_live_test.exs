@@ -212,6 +212,40 @@ defmodule CoreWeb.HubLiveTest do
       refute html =~ ~s(aria-label="Finance scope")
     end
 
+    test "updates the balance live when an account is added elsewhere", %{conn: conn} do
+      user = user_fixture()
+      {:ok, view, html} = live(init_test_session(conn, user_id: user.id), ~p"/hub")
+      assert html =~ "No accounts yet"
+
+      {:ok, _} =
+        Finance.create_account(user, %{
+          "name" => "Main",
+          "kind" => "checking",
+          "current_balance" => "1500.00"
+        })
+
+      assert render(view) =~ "DOP$ 1,500.00"
+    end
+
+    test "follows a household member's changes in household scope", %{conn: conn} do
+      owner = user_fixture()
+      member = user_fixture()
+      {:ok, household} = Accounts.create_household(owner, %{"name" => "Garcia Home"})
+      {:ok, _} = Accounts.add_household_member(owner, household, member)
+
+      {:ok, view, _html} = live(init_test_session(conn, user_id: owner.id), ~p"/hub")
+      render_click(view, "set_finance_scope", %{"scope" => "household"})
+
+      {:ok, _} =
+        Finance.create_account(member, household, %{
+          "name" => "Joint",
+          "kind" => "checking",
+          "current_balance" => "820.00"
+        })
+
+      assert render(view) =~ "DOP$ 820.00"
+    end
+
     test "offers a household toggle to household members", %{conn: conn} do
       user = user_fixture()
       conn = init_test_session(conn, user_id: user.id)

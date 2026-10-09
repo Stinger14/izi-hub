@@ -651,6 +651,46 @@ defmodule CoreWeb.FinanceLiveTest do
     end
   end
 
+  describe "live updates" do
+    test "shows a transaction added elsewhere without reloading", %{conn: conn} do
+      user = user_fixture()
+      {:ok, view, html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+      refute html =~ "Live coffee"
+
+      {:ok, _} =
+        Finance.create_transaction(user, %{
+          "amount" => "4.50",
+          "type" => "expense",
+          "description" => "Live coffee",
+          "transaction_date" => Date.to_iso8601(Date.utc_today())
+        })
+
+      assert render(view) =~ "Live coffee"
+    end
+
+    test "picks up a household created in this session right away", %{conn: conn} do
+      user = user_fixture()
+      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+
+      render_click(view, "open_household_panel", %{})
+
+      view
+      |> form("form[phx-submit=\"create_household\"]", household: %{"name" => "Garcia Home"})
+      |> render_submit()
+
+      [household] = Accounts.list_households_for_user(user)
+
+      {:ok, _} =
+        Finance.create_account(user, household, %{
+          "name" => "Shared pantry fund",
+          "kind" => "checking",
+          "current_balance" => "300.00"
+        })
+
+      assert render(view) =~ "Shared pantry fund"
+    end
+  end
+
   defp submit_account(view, name) do
     view
     |> form("form[phx-submit=\"create_account\"]",
