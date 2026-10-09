@@ -159,6 +159,53 @@ defmodule Core.Finance do
     end
   end
 
+  # ------ Live updates ------
+  #
+  # Every successful write broadcasts {:finance_changed, owner_ref} on its
+  # owner's topic ("finance:user:<id>" or "finance:household:<id>"), so every
+  # LiveView showing that owner's data (Finance, the hub's Finance card, a
+  # household member's open tab) can reload. broadcast_from skips the writing
+  # process, which refreshes itself. Writes nested in a Repo.transaction stay
+  # silent; the outer function broadcasts once, after the commit.
+
+  @pubsub Core.PubSub
+
+  @doc "Subscribes to the user's personal finance topic and each household's."
+  def subscribe(%User{} = user) do
+    Phoenix.PubSub.subscribe(@pubsub, owner_topic({:user, user.id}))
+
+    user
+    |> Accounts.list_households_for_user()
+    |> Enum.each(&subscribe_household/1)
+  end
+
+  def subscribe_household(%Household{id: id}),
+    do: Phoenix.PubSub.subscribe(@pubsub, owner_topic({:household, id}))
+
+  defp owner_topic({:user, id}), do: "finance:user:#{id}"
+  defp owner_topic({:household, id}), do: "finance:household:#{id}"
+
+  defp broadcast_change({:ok, value} = result) do
+    with false <- Repo.in_transaction?(),
+         {_kind, _id} = owner_ref <- owner_ref(value) do
+      Phoenix.PubSub.broadcast_from(
+        @pubsub,
+        self(),
+        owner_topic(owner_ref),
+        {:finance_changed, owner_ref}
+      )
+    end
+
+    result
+  end
+
+  defp broadcast_change(result), do: result
+
+  defp owner_ref({first, _second}), do: owner_ref(first)
+  defp owner_ref(%{household_id: id}) when not is_nil(id), do: {:household, id}
+  defp owner_ref(%{user_id: id}) when not is_nil(id), do: {:user, id}
+  defp owner_ref(_value), do: nil
+
   @doc """
   Creates a transaction
   """
@@ -174,6 +221,7 @@ defmodule Core.Finance do
       %Transaction{}
       |> Transaction.changeset(attrs)
       |> Repo.insert()
+      |> broadcast_change()
     end
   end
 
@@ -212,6 +260,7 @@ defmodule Core.Finance do
     transaction
     |> Transaction.changeset(attrs)
     |> Repo.update()
+    |> broadcast_change()
   end
 
   def confirm_transaction(%User{} = user, %Transaction{} = transaction, attrs \\ %{}) do
@@ -221,6 +270,7 @@ defmodule Core.Finance do
         Map.merge(attrs, %{"status" => "confirmed", "review_reason" => nil})
       )
       |> Repo.update()
+      |> broadcast_change()
     end
   end
 
@@ -229,6 +279,7 @@ defmodule Core.Finance do
       transaction
       |> Transaction.changeset(%{"status" => "ignored"})
       |> Repo.update()
+      |> broadcast_change()
     end
   end
 
@@ -243,7 +294,7 @@ defmodule Core.Finance do
   end
 
   def delete_transaction(%Transaction{counterpart_transaction_id: nil} = transaction) do
-    Repo.delete(transaction)
+    transaction |> Repo.delete() |> broadcast_change()
   end
 
   def delete_transaction(%Transaction{} = transaction) do
@@ -257,6 +308,7 @@ defmodule Core.Finance do
 
       transaction
     end)
+    |> broadcast_change()
   end
 
   defp reverse_transfer_leg_balance(%Transaction{account_id: nil}), do: :ok
@@ -374,6 +426,7 @@ defmodule Core.Finance do
 
         {out_leg, in_leg}
       end)
+      |> broadcast_change()
     end
   end
 
@@ -599,6 +652,7 @@ defmodule Core.Finance do
       %Account{}
       |> Account.changeset(attrs)
       |> Repo.insert()
+      |> broadcast_change()
     end
   end
 
@@ -720,6 +774,7 @@ defmodule Core.Finance do
       %Category{}
       |> Category.changeset(attrs)
       |> Repo.insert()
+      |> broadcast_change()
     end
   end
 
@@ -740,6 +795,7 @@ defmodule Core.Finance do
     category
     |> Category.changeset(attrs)
     |> Repo.update()
+    |> broadcast_change()
   end
 
   @doc """
@@ -752,7 +808,7 @@ defmodule Core.Finance do
   end
 
   def delete_category(%Category{} = category) do
-    Repo.delete(category)
+    category |> Repo.delete() |> broadcast_change()
   end
 
   # ------ Budgets ------
@@ -822,6 +878,7 @@ defmodule Core.Finance do
       %Budget{}
       |> Budget.changeset(attrs)
       |> Repo.insert()
+      |> broadcast_change()
     end
   end
 
@@ -856,6 +913,7 @@ defmodule Core.Finance do
     budget
     |> Budget.changeset(attrs)
     |> Repo.update()
+    |> broadcast_change()
   end
 
   @doc """
@@ -867,7 +925,7 @@ defmodule Core.Finance do
     end
   end
 
-  def delete_budget(%Budget{} = budget), do: Repo.delete(budget)
+  def delete_budget(%Budget{} = budget), do: budget |> Repo.delete() |> broadcast_change()
 
   # ------ Debts ------
 
@@ -920,6 +978,7 @@ defmodule Core.Finance do
       %Debt{}
       |> Debt.changeset(attrs)
       |> Repo.insert()
+      |> broadcast_change()
     end
   end
 
@@ -928,6 +987,7 @@ defmodule Core.Finance do
       debt
       |> Debt.changeset(attrs)
       |> Repo.update()
+      |> broadcast_change()
     end
   end
 
@@ -936,6 +996,7 @@ defmodule Core.Finance do
       debt
       |> Debt.changeset(%{"status" => "archived"})
       |> Repo.update()
+      |> broadcast_change()
     end
   end
 
@@ -983,6 +1044,7 @@ defmodule Core.Finance do
           update_debt_after_payment!(debt, payment)
           payment
         end)
+        |> broadcast_change()
       else
         {:error, changeset}
       end
@@ -991,7 +1053,7 @@ defmodule Core.Finance do
 
   def delete_debt_payment(%User{} = user, %DebtPayment{} = payment) do
     with :ok <- ensure_resource_owner(user, payment) do
-      Repo.delete(payment)
+      payment |> Repo.delete() |> broadcast_change()
     end
   end
 
@@ -1114,6 +1176,7 @@ defmodule Core.Finance do
       %SavingsGoal{}
       |> SavingsGoal.changeset(attrs)
       |> Repo.insert()
+      |> broadcast_change()
     end
   end
 
@@ -1122,6 +1185,7 @@ defmodule Core.Finance do
       goal
       |> SavingsGoal.changeset(attrs)
       |> Repo.update()
+      |> broadcast_change()
     end
   end
 
@@ -1137,6 +1201,7 @@ defmodule Core.Finance do
       goal
       |> SavingsGoal.changeset(%{"saved_amount" => new_saved_amount, "status" => status})
       |> Repo.update()
+      |> broadcast_change()
     end
   end
 
@@ -1145,6 +1210,7 @@ defmodule Core.Finance do
       goal
       |> SavingsGoal.changeset(%{"status" => "archived"})
       |> Repo.update()
+      |> broadcast_change()
     end
   end
 
