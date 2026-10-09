@@ -28,6 +28,7 @@ defmodule CoreWeb.ConnCase do
       import Plug.Conn
       import Phoenix.ConnTest
       import CoreWeb.ConnCase
+      import Core.Fixtures
     end
   end
 

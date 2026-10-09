@@ -12,8 +12,22 @@ defmodule Core.Finance.Parsers.BankAlertParser do
     "qik.com.do"
   ]
 
-  @expense_keywords ["purchase", "debit", "withdrawal", "card purchase", "compra", "consumo", "retiro"]
-  @income_keywords ["deposit", "payment received", "credit", "transfer received", "transferencia recibida"]
+  @expense_keywords [
+    "purchase",
+    "debit",
+    "withdrawal",
+    "card purchase",
+    "compra",
+    "consumo",
+    "retiro"
+  ]
+  @income_keywords [
+    "deposit",
+    "payment received",
+    "credit",
+    "transfer received",
+    "transferencia recibida"
+  ]
 
   def parse(%EmailMessage{} = message) do
     with true <- supported_sender?(message.from),

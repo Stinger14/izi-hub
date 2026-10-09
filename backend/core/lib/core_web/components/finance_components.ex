@@ -41,7 +41,7 @@ defmodule CoreWeb.FinanceComponents do
                 title="Personal finance scope"
                 class={[
                   "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition",
-                  @ownership_scope == "personal" && "bg-[#465fff] text-[#ffffff] shadow-sm",
+                  @ownership_scope == "personal" && "bg-[var(--fin-primary)] text-[var(--fin-on-primary)] shadow-sm",
                   @ownership_scope != "personal" && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
                 ]}
               >
@@ -57,7 +57,7 @@ defmodule CoreWeb.FinanceComponents do
                 title={household_scope_title(@households)}
                 class={[
                   "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition",
-                  @ownership_scope == "household" && "bg-[#465fff] text-[#ffffff] shadow-sm",
+                  @ownership_scope == "household" && "bg-[var(--fin-primary)] text-[var(--fin-on-primary)] shadow-sm",
                   @ownership_scope != "household" && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
                 ]}
               >
@@ -68,14 +68,30 @@ defmodule CoreWeb.FinanceComponents do
 
             <.household_picker :if={@households != []} households={@households} selected_household_id={@selected_household_id} />
 
+            <%!-- Households: with none yet, the "+ Household" toggle above opens
+                 the create panel; once you have one, this labelled button does. --%>
             <button
+              :if={@households != []}
               type="button"
               phx-click="open_household_panel"
               aria-label="Add household"
-              title="Add household"
-              class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] text-[color:var(--fin-muted)] transition hover:bg-[color:var(--fin-card)] hover:text-[color:var(--fin-text)]"
+              title="Create another household"
+              class="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 text-xs font-semibold text-[color:var(--fin-muted)] transition hover:bg-[color:var(--fin-card)] hover:text-[color:var(--fin-text)]"
             >
-              <.icon name="hero-plus" class="h-4 w-4" />
+              <.icon name="hero-home" class="h-4 w-4" /> New household
+            </button>
+
+            <%!-- Adds an account to whichever scope is active (personal or the
+                 selected household), via the same quick-add panel as My Cards. --%>
+            <button
+              type="button"
+              phx-click="open_focus_panel"
+              phx-value-panel="account"
+              aria-label="New account in current scope"
+              title={"Add an account to #{if @ownership_scope == "household", do: "this household", else: "your personal finances"}"}
+              class="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 text-xs font-semibold text-[color:var(--fin-text)] transition hover:bg-[color:var(--fin-card)]"
+            >
+              <.icon name="hero-plus" class="h-4 w-4" /> Account
             </button>
           </div>
         </div>
@@ -104,7 +120,7 @@ defmodule CoreWeb.FinanceComponents do
                 title="Personal finance scope"
                 class={[
                   "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition",
-                  @ownership_scope == "personal" && "bg-[#465fff] text-[#ffffff] shadow-sm",
+                  @ownership_scope == "personal" && "bg-[var(--fin-primary)] text-[var(--fin-on-primary)] shadow-sm",
                   @ownership_scope != "personal" && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
                 ]}
               >
@@ -120,7 +136,7 @@ defmodule CoreWeb.FinanceComponents do
                 title={household_scope_title(@households)}
                 class={[
                   "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition",
-                  @ownership_scope == "household" && "bg-[#465fff] text-[#ffffff] shadow-sm",
+                  @ownership_scope == "household" && "bg-[var(--fin-primary)] text-[var(--fin-on-primary)] shadow-sm",
                   @ownership_scope != "household" && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
                 ]}
               >
@@ -131,14 +147,30 @@ defmodule CoreWeb.FinanceComponents do
 
             <.household_picker :if={@households != []} households={@households} selected_household_id={@selected_household_id} />
 
+            <%!-- Households: with none yet, the "+ Household" toggle above opens
+                 the create panel; once you have one, this labelled button does. --%>
             <button
+              :if={@households != []}
               type="button"
               phx-click="open_household_panel"
               aria-label="Add household"
-              title="Add household"
-              class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] text-[color:var(--fin-muted)] transition hover:bg-[color:var(--fin-card)] hover:text-[color:var(--fin-text)]"
+              title="Create another household"
+              class="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 text-xs font-semibold text-[color:var(--fin-muted)] transition hover:bg-[color:var(--fin-card)] hover:text-[color:var(--fin-text)]"
             >
-              <.icon name="hero-plus" class="h-4 w-4" />
+              <.icon name="hero-home" class="h-4 w-4" /> New household
+            </button>
+
+            <%!-- Adds an account to whichever scope is active (personal or the
+                 selected household), via the same quick-add panel as My Cards. --%>
+            <button
+              type="button"
+              phx-click="open_focus_panel"
+              phx-value-panel="account"
+              aria-label="New account in current scope"
+              title={"Add an account to #{if @ownership_scope == "household", do: "this household", else: "your personal finances"}"}
+              class="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 text-xs font-semibold text-[color:var(--fin-text)] transition hover:bg-[color:var(--fin-card)]"
+            >
+              <.icon name="hero-plus" class="h-4 w-4" /> Account
             </button>
 
             <button
@@ -233,7 +265,7 @@ defmodule CoreWeb.FinanceComponents do
           fontFamily: "inherit"
         },
         series: [%{name: "Balance", data: Enum.map(assigns.hero.sparkline, &Float.round(&1, 2))}],
-        colors: ["#465fff"],
+        colors: [tone_chart_color("budget")],
         stroke: %{curve: "smooth", width: 2},
         fill: %{
           type: "gradient",
@@ -474,9 +506,9 @@ defmodule CoreWeb.FinanceComponents do
       class={[
         @bubble && "rounded-full px-3 py-1.5 text-xs font-semibold transition",
         !@bubble && "rounded-full px-3 py-1.5 text-xs font-semibold transition",
-        @current == @scope && @bubble && "bg-[#465fff] text-[#ffffff] shadow-[0_10px_20px_-16px_rgba(70,95,255,0.35)]",
+        @current == @scope && @bubble && "bg-[var(--fin-primary)] text-[var(--fin-on-primary)] shadow-[0_10px_20px_-14px_rgba(139,92,246,0.55)]",
         @current != @scope && @bubble && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]",
-        @current == @scope && !@bubble && "bg-[#465fff] text-[#ffffff] shadow-sm",
+        @current == @scope && !@bubble && "bg-[var(--fin-primary)] text-[var(--fin-on-primary)] shadow-sm",
         @current != @scope && !@bubble && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
       ]}
     >
@@ -597,12 +629,12 @@ defmodule CoreWeb.FinanceComponents do
       <button
         type="button"
         phx-click="close_focus_panel"
-        class="absolute inset-0 bg-[#101828]/40 backdrop-blur-sm"
+        class="absolute inset-0 bg-[#0b0a10]/60 backdrop-blur-sm"
         aria-label="Close detail panel"
       >
       </button>
 
-      <div class="relative z-10 w-full max-w-5xl overflow-hidden rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] shadow-2xl">
+      <div class="hub-glass relative z-10 w-full max-w-5xl overflow-hidden rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] shadow-2xl">
         <div class="flex items-center justify-between gap-4 border-b border-[color:var(--fin-border)] px-5 py-4 sm:px-6">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Detail panel</p>
@@ -983,7 +1015,7 @@ defmodule CoreWeb.FinanceComponents do
   def goal_panel(assigns) do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[0.82fr_1.18fr]">
-      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-sm">
+      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-sm">
         <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Savings goals</p>
         <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Create goal</h2>
 
@@ -1003,7 +1035,7 @@ defmodule CoreWeb.FinanceComponents do
         </.form>
       </div>
 
-      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-sm">
+      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Progress</p>
@@ -1468,7 +1500,7 @@ defmodule CoreWeb.FinanceComponents do
       phx-value-category={@category}
       class={[
         "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
-        @active && "border-[#465fff] bg-[#465fff] text-white shadow-sm",
+        @active && "border-[color:var(--fin-primary)] bg-[var(--fin-primary)] text-[var(--fin-on-primary)] shadow-sm",
         !@active && "border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
       ]}
     >
@@ -1672,7 +1704,7 @@ defmodule CoreWeb.FinanceComponents do
   def review_section(assigns) do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
+      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Pending review</p>
@@ -1689,7 +1721,7 @@ defmodule CoreWeb.FinanceComponents do
         </div>
       </div>
 
-      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
+      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
         <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Review cadence</p>
         <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">What happens here</h2>
         <div class="mt-5 space-y-3 text-sm leading-6 text-[color:var(--fin-muted)]">
@@ -1705,7 +1737,7 @@ defmodule CoreWeb.FinanceComponents do
   def budgets_section(assigns) do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[0.72fr_1.28fr]">
-      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
+      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
         <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Planning</p>
         <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Budgets</h2>
         <div class="mt-5">
@@ -1722,7 +1754,7 @@ defmodule CoreWeb.FinanceComponents do
         </div>
       </div>
 
-      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
+      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Active budgets</p>
@@ -1751,7 +1783,7 @@ defmodule CoreWeb.FinanceComponents do
   def debts_section(assigns) do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[0.72fr_1.28fr]">
-      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
+      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
         <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Obligations</p>
         <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Debts</h2>
         <div class="mt-5">
@@ -1776,7 +1808,7 @@ defmodule CoreWeb.FinanceComponents do
         </div>
       </div>
 
-      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
+      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Payoff comparison</p>
@@ -1817,7 +1849,7 @@ defmodule CoreWeb.FinanceComponents do
   def insights_section(assigns) do
     ~H"""
     <section class="grid gap-5 lg:grid-cols-2">
-      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
+      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
         <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Signals</p>
         <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Financial health</h2>
 
@@ -1829,7 +1861,7 @@ defmodule CoreWeb.FinanceComponents do
         </div>
       </div>
 
-      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
+      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
         <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Reading guide</p>
         <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">How to read this snapshot</h2>
         <div class="mt-5 space-y-3 text-sm leading-6 text-[color:var(--fin-muted)]">
@@ -1838,7 +1870,7 @@ defmodule CoreWeb.FinanceComponents do
         </div>
       </div>
 
-      <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6 lg:col-span-2">
+      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6 lg:col-span-2">
         <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Warnings</p>
         <div class="mt-4 space-y-2">
           <div :for={warning <- @health.warnings} class="rounded-lg border border-[color:var(--fin-border)] bg-[color-mix(in_srgb,var(--tone-review)_14%,transparent)] p-3 text-sm text-[var(--tone-review)]">
@@ -1854,8 +1886,9 @@ defmodule CoreWeb.FinanceComponents do
   end
 
   @doc """
-  Flat light card — the Finance 2.0 surface. Ivory background, hairline
-  border, soft walnut shadow. Replaces the glass panel across finance.
+  The Finance surface. Carries `hub-glass`, so on the IziHub theme it renders
+  as a translucent blurred glass panel; the token utilities below are the
+  fallback outside the theme.
   """
   attr :class, :any, default: nil
   attr :padded, :boolean, default: true
@@ -1864,7 +1897,7 @@ defmodule CoreWeb.FinanceComponents do
   def fin_card(assigns) do
     ~H"""
     <div class={[
-      "rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)]",
+      "hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)]",
       @padded && "p-5 sm:p-6",
       @class
     ]}>
@@ -1972,13 +2005,16 @@ defmodule CoreWeb.FinanceComponents do
     """
   end
 
-  @chart_income_color "#12b76a"
-  @chart_expense_color "#f04438"
-  @chart_budget_color "#465fff"
-  @chart_review_color "#f79009"
-  @chart_muted_color "#667085"
-  @chart_border_color "#e4e7ec"
-  @chart_fallback_palette ["#465fff", "#f79009", "#12b76a", "#f04438", "#98a2b3", "#7a5af8"]
+  # ApexCharts takes literal colors in its JSON config, so these mirror the
+  # .hub-shell --tone-* / --hub-* values in app.css — keep them in sync.
+  @chart_income_color "#7fc4a0"
+  @chart_expense_color "#f08a7e"
+  @chart_budget_color "#a78bfa"
+  @chart_review_color "#e3b363"
+  @chart_muted_color "#a1a1aa"
+  @chart_border_color "rgba(221, 214, 254, 0.08)"
+  @chart_surface_color "#1c1b22"
+  @chart_fallback_palette ["#a78bfa", "#e3b363", "#7fc4a0", "#f08a7e", "#a1a1aa", "#c4b5fd"]
 
   attr :id, :string, required: true
   attr :cashflow_months, :list, required: true
@@ -2011,7 +2047,7 @@ defmodule CoreWeb.FinanceComponents do
         axisTicks: %{show: false}
       },
       legend: %{show: true, position: "top", horizontalAlign: "right", markers: %{size: 5}},
-      tooltip: %{theme: "light"}
+      tooltip: %{theme: "dark"}
     }
 
     assigns = assign(assigns, :payload, chart_payload(options))
@@ -2040,11 +2076,11 @@ defmodule CoreWeb.FinanceComponents do
       series: Enum.map(assigns.breakdown, &chart_number(&1.amount)),
       labels: Enum.map(assigns.breakdown, & &1.name),
       colors: colors,
-      stroke: %{colors: ["#ffffff"], width: 2},
+      stroke: %{colors: [@chart_surface_color], width: 2},
       dataLabels: %{enabled: false},
       plotOptions: %{pie: %{donut: %{size: "72%"}}},
       legend: %{show: true, position: "bottom", markers: %{size: 5}},
-      tooltip: %{theme: "light"}
+      tooltip: %{theme: "dark"}
     }
 
     assigns = assign(assigns, :payload, chart_payload(options))
@@ -2082,7 +2118,7 @@ defmodule CoreWeb.FinanceComponents do
 
   def account_card(assigns) do
     ~H"""
-    <div class="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#1d2939_0%,#101828_55%,#0c111d_100%)] p-5 text-[#ffffff] shadow-[0_20px_36px_-24px_rgba(12,17,29,0.55)]">
+    <div class="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#3b2d63_0%,#241d3d_55%,#14121c_100%)] p-5 text-[#ffffff] shadow-[0_20px_36px_-22px_rgba(139,92,246,0.45)] ring-1 ring-[color:var(--fin-border)]">
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-2.5">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" class="h-5 w-5 text-[#d0d5dd]/90">
@@ -2092,7 +2128,7 @@ defmodule CoreWeb.FinanceComponents do
           </svg>
           <span class={[
             "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-            @account.status == "active" && "bg-[#12b76a]/20 text-[#6ce9a6]",
+            @account.status == "active" && tone_class("income", :soft),
             @account.status != "active" && "bg-[#ffffff]/15 text-[#ffffff]/70"
           ]}>
             <%= if @account.status == "active", do: "Active", else: "Archived" %>
@@ -2146,7 +2182,7 @@ defmodule CoreWeb.FinanceComponents do
       phx-value-section={@section}
       class={[
         "shrink-0 rounded-2xl px-3.5 py-2 text-sm font-semibold transition xl:flex xl:w-full xl:items-center xl:justify-start xl:px-4 xl:py-3",
-        @active_section == @section && "bg-[#465fff] text-[#ffffff] shadow-sm xl:bg-[color-mix(in_srgb,var(--fin-accent)_12%,transparent)] xl:text-[var(--fin-accent)]",
+        @active_section == @section && "bg-[var(--fin-primary)] text-[var(--fin-on-primary)] shadow-sm xl:bg-[color-mix(in_srgb,var(--fin-accent)_12%,transparent)] xl:text-[var(--fin-accent)]",
         @active_section != @section && "border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)] xl:border-transparent"
       ]}
     >

@@ -4,7 +4,7 @@ defmodule Core.MixProject do
   def project do
     [
       app: :core,
-      version: "0.1.0",
+      version: "0.10.0",
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -102,7 +102,9 @@ defmodule Core.MixProject do
     [
       setup: ["deps.get", "ecto.setup"],
       "assets.build": ["esbuild default", "tailwind default"],
-      "assets.deploy": ["esbuild default --minify", "phx.digest", "tailwind default --minify"],
+      # phx.digest must run last: it fingerprints and gzips whatever is in
+      # priv/static, so the CSS and JS have to be built before it.
+      "assets.deploy": ["tailwind default --minify", "esbuild default --minify", "phx.digest"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],

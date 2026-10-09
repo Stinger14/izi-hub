@@ -17,6 +17,7 @@ defmodule Core.Accounts.User do
     field :email_verified, :boolean, default: false
     field :email_verified_at, :naive_datetime
     field :last_login_at, :naive_datetime
+    field :github_username, :string
 
     has_many :user_tokens, Core.Accounts.UserToken
     has_many :household_memberships, Core.Accounts.HouseholdMember
@@ -60,6 +61,31 @@ defmodule Core.Accounts.User do
     |> validate_username()
     |> validate_format(:avatar_url, ~r/^https?:\/\//, message: "must be a valid URL")
   end
+
+  @doc """
+  Changeset for linking (or clearing, with a blank value) the GitHub login
+  shown on the hub's Developer card. Only public data is read for it.
+  """
+  def github_username_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:github_username], empty_values: [nil, ""])
+    |> update_change(:github_username, &normalize_github_username/1)
+    |> then(fn changeset ->
+      if get_change(changeset, :github_username) == "",
+        do: put_change(changeset, :github_username, nil),
+        else: changeset
+    end)
+    |> validate_format(
+      :github_username,
+      ~r/\A[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}\z/,
+      message: "is not a valid GitHub username"
+    )
+  end
+
+  defp normalize_github_username(nil), do: nil
+
+  defp normalize_github_username(login),
+    do: login |> String.trim() |> String.trim_leading("@") |> String.trim()
 
   @doc """
   Changeset for password updates

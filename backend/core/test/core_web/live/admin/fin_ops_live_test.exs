@@ -3,12 +3,10 @@ defmodule CoreWeb.Admin.FinOpsLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias Core.Accounts
   alias Core.Finance
-  alias Core.Repo
 
   test "redirects unauthenticated users to login", %{conn: conn} do
-    assert {:error, {:redirect, %{to: "/hub?auth=login"}}} = live(conn, ~p"/admin/finops")
+    assert {:error, {:redirect, %{to: "/login?error=auth"}}} = live(conn, ~p"/admin/finops")
   end
 
   test "redirects non-admin users", %{conn: conn} do
@@ -62,25 +60,5 @@ defmodule CoreWeb.Admin.FinOpsLiveTest do
     assert transaction.amount == Decimal.new("54.25")
     assert transaction.external_id == "<finops-1@bank.com>"
     assert transaction.merchant == "Cafe Central"
-  end
-
-  defp user_fixture do
-    {:ok, user} =
-      Accounts.register_user(%{
-        email: "finops_user_#{System.unique_integer([:positive])}@example.com",
-        password: "Password123!",
-        username: "finops_user_#{System.unique_integer([:positive])}",
-        full_name: "FinOps User"
-      })
-
-    user
-  end
-
-  defp admin_fixture do
-    user = user_fixture()
-
-    user
-    |> Ecto.Changeset.change(%{role: "admin", is_active: true})
-    |> Repo.update!()
   end
 end

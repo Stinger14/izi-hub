@@ -1,42 +1,18 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @layer base {
+    /* Every page renders inside .hub-shell (Layouts.app), which defines the
+       IziHub theme tokens (--hub-*, --fin-*, --tone-*, --btn-*, --fx-*).
+       The root only sets the dark canvas so overscroll and the moment
+       before the shell paints never flash white. */
     :root {
         font-family:
             system-ui,
             -apple-system,
             sans-serif;
-        --fx-accent-100: #ede9fe;
-        --fx-accent-150: #e9d5ff;
-        --fx-accent-300: #c4b5fd;
-        --fx-accent-500: #a855f7;
-        --fx-ink-900: #1e293b;
-        --fx-surface: rgba(255, 255, 255, 0.78);
-        --fx-surface-strong: rgba(255, 255, 255, 0.95);
-        --fx-surface-gradient-start: rgba(255, 255, 255, 0.98);
-        --fx-surface-gradient-end: rgba(243, 232, 255, 0.8);
-        --fx-preview-gradient-start: rgba(255, 255, 255, 0.96);
-        --fx-preview-gradient-end: rgba(243, 232, 255, 0.9);
-        --fx-glow-a: rgba(196, 181, 253, 0.56);
-        --fx-glow-b: rgba(167, 139, 250, 0.42);
-        --fx-aura: rgba(196, 181, 253, 0.58);
-        --fx-shadow-soft: rgba(51, 65, 85, 0.8);
-        --fx-shadow-accent: rgba(88, 28, 135, 0.55);
-        --fx-shadow-preview: rgba(67, 56, 202, 0.45);
-        --btn-primary-bg: #6d28d9;
-        --btn-primary-hover: #6d28d9;
-        --btn-primary-text: #ffffff;
-        --btn-secondary-bg: rgba(255, 255, 255, 0.88);
-        --btn-secondary-hover: #f5f3ff;
-        --btn-secondary-border: #ddd6fe;
-        --btn-secondary-text: #334155;
-        --btn-ghost-text: #6d28d9;
-        --btn-accent-border: #a855f7;
-        --btn-accent-text: #6d28d9;
-        --btn-accent-hover: #f3e8ff;
-        --btn-danger-bg: #be123c;
-        --btn-danger-hover: #9f1239;
-        --btn-danger-text: #ffffff;
+        color-scheme: dark;
+        background-color: #1c1b22;
     }
 
     main {
@@ -87,11 +63,6 @@
         border-radius: 14px;
     }
 
-    .btn-lg {
-        padding: 12px 18px;
-        font-size: 15px;
-    }
-
     .btn:focus-visible {
         outline: 2px solid #a855f7;
         outline-offset: 2px;
@@ -106,7 +77,6 @@
 
     .btn-primary,
     .btn-secondary,
-    .btn-accent,
     .fx-contact-link {
         isolation: isolate;
         overflow: hidden;
@@ -128,15 +98,8 @@
         color: #5b21b6;
     }
 
-    .btn-accent {
-        border-color: var(--btn-accent-border);
-        background: rgba(255, 255, 255, 0.95);
-        color: var(--btn-accent-text);
-    }
-
     .btn-primary::after,
-    .btn-secondary::after,
-    .btn-accent::after {
+    .btn-secondary::after {
         content: "";
         position: absolute;
         inset: 0;
@@ -173,9 +136,7 @@
     .btn-primary:hover,
     .btn-primary:focus-visible,
     .btn-secondary:hover,
-    .btn-secondary:focus-visible,
-    .btn-accent:hover,
-    .btn-accent:focus-visible {
+    .btn-secondary:focus-visible {
         color: #0f172a;
         border-color: rgba(56, 189, 248, 0.8);
         background: transparent;
@@ -189,9 +150,7 @@
     .btn-primary:hover::after,
     .btn-primary:focus-visible::after,
     .btn-secondary:hover::after,
-    .btn-secondary:focus-visible::after,
-    .btn-accent:hover::after,
-    .btn-accent:focus-visible::after {
+    .btn-secondary:focus-visible::after {
         opacity: 1;
     }
 
@@ -652,12 +611,6 @@
         text-transform: uppercase;
     }
 
-    .badge-compact-64 {
-        padding: 4px 6px;
-        font-size: 9px;
-        letter-spacing: 0.06em;
-    }
-
     .badge-status::before {
         content: "";
         position: absolute;
@@ -686,89 +639,6 @@
                 rgba(252, 211, 77, 0.28),
                 rgba(252, 211, 77, 0) 74%
             );
-    }
-
-    .badge-new {
-        border-color: #a78bfa;
-        background: linear-gradient(
-            180deg,
-            rgba(243, 232, 255, 0.96),
-            rgba(233, 213, 255, 0.88)
-        );
-        color: #5b21b6;
-        box-shadow: 0 8px 14px -18px rgba(109, 40, 217, 0.5);
-    }
-
-    .badge-new::before {
-        opacity: 0;
-        background: none;
-        animation: none;
-    }
-
-    .fx-nav-link {
-        position: relative;
-        isolation: isolate;
-        overflow: hidden;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px;
-        padding: 2px 8px;
-        color: #6d28d9;
-        transition:
-            color 180ms ease,
-            background-color 180ms ease,
-            box-shadow 180ms ease,
-            text-decoration-color 180ms ease;
-    }
-
-    .fx-nav-link::before {
-        content: none;
-    }
-
-    .fx-nav-link::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        z-index: -1;
-        border-radius: none;
-        pointer-events: none;
-        opacity: 0;
-        background: radial-gradient(
-            140% 180% at 50% 50%,
-            rgba(56, 189, 248, 0.98) 0%,
-            rgba(56, 189, 248, 0.84) 56%,
-            rgba(56, 189, 248, 0.52) 100%
-        );
-        transition: opacity 180ms ease;
-    }
-
-    .fx-nav-link:hover,
-    .fx-nav-link:focus-visible {
-        color: #4c1d95;
-        background: transparent;
-        box-shadow:
-            0 0 0 1px rgba(56, 189, 248, 0.8),
-            0 0 0 2px rgba(56, 189, 248, 0.38),
-            0 0 12px rgba(56, 189, 248, 0.62),
-            0 0 22px rgba(56, 189, 248, 0.42);
-        text-decoration: underline;
-        text-underline-offset: 3px;
-    }
-
-    .fx-nav-link:hover::after,
-    .fx-nav-link:focus-visible::after {
-        opacity: 1;
-    }
-
-    .fx-nav-link:focus-visible {
-        outline: 2px solid #a855f7;
-        outline-offset: 2px;
-    }
-
-    .fx-nav-link-with-badge {
-        overflow: visible;
-        padding-right: 18px;
     }
 
     .fx-tech-chip {
@@ -1262,28 +1132,6 @@
         }
     }
 
-    @keyframes fx-contact-link-glow {
-        0% {
-            filter: blur(8px);
-            opacity: 0.72;
-        }
-
-        100% {
-            filter: blur(12px);
-            opacity: 0.96;
-        }
-    }
-
-    @keyframes fx-btn-glow {
-        0% {
-            filter: blur(8px);
-        }
-
-        100% {
-            filter: blur(13px);
-        }
-    }
-
     .font-display {
         font-weight: 650;
         letter-spacing: -0.02em;
@@ -1291,49 +1139,12 @@
 }
 
 /* ---------------------------------------------------------------
-   Finance page - scoped light theme using TailAdmin's published
-   design tokens (brand/gray/success/error/warning scales). Deliberately
-   unlayered (outside @layer) so it always wins over the utilities
-   layer; tokens and btn overrides only apply inside
-   dot-finance-shell, so every other page keeps the global theme
-   tokens above intact.
+   Finance page - rides the IziHub theme: Layouts.app wraps every page
+   in .hub-shell, which maps every --fin-*, --tone-* and --btn-* token
+   onto the hub palette. This scope only keeps finance-specific
+   rules (focus ring, ghost hover) that read those tokens.
    --------------------------------------------------------------- */
 .finance-shell {
-    --fin-bg: #f9fafb;
-    --fin-card: #ffffff;
-    --fin-surface: #f2f4f7;
-    --fin-text: #101828;
-    --fin-muted: #667085;
-    --fin-border: #e4e7ec;
-    --fin-accent: #465fff;
-    --fin-glass-border: #e4e7ec;
-    --fin-glass-from: #ffffff;
-    --fin-glass-to: #f9fafb;
-    --fin-glass-inset: rgba(255, 255, 255, 0.7);
-    --fin-glass-shadow: rgba(16, 24, 40, 0.1);
-
-    --tone-income: #12b76a;
-    --tone-expense: #f04438;
-    --tone-budget: #465fff;
-    --tone-debt: #f79009;
-    --tone-review: #f79009;
-
-    --btn-primary-bg: #465fff;
-    --btn-primary-hover: #3641f5;
-    --btn-primary-text: #ffffff;
-    --btn-secondary-bg: var(--fin-card);
-    --btn-secondary-hover: var(--fin-surface);
-    --btn-secondary-border: var(--fin-border);
-    --btn-secondary-text: var(--fin-text);
-    --btn-ghost-text: var(--fin-accent);
-    --btn-accent-border: var(--fin-accent);
-    --btn-accent-text: var(--fin-accent);
-    --btn-accent-hover: rgba(70, 95, 255, 0.1);
-    --btn-danger-bg: #f04438;
-    --btn-danger-hover: #d92d20;
-    --btn-danger-text: #ffffff;
-
-    background-color: var(--fin-bg);
     color: var(--fin-text);
 }
 
@@ -1348,4 +1159,452 @@
 .finance-shell .btn-ghost:hover {
     background: var(--fin-surface);
     color: var(--fin-text);
+}
+
+/* ---------------------------------------------------------------
+   IziHub site theme - "Nebula violet" dark glass theme,
+   modelled on the Nebula template: lifted charcoal page (~#1c1b22) with
+   a violet haze at the top (~#2b2341), violet glow pockets and a
+   starfield; translucent blurred glass panels (.hub-glass) that let the
+   haze show through; Geist type. Applied site-wide: Layouts.app wraps
+   every page in .hub-shell. Unlayered like .finance-shell so it wins over utilities
+   (including the bg/border/shadow utilities on fin_card). Also maps the
+   --fin-*, --tone-* and --btn-* tokens onto the hub palette so
+   FinanceComponents.fin_card/1, tone_class/2 and .btn-* render
+   correctly inside the hub.
+
+   Roles: --hub-primary is a deep violet used only as a FILL (buttons,
+   selected states) under white text (>=4.9:1); --hub-secondary is
+   violet-400 for links/icons (>=6.2:1 on glass); --hub-accent-2 is
+   violet-300 for kicker labels; --hub-accent is violet-500 for
+   decoration only (glows, focus rings, hover borders; <4.5:1 as text).
+   --------------------------------------------------------------- */
+.hub-shell {
+    --hub-bg: #1c1b22;
+    --hub-card: #17161c;
+    --hub-surface: rgba(255, 255, 255, 0.035);
+    --hub-border: rgba(221, 214, 254, 0.08);
+    --hub-text: #ededef;
+    --hub-muted: #a1a1aa;
+    --hub-primary: #6d4fc7;
+    --hub-secondary: #a78bfa;
+    --hub-accent: #8b5cf6;
+    --hub-accent-2: #c4b5fd;
+    --hub-accent-hi: #c4b5fd;
+    --hub-on-primary: #ffffff;
+    --hub-shadow: rgba(0, 0, 0, 0.55);
+
+    --fin-bg: var(--hub-bg);
+    --fin-card: var(--hub-card);
+    --fin-surface: var(--hub-surface);
+    --fin-text: var(--hub-text);
+    --fin-muted: var(--hub-muted);
+    --fin-border: var(--hub-border);
+    --fin-accent: var(--hub-secondary);
+    --fin-glass-shadow: var(--hub-shadow);
+    --fin-primary: var(--hub-primary);
+    --fin-on-primary: var(--hub-on-primary);
+
+    --tone-income: #7fc4a0;
+    --tone-expense: #f08a7e;
+    --tone-budget: var(--hub-secondary);
+    --tone-debt: #e3b363;
+    --tone-review: #e3b363;
+    --tone-info: #7cc4ee;
+
+    --btn-primary-bg: linear-gradient(180deg, #7c5bd6 0%, #5b3fb0 100%);
+    --btn-primary-hover: #7c5bd6;
+    --btn-primary-text: var(--hub-on-primary);
+    --btn-secondary-bg: rgba(255, 255, 255, 0.03);
+    --btn-secondary-hover: rgba(255, 255, 255, 0.06);
+    --btn-secondary-border: var(--hub-border);
+    --btn-secondary-text: var(--hub-text);
+    --btn-ghost-text: var(--hub-secondary);
+    --btn-danger-bg: #b4473b;
+    --btn-danger-hover: #c85648;
+    --btn-danger-text: #ffffff;
+
+    /* Shared fx effects (fx-item / fx-trigger / fx-preview / fx-stamp) read
+       these tokens, so remapping them here gives every migrated page the
+       dark glass version without touching the effect rules themselves. */
+    --fx-accent-100: rgba(139, 92, 246, 0.16);
+    --fx-accent-150: var(--hub-border);
+    --fx-accent-300: rgba(196, 181, 253, 0.3);
+    --fx-accent-500: rgba(167, 139, 250, 0.6);
+    --fx-ink-900: var(--hub-text);
+    --fx-surface: rgba(255, 255, 255, 0.03);
+    --fx-surface-strong: rgba(255, 255, 255, 0.06);
+    --fx-surface-gradient-start: rgba(221, 214, 254, 0.08);
+    --fx-surface-gradient-end: rgba(139, 92, 246, 0.06);
+    --fx-preview-gradient-start: rgba(23, 22, 28, 0.92);
+    --fx-preview-gradient-end: rgba(43, 35, 65, 0.88);
+    --fx-glow-a: rgba(139, 92, 246, 0.35);
+    --fx-glow-b: rgba(167, 139, 250, 0.25);
+    --fx-aura: rgba(139, 92, 246, 0.3);
+    --fx-shadow-soft: rgba(0, 0, 0, 0.6);
+    --fx-shadow-accent: rgba(139, 92, 246, 0.45);
+    --fx-shadow-preview: rgba(0, 0, 0, 0.7);
+
+    font-family: "Geist", system-ui, sans-serif;
+    color-scheme: dark;
+    background-color: var(--hub-bg);
+    background-image:
+        radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.45), transparent 60%),
+        radial-gradient(1px 1px at 68% 9%, rgba(255, 255, 255, 0.35), transparent 60%),
+        radial-gradient(1.5px 1.5px at 84% 27%, rgba(221, 214, 254, 0.5), transparent 60%),
+        radial-gradient(1px 1px at 31% 44%, rgba(255, 255, 255, 0.28), transparent 60%),
+        radial-gradient(1px 1px at 92% 63%, rgba(255, 255, 255, 0.3), transparent 60%),
+        radial-gradient(1.5px 1.5px at 7% 76%, rgba(221, 214, 254, 0.4), transparent 60%),
+        radial-gradient(1px 1px at 55% 88%, rgba(255, 255, 255, 0.28), transparent 60%),
+        radial-gradient(ellipse 65% 420px at 50% 0%, rgba(139, 92, 246, 0.32), transparent 75%),
+        radial-gradient(ellipse 45% 360px at 18% 640px, rgba(139, 92, 246, 0.16), transparent 70%),
+        radial-gradient(ellipse 45% 360px at 85% 680px, rgba(139, 92, 246, 0.13), transparent 70%),
+        linear-gradient(180deg, #292633 0px, #211f2a 260px, var(--hub-bg) 620px);
+    background-size: 900px 900px, 900px 900px, 900px 900px, 900px 900px, 900px 900px, 900px 900px, 900px 900px, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+    background-repeat: repeat, repeat, repeat, repeat, repeat, repeat, repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    color: var(--hub-text);
+}
+
+.hub-shell .font-display {
+    font-family: "Geist", system-ui, sans-serif;
+    font-weight: 650;
+    letter-spacing: -0.025em;
+}
+
+/* Glass panel: translucent and blurred so the violet haze shows through,
+   with Nebula's surface shadows (light top edge, lavender inner haze). At
+   62% opacity, muted text stays >=6.5:1 even over the brightest haze. */
+.hub-shell .hub-glass {
+    background-color: rgba(23, 22, 28, 0.62);
+    background-image: linear-gradient(180deg, rgba(221, 214, 254, 0.05), rgba(221, 214, 254, 0.01) 40%, transparent);
+    border: 1px solid var(--hub-border);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    backdrop-filter: blur(16px) saturate(140%);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+        inset -0.5px 0.5px 1px 0 rgba(203, 213, 225, 0.12),
+        inset 0 0 96px 0 rgba(221, 214, 254, 0.05),
+        0 0 0 1px rgba(0, 0, 0, 0.2),
+        0 24px 48px -28px rgba(0, 0, 0, 0.8);
+}
+
+.hub-shell .hub-gradient-text {
+    background: linear-gradient(180deg, #ddd6fe 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+/* Buttons: Nebula's filled violet gradient with an inset glow instead of
+   the global cyan hover. The primary fill is a gradient, so it is set on
+   `background` rather than through background-color. */
+.hub-shell .btn-primary {
+    background: var(--btn-primary-bg);
+    border-color: rgba(196, 181, 253, 0.35);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
+        inset 0 0 12px 0 rgba(255, 255, 255, 0.06),
+        inset 0 -8px 24px 0 rgba(30, 13, 73, 0.25),
+        0 0 0 1px rgba(0, 0, 0, 0.25),
+        0 4px 22px -4px rgba(139, 92, 246, 0.55);
+}
+
+.hub-shell .btn-secondary {
+    background: var(--btn-secondary-bg);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+        inset 0 0 24px 0 rgba(221, 214, 254, 0.03);
+}
+
+.hub-shell .btn-primary::after,
+.hub-shell .btn-secondary::after {
+    background: radial-gradient(
+        140% 180% at 50% 0%,
+        rgba(196, 181, 253, 0.22) 0%,
+        rgba(139, 92, 246, 0.12) 60%,
+        transparent 100%
+    );
+}
+
+.hub-shell .btn-primary:hover,
+.hub-shell .btn-primary:focus-visible {
+    color: var(--hub-on-primary);
+    background: var(--btn-primary-bg);
+    border-color: rgba(196, 181, 253, 0.6);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+        inset 0 0 12px 0 rgba(255, 255, 255, 0.08),
+        0 0 0 1px rgba(0, 0, 0, 0.25),
+        0 6px 30px -4px rgba(139, 92, 246, 0.75);
+}
+
+.hub-shell .btn-secondary:hover,
+.hub-shell .btn-secondary:focus-visible {
+    color: var(--hub-text);
+    background: var(--btn-secondary-hover);
+    border-color: rgba(196, 181, 253, 0.3);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+        0 0 18px -4px rgba(139, 92, 246, 0.45);
+}
+
+.hub-shell .btn:focus-visible {
+    outline-color: var(--hub-accent-hi);
+}
+
+.hub-shell .btn-ghost:hover {
+    background: var(--hub-surface);
+    color: var(--hub-text);
+}
+
+.hub-shell .fx-tech-chip {
+    color: var(--hub-secondary);
+}
+
+.hub-shell .fx-tech-chip::before {
+    background: radial-gradient(
+        80% 120% at 50% 50%,
+        rgba(139, 92, 246, 0.3),
+        rgba(139, 92, 246, 0) 72%
+    );
+}
+
+.hub-shell .fx-tech-chip::after {
+    background: rgba(23, 22, 28, 0.7);
+    box-shadow: inset 0 0 0 1px var(--hub-border);
+}
+
+/* Clickable glass cards: .hub-glass owns the border (unlayered), so hover
+   border/glow utilities can't reach it; this class adds the hover state. */
+.hub-shell .hub-glass-interactive {
+    transition:
+        border-color 180ms ease,
+        box-shadow 180ms ease,
+        transform 180ms ease;
+}
+
+.hub-shell .hub-glass-interactive:hover,
+.hub-shell .hub-glass-interactive:focus-visible {
+    border-color: rgba(167, 139, 250, 0.45);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+        inset 0 0 96px 0 rgba(221, 214, 254, 0.07),
+        0 0 0 1px rgba(0, 0, 0, 0.2),
+        0 18px 40px -22px rgba(139, 92, 246, 0.55);
+}
+
+/* The WIP status badge is a light amber pill; on glass it reads through
+   the theme's review tone so it matches tone_class("review", ...). */
+.hub-shell .badge-wip {
+    border-color: color-mix(in srgb, var(--tone-review) 40%, transparent);
+    background: color-mix(in srgb, var(--tone-review) 14%, transparent);
+    color: var(--tone-review);
+}
+
+.hub-shell .badge-wip::before {
+    background: radial-gradient(
+        circle,
+        color-mix(in srgb, var(--tone-review) 35%, transparent),
+        transparent 70%
+    );
+}
+
+/* Profile: contact links and stack badges hardcode the light theme's cyan
+   hover glow and white pills; swap them for violet on glass. White text on
+   the violet glow stays >=4.8:1. */
+.hub-shell .fx-contact-link {
+    color: var(--hub-secondary);
+}
+
+.hub-shell .fx-contact-link::after {
+    background: radial-gradient(
+        140% 180% at 50% 50%,
+        rgba(124, 91, 214, 0.98) 0%,
+        rgba(109, 79, 199, 0.9) 56%,
+        rgba(91, 63, 176, 0.7) 100%
+    );
+}
+
+.hub-shell .fx-contact-link:hover,
+.hub-shell .fx-contact-link:focus-visible {
+    color: #ffffff;
+    border-color: rgba(196, 181, 253, 0.6);
+    box-shadow:
+        0 0 0 1px rgba(196, 181, 253, 0.45),
+        0 0 14px rgba(139, 92, 246, 0.5);
+}
+
+.hub-shell .fx-stack-badge {
+    border-color: var(--hub-border);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--hub-text);
+}
+
+.hub-shell .fx-stack-badge:hover {
+    border-color: rgba(167, 139, 250, 0.5);
+    background: rgba(139, 92, 246, 0.18);
+    color: #ffffff;
+    box-shadow:
+        0 0 0 1px rgba(167, 139, 250, 0.35),
+        0 0 12px rgba(139, 92, 246, 0.35);
+}
+
+.hub-shell .fx-stack-badge.fx-stack-badge-active,
+.hub-shell .fx-stack-badge.fx-stack-badge-active:hover {
+    border-color: rgba(196, 181, 253, 0.6);
+    background: rgba(139, 92, 246, 0.3);
+    color: #ffffff;
+    box-shadow:
+        0 0 0 1px rgba(196, 181, 253, 0.45),
+        0 0 16px rgba(139, 92, 246, 0.45);
+}
+
+.hub-shell .fx-stack-badge:focus-visible {
+    outline-color: var(--hub-accent-hi);
+}
+
+/* Admin dashboard console: light lavender panel + white action pills and
+   hover previews in the base theme; dark glass with violet accents here. */
+.hub-shell .admin-console {
+    border-color: var(--hub-border);
+    background: rgba(23, 22, 28, 0.62);
+    color: var(--hub-text);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    backdrop-filter: blur(16px) saturate(140%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        inset 0 0 96px rgba(221, 214, 254, 0.05),
+        0 24px 48px -28px rgba(0, 0, 0, 0.8);
+}
+
+.hub-shell .admin-console-status,
+.hub-shell .admin-console-preview-kicker {
+    color: var(--hub-accent-2);
+}
+
+.hub-shell .admin-console-dot {
+    background: var(--hub-accent);
+}
+
+.hub-shell .admin-console-action,
+.hub-shell .admin-console-preview-action {
+    border-color: var(--hub-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--hub-text);
+}
+
+.hub-shell .admin-console-action:hover,
+.hub-shell .admin-console-action:focus-visible,
+.hub-shell .admin-console-preview-action:hover,
+.hub-shell .admin-console-preview-action:focus-visible {
+    border-color: rgba(167, 139, 250, 0.5);
+    background: rgba(139, 92, 246, 0.2);
+    color: #ffffff;
+    box-shadow: 0 0 14px -2px rgba(139, 92, 246, 0.45);
+}
+
+.hub-shell .admin-console-action:focus-visible,
+.hub-shell .admin-console-preview-action:focus-visible {
+    outline-color: var(--hub-accent-hi);
+}
+
+.hub-shell .admin-console-preview {
+    border-color: rgba(196, 181, 253, 0.25);
+    background: linear-gradient(180deg, rgba(36, 30, 56, 0.97), rgba(23, 22, 28, 0.97));
+    color: var(--hub-text);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        0 24px 42px -24px rgba(0, 0, 0, 0.85);
+}
+
+.hub-shell .admin-console-item:hover .admin-console-preview,
+.hub-shell .admin-console-item:focus-within .admin-console-preview {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 24px 46px -22px rgba(139, 92, 246, 0.45);
+}
+
+.hub-shell .admin-console-preview::after {
+    background: rgba(139, 92, 246, 0.18);
+}
+
+.hub-shell .admin-console-preview-title {
+    color: var(--hub-text);
+}
+
+/* Hover previews are a pointer affordance; on phones the hidden (opacity 0)
+   previews of the right-hand actions still widened the page past 390px. */
+@media (max-width: 639px) {
+    .hub-shell .admin-console-preview {
+        display: none;
+    }
+}
+
+/* Admin FinOps compose form: light panels and glowing fields in the base
+   theme. On glass the valid/invalid glows go through the income/expense
+   tones so they match tone_class/2. */
+.hub-shell .finops-compose-panel {
+    border-color: var(--hub-border);
+    background: rgba(255, 255, 255, 0.025);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.hub-shell .finops-body-panel {
+    background: transparent;
+}
+
+.hub-shell .finops-glow-label {
+    color: var(--hub-muted);
+}
+
+.hub-shell .finops-glow-label-icon {
+    color: var(--hub-secondary);
+}
+
+.hub-shell .finops-glow-control,
+.hub-shell .finops-glow-control:placeholder-shown,
+.hub-shell .finops-glow-control:not(:required):placeholder-shown {
+    border-color: var(--hub-border);
+    background: var(--hub-surface);
+    color: var(--hub-text);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.hub-shell .finops-glow-control::placeholder {
+    color: var(--hub-muted);
+}
+
+.hub-shell .finops-glow-control:focus {
+    border-color: var(--hub-accent);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+}
+
+.hub-shell .finops-glow-control:required:valid,
+.hub-shell .finops-glow-control:not(:required):not(:placeholder-shown):valid {
+    border-color: color-mix(in srgb, var(--tone-income) 60%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone-income) 16%, transparent);
+}
+
+.hub-shell .finops-glow-control:required:invalid {
+    border-color: color-mix(in srgb, var(--tone-expense) 60%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone-expense) 16%, transparent);
+}
+
+/* Untouched (empty) fields stay neutral rather than glowing invalid,
+   mirroring the base theme's rule order. */
+.hub-shell .finops-glow-control:required:placeholder-shown,
+.hub-shell .finops-glow-control:not(:required):placeholder-shown {
+    border-color: var(--hub-border);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* fx-stamp hardcodes a light-theme ink color; keep it readable on glass. */
+.hub-shell .fx-stamp {
+    color: var(--hub-accent-2);
+    box-shadow: 0 4px 12px -8px rgba(139, 92, 246, 0.8);
+}
+
+.hub-shell ::selection {
+    background: rgba(139, 92, 246, 0.45);
+    color: #ffffff;
 }

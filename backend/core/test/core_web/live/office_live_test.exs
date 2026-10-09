@@ -3,11 +3,10 @@ defmodule CoreWeb.OfficeLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias Core.Accounts
   alias Core.Office
 
   test "redirects unauthenticated users to login", %{conn: conn} do
-    assert {:error, {:redirect, %{to: "/hub?auth=login"}}} = live(conn, ~p"/office")
+    assert {:error, {:redirect, %{to: "/login?error=auth"}}} = live(conn, ~p"/office")
   end
 
   test "renders the office workbench for authenticated users", %{conn: conn} do
@@ -519,17 +518,17 @@ defmodule CoreWeb.OfficeLiveTest do
     assert html =~ "Stage:"
   end
 
-  defp user_fixture do
-    unique = System.unique_integer([:positive])
+  test "reloads the board when office data changes elsewhere", %{conn: conn} do
+    user = user_fixture()
+    conn = init_test_session(conn, user_id: user.id)
+    {:ok, view, html} = live(conn, ~p"/office")
+    refute html =~ "Added from the hub"
 
-    {:ok, user} =
-      Accounts.register_user(%{
-        email: "office_live_user_#{unique}@example.com",
-        password: "Password123!",
-        username: "office_live_user_#{unique}",
-        full_name: "Office Live User"
+    {:ok, _} =
+      Office.create_work_item(user, Office.default_project_for_user(user), %{
+        "title" => "Added from the hub"
       })
 
-    user
+    assert render(view) =~ "Added from the hub"
   end
 end

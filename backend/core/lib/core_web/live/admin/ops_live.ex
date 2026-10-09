@@ -98,12 +98,12 @@ defmodule CoreWeb.Admin.OpsLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="min-h-screen bg-purple-50 text-slate-900">
-        <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
+      <div class="min-h-screen">
+        <header class="border-b border-[color:var(--hub-border)]">
           <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
             <div>
-              <p class="text-lg font-semibold tracking-tight text-purple-500">Admin Ops</p>
-              <p class="mt-1 text-xs text-slate-500">Action-driven operational controls for administrators.</p>
+              <p class="font-display text-lg text-[var(--hub-accent-2)]">Admin Ops</p>
+              <p class="mt-1 text-xs text-[var(--hub-muted)]">Action-driven operational controls for administrators.</p>
             </div>
             <div class="flex items-center gap-3">
               <a href={~p"/admin"} class="btn btn-secondary btn-sm">Back to dashboard</a>
@@ -113,9 +113,9 @@ defmodule CoreWeb.Admin.OpsLive do
 
         <main class="mx-auto max-w-6xl px-6 py-10">
           <div class="grid gap-6 lg:grid-cols-2">
-            <section class="rounded-2xl border border-purple-100 bg-white/85 p-5 shadow-sm">
-              <h2 class="text-base font-semibold text-slate-900">Operations</h2>
-              <p class="mt-1 text-xs text-slate-500">
+            <section class="hub-glass rounded-2xl p-5">
+              <h2 class="text-base font-semibold text-[var(--hub-text)]">Operations</h2>
+              <p class="mt-1 text-xs text-[var(--hub-muted)]">
                 Select an action, provide required data, then preview before execution.
               </p>
 
@@ -128,25 +128,25 @@ defmodule CoreWeb.Admin.OpsLive do
                   class={operation_card_class(operation, @selected_operation)}
                 >
                   <div class="flex items-center justify-between gap-2">
-                    <p class="text-sm font-semibold text-slate-900"><%= operation.label %></p>
+                    <p class="text-sm font-semibold text-[var(--hub-text)]"><%= operation.label %></p>
                     <span class={risk_badge_class(operation.risk)}><%= risk_label(operation.risk) %></span>
                   </div>
-                  <p class="mt-2 text-xs text-slate-600"><%= operation.description %></p>
-                  <p class="mt-2 text-[11px] font-medium text-slate-500">
+                  <p class="mt-2 text-xs text-[var(--hub-muted)]"><%= operation.description %></p>
+                  <p class="mt-2 text-[11px] font-medium text-[var(--hub-muted)]">
                     Requires: <%= required_params_label(operation.params) %>
                   </p>
                 </button>
               </div>
             </section>
 
-            <section class="rounded-2xl border border-purple-100 bg-white/85 p-5 shadow-sm">
+            <section class="hub-glass rounded-2xl p-5">
               <div class="flex items-center justify-between gap-3">
-                <h2 class="text-base font-semibold text-slate-900"><%= @selected_operation.label %></h2>
+                <h2 class="text-base font-semibold text-[var(--hub-text)]"><%= @selected_operation.label %></h2>
                 <span class={risk_badge_class(@selected_operation.risk)}>
                   <%= risk_label(@selected_operation.risk) %>
                 </span>
               </div>
-              <p class="mt-1 text-xs text-slate-500"><%= @selected_operation.description %></p>
+              <p class="mt-1 text-xs text-[var(--hub-muted)]"><%= @selected_operation.description %></p>
 
               <.form
                 for={@form}
@@ -160,7 +160,7 @@ defmodule CoreWeb.Admin.OpsLive do
 
                 <%= if requires_param?(@selected_operation, :email) do %>
                   <div>
-                    <label for="ops_email" class="mb-1 block text-sm font-medium text-slate-700">
+                    <label for="ops_email" class="mb-1 block text-sm font-medium text-[var(--hub-text)]">
                       User email
                     </label>
                     <input
@@ -169,7 +169,7 @@ defmodule CoreWeb.Admin.OpsLive do
                       type="email"
                       value={@form[:email].value}
                       placeholder="user@example.com"
-                      class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
+                      class="w-full rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] focus:border-[color:var(--hub-accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                       required
                     />
                   </div>
@@ -177,7 +177,7 @@ defmodule CoreWeb.Admin.OpsLive do
 
                 <%= if requires_param?(@selected_operation, :days_old) do %>
                   <div>
-                    <label for="ops_days_old" class="mb-1 block text-sm font-medium text-slate-700">
+                    <label for="ops_days_old" class="mb-1 block text-sm font-medium text-[var(--hub-text)]">
                       Days old
                     </label>
                     <input
@@ -187,7 +187,7 @@ defmodule CoreWeb.Admin.OpsLive do
                       value={@form[:days_old].value}
                       min="1"
                       max="3650"
-                      class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
+                      class="w-full rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] focus:border-[color:var(--hub-accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                       required
                     />
                   </div>
@@ -195,7 +195,7 @@ defmodule CoreWeb.Admin.OpsLive do
 
                 <%= if @selected_operation.confirm_phrase do %>
                   <div>
-                    <label for="ops_confirm_text" class="mb-1 block text-sm font-medium text-slate-700">
+                    <label for="ops_confirm_text" class="mb-1 block text-sm font-medium text-[var(--hub-text)]">
                       <%= "Type #{@selected_operation.confirm_phrase} to allow execution" %>
                     </label>
                     <input
@@ -204,7 +204,7 @@ defmodule CoreWeb.Admin.OpsLive do
                       type="text"
                       value={@form[:confirm_text].value}
                       placeholder={@selected_operation.confirm_phrase}
-                      class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
+                      class="w-full rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] focus:border-[color:var(--hub-accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
                     />
                   </div>
                 <% end %>
@@ -215,18 +215,18 @@ defmodule CoreWeb.Admin.OpsLive do
               </.form>
 
               <%= if @op_error do %>
-                <div class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                <div class={["mt-4 rounded-lg border border-[color:var(--tone-expense)]/30 px-3 py-2 text-sm", CoreWeb.FinanceComponents.tone_class("expense", :soft)]}>
                   <%= @op_error %>
                 </div>
               <% end %>
 
               <%= if @preview_result do %>
-                <div class="mt-5 rounded-xl border border-purple-100 bg-white p-4">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Preview</p>
+                <div class="mt-5 rounded-xl border border-[color:var(--hub-border)] p-4 bg-[var(--hub-surface)]">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Preview</p>
                   <div class="mt-2 space-y-2 text-sm">
                     <div :for={{label, value} <- result_rows(@preview_result)} class="flex items-start justify-between gap-4">
-                      <span class="text-slate-500"><%= label %></span>
-                      <span class="text-right font-medium text-slate-800"><%= value %></span>
+                      <span class="text-[var(--hub-muted)]"><%= label %></span>
+                      <span class="text-right font-medium text-[var(--hub-text)]"><%= value %></span>
                     </div>
                   </div>
                   <button type="button" phx-click="run_op" class="btn btn-primary btn-sm mt-4">
@@ -236,12 +236,12 @@ defmodule CoreWeb.Admin.OpsLive do
               <% end %>
 
               <%= if @run_result do %>
-                <div class="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
-                  <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Execution result</p>
+                <div class="mt-4 rounded-xl border border-[color:var(--tone-income)]/30 bg-[color:var(--tone-income)]/10 p-4">
+                  <p class={["text-xs font-semibold uppercase tracking-wide", CoreWeb.FinanceComponents.tone_class("income", :text)]}>Execution result</p>
                   <div class="mt-2 space-y-2 text-sm">
                     <div :for={{label, value} <- result_rows(@run_result)} class="flex items-start justify-between gap-4">
-                      <span class="text-emerald-700"><%= label %></span>
-                      <span class="text-right font-medium text-slate-800"><%= value %></span>
+                      <span class={CoreWeb.FinanceComponents.tone_class("income", :text)}><%= label %></span>
+                      <span class="text-right font-medium text-[var(--hub-text)]"><%= value %></span>
                     </div>
                   </div>
                 </div>
@@ -285,30 +285,43 @@ defmodule CoreWeb.Admin.OpsLive do
     selected? = operation.id == selected_operation.id
 
     base =
-      "w-full rounded-xl border p-4 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-purple-300"
+      "w-full rounded-xl border p-4 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/40"
 
     if selected? do
       base <>
-        " border-purple-300 bg-purple-50/80 shadow-[0_10px_20px_-18px_rgba(109,40,217,0.55)]"
+        " border-[color:var(--hub-accent)]/60 bg-[color:var(--hub-accent)]/15 shadow-[0_10px_24px_-16px_rgba(139,92,246,0.55)]"
     else
-      base <> " border-purple-100 bg-white/80 hover:border-purple-200 hover:bg-purple-50/40"
+      base <>
+        " border-[color:var(--hub-border)] bg-[var(--hub-surface)] hover:border-[color:var(--hub-accent)]/40 hover:bg-[color:var(--hub-accent)]/10"
     end
   end
 
   defp risk_badge_class(:safe) do
-    "inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700"
+    [
+      "inline-flex items-center rounded-full border border-[color:var(--tone-income)]/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+      CoreWeb.FinanceComponents.tone_class("income", :soft)
+    ]
   end
 
   defp risk_badge_class(:sensitive) do
-    "inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700"
+    [
+      "inline-flex items-center rounded-full border border-[color:var(--tone-review)]/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+      CoreWeb.FinanceComponents.tone_class("review", :soft)
+    ]
   end
 
   defp risk_badge_class(:destructive) do
-    "inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-700"
+    [
+      "inline-flex items-center rounded-full border border-[color:var(--tone-expense)]/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+      CoreWeb.FinanceComponents.tone_class("expense", :soft)
+    ]
   end
 
   defp risk_badge_class(_risk) do
-    "inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600"
+    [
+      "inline-flex items-center rounded-full border border-[color:var(--hub-border)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+      CoreWeb.FinanceComponents.tone_class("muted", :soft)
+    ]
   end
 
   defp risk_label(:safe), do: "Safe"

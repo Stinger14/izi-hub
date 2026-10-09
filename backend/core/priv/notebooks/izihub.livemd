@@ -2,19 +2,18 @@
 
 # IziHub
 
-## Feature Spec
+## Polo Studio
 
-### Living Desk
-
-An integrated workstation in the cloud ☁️
-
-#### Features
+### Feature Spec
 
 * Todo's app
 * Courses section
 * Books tracker
 * Google's calendar & Gmail integration
 * Music player
-* Translator service
+* Translator
+* Content Creation automation
 
-#### Design Scope
+### Planification
+
+App should live in `smart_services/`

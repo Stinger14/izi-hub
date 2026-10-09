@@ -1,25 +1,33 @@
-<div class="min-h-screen bg-purple-100/40 text-slate-900">
-  <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
+<div class="min-h-screen">
+  <header class="border-b border-[color:var(--hub-border)]">
     <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
       <div>
-        <p class="text-lg font-semibold tracking-tight text-purple-500">Sign up</p>
+        <p class="font-display text-lg text-[var(--hub-accent-2)]">Sign up</p>
       </div>
       <a href={~p"/hub"} class="btn btn-secondary btn-sm">Back to hub</a>
     </div>
   </header>
 
   <main class="mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-md items-center px-6 py-12">
-    <div class="w-full rounded-2xl border border-purple-100 bg-white/85 p-6 shadow-xl backdrop-blur">
+    <div class="hub-glass w-full rounded-2xl p-6">
       <div class="mb-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Authentication</p>
-        <h2 class="mt-2 text-2xl font-semibold text-slate-900">Create account</h2>
-        <p class="mt-1 text-sm text-slate-600">
+        <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--hub-accent-2)]">
+          Authentication
+        </p>
+        <h2 class="font-display mt-2 text-2xl text-[var(--hub-text)]">Create account</h2>
+        <p class="mt-1 text-sm text-[var(--hub-muted)]">
           Enter your email and we will take you to password setup.
         </p>
       </div>
 
       <%= if @errors != [] do %>
-        <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+        <div
+          role="alert"
+          class={[
+            "mb-4 rounded-xl border border-[color:var(--tone-expense)]/30 px-3 py-2 text-xs",
+            CoreWeb.FinanceComponents.tone_class("expense", :soft)
+          ]}
+        >
           <ul class="space-y-1">
             <%= for error <- @errors do %>
               <li><%= error %></li>
@@ -30,7 +38,7 @@
 
       <.form for={%{}} as={:user} action={~p"/signup"} method="post" class="space-y-4">
         <div>
-          <label for="user_email" class="mb-1 block text-sm font-medium text-slate-700">Email</label>
+          <label for="user_email" class="mb-1 block text-sm font-medium text-[var(--hub-text)]">Email</label>
           <input
             id="user_email"
             name="user[email]"
@@ -38,16 +46,16 @@
             value={Map.get(@form_data, "email", "")}
             required
             autocomplete="email"
-            class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
+            class="w-full rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] transition focus:border-[color:var(--hub-accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
           />
         </div>
 
         <button type="submit" class="btn btn-primary btn-glow w-full">Continue</button>
       </.form>
 
-      <p class="mt-4 text-xs text-slate-500">
+      <p class="mt-4 text-xs text-[var(--hub-muted)]">
         Already have an account?
-        <a href={~p"/login"} class="font-semibold text-purple-600">Sign in</a>
+        <a href={~p"/login"} class="font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)]">Sign in</a>
       </p>
     </div>
   </main>

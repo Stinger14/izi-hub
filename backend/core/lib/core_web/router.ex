@@ -29,6 +29,10 @@ defmodule CoreWeb.Router do
     plug CoreWeb.UserAuth, :require_admin_user
   end
 
+  pipeline :require_authenticated_user do
+    plug CoreWeb.UserAuth, :require_authenticated_user
+  end
+
   pipeline :service_api do
     plug :accepts, ["json"]
     plug CoreWeb.ServiceAuth
@@ -71,12 +75,9 @@ defmodule CoreWeb.Router do
       ] do
       live "/welcome", HubLandingLive, :index
       live "/hub", HubLive, :index
-      live "/contributions", ContributionsLive, :index
-      live "/resources", UnderDevelopmentLive, :resources
+      live "/resources", ResourcesLive, :index
       live "/profile", ProfileLive, :index
-      live "/notebooks", NotebooksLive, :index
-      live "/notebooks/:slug", NotebooksLive, :show
-      live "/liveapps", UnderDevelopmentLive, :liveapps
+      live "/liveapps", LiveAppsLive, :index
     end
 
     live_session :authenticated,
@@ -88,7 +89,16 @@ defmodule CoreWeb.Router do
       live "/office", OfficeLive, :index
       live "/office/:slug", OfficeLive, :show
       live "/finance", FinanceLive, :index
+      live "/contributions", ContributionsLive, :index
+      live "/notebooks", NotebooksLive, :index
+      live "/notebooks/:slug", NotebooksLive, :show
     end
+  end
+
+  scope "/", CoreWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    get "/books/:slug", BooksController, :download
   end
 
   scope "/admin", CoreWeb.Admin do

@@ -47,11 +47,11 @@ defmodule CoreWeb.ContributionsLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <div class="min-h-screen bg-purple-50 text-slate-900">
-        <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
+      <div class="min-h-screen">
+        <header class="border-b border-[color:var(--hub-border)]">
           <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
             <div>
-              <p class="text-lg font-semibold tracking-tight text-purple-500">Contributions</p>
+              <p class="font-display text-lg text-[var(--hub-accent-2)]">Contributions</p>
             </div>
             <a href={~p"/hub"} class="btn btn-secondary btn-sm">Back to hub</a>
           </div>
@@ -59,42 +59,40 @@ defmodule CoreWeb.ContributionsLive do
 
         <main class="mx-auto max-w-6xl px-6 pb-16 pt-12">
           <section>
-            <p class="text-sm font-medium text-purple-600">Activity overview</p>
-            <h1 class="mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+            <p class="text-sm font-medium text-[var(--hub-accent-2)]">Activity overview</p>
+            <h1 class="font-display mt-3 text-3xl text-[var(--hub-text)] sm:text-4xl">
               GitHub contribution details
             </h1>
-            <p class="mt-3 text-sm text-slate-600">
+            <p class="mt-3 text-sm text-[var(--hub-muted)]">
               Open source activity is prioritized first, followed by personal work and branch-level commit logs from recent public events.
             </p>
           </section>
 
           <section class="mt-10">
             <div class="flex items-center justify-between">
-              <h2 class="text-2xl font-semibold text-slate-900">Contribution maps</h2>
+              <h2 class="font-display text-2xl text-[var(--hub-text)]">Contribution maps</h2>
               <a href="https://github.com" class="btn btn-secondary btn-sm">View GitHub</a>
             </div>
 
             <%= if @loading_data and @github_accounts == [] do %>
-              <p class="mt-6 text-sm text-slate-500">Loading contribution maps...</p>
+              <p class="mt-6 text-sm text-[var(--hub-muted)]">Loading contribution maps...</p>
             <% else %>
               <%= if @github_accounts == [] do %>
-                <p class="mt-6 text-sm text-slate-500">No GitHub accounts loaded.</p>
+                <p class="mt-6 text-sm text-[var(--hub-muted)]">No GitHub accounts loaded.</p>
               <% else %>
                 <div class="mt-8 grid gap-6">
                   <%= for account <- @github_accounts do %>
-                    <div class="rounded-2xl border border-purple-100 bg-white/80 p-6">
+                    <div class="hub-glass rounded-2xl p-6">
                       <div class="flex items-center justify-between">
-                        <h3 class="text-base font-semibold text-slate-900"><%= account.username %></h3>
+                        <h3 class="text-base font-semibold text-[var(--hub-text)]"><%= account.username %></h3>
                         <a href={account.repo_url} class="btn btn-ghost btn-xs">Profile</a>
                       </div>
 
-                      <div class="mt-4 overflow-x-auto rounded-xl border border-purple-100 bg-white p-3">
-                        <%= if account.contributions_svg do %>
-                          <div class="min-w-[720px] text-slate-700">
-                            <%= Phoenix.HTML.raw(account.contributions_svg) %>
-                          </div>
+                      <div class="mt-4 rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] p-3">
+                        <%= if account.contributions do %>
+                          <.contribution_grid calendar={account.contributions} />
                         <% else %>
-                          <p class="text-sm text-slate-500">Contribution map unavailable.</p>
+                          <p class="text-sm text-[var(--hub-muted)]">Contribution map unavailable.</p>
                         <% end %>
                       </div>
                     </div>
@@ -105,52 +103,52 @@ defmodule CoreWeb.ContributionsLive do
           </section>
 
           <section class="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div class="rounded-2xl border border-purple-100 bg-white/80 p-5 shadow-sm">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Commits</p>
-              <p class="mt-3 text-3xl font-semibold"><%= @summary.commits_count %></p>
-              <p class="mt-1 text-xs text-slate-500">Recent commits visible from public events</p>
+            <div class="hub-glass rounded-2xl p-5">
+              <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Commits</p>
+              <p class="font-display mt-3 text-3xl text-[var(--hub-text)]"><%= @summary.commits_count %></p>
+              <p class="mt-1 text-xs text-[var(--hub-muted)]">Recent commits visible from public events</p>
             </div>
 
-            <div class="rounded-2xl border border-purple-100 bg-white/80 p-5 shadow-sm">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Repos Touched</p>
-              <p class="mt-3 text-3xl font-semibold"><%= @summary.repos_touched %></p>
-              <p class="mt-1 text-xs text-slate-500">Distinct repositories in the current activity window</p>
+            <div class="hub-glass rounded-2xl p-5">
+              <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Repos Touched</p>
+              <p class="font-display mt-3 text-3xl text-[var(--hub-text)]"><%= @summary.repos_touched %></p>
+              <p class="mt-1 text-xs text-[var(--hub-muted)]">Distinct repositories in the current activity window</p>
             </div>
 
-            <div class="rounded-2xl border border-purple-100 bg-white/80 p-5 shadow-sm">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Open Source Repos</p>
-              <p class="mt-3 text-3xl font-semibold"><%= @summary.open_source_repos %></p>
-              <p class="mt-1 text-xs text-slate-500">Repositories outside the tracked personal accounts</p>
+            <div class="hub-glass rounded-2xl p-5">
+              <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Open Source Repos</p>
+              <p class="font-display mt-3 text-3xl text-[var(--hub-text)]"><%= @summary.open_source_repos %></p>
+              <p class="mt-1 text-xs text-[var(--hub-muted)]">Repositories outside the tracked personal accounts</p>
             </div>
 
-            <div class="rounded-2xl border border-purple-100 bg-white/80 p-5 shadow-sm">
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Latest Activity</p>
-              <p class="mt-3 text-sm font-semibold text-slate-900"><%= @summary.last_activity_at %></p>
-              <p class="mt-1 text-xs text-slate-500">Most recent event in this feed</p>
+            <div class="hub-glass rounded-2xl p-5">
+              <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Latest Activity</p>
+              <p class="mt-3 text-sm font-semibold text-[var(--hub-text)]"><%= @summary.last_activity_at %></p>
+              <p class="mt-1 text-xs text-[var(--hub-muted)]">Most recent event in this feed</p>
             </div>
           </section>
 
           <section class="mt-10">
             <div class="flex items-center justify-between">
               <div>
-                <h2 class="text-2xl font-semibold text-slate-900">Branch activity log</h2>
-                <p class="mt-1 text-sm text-slate-600">
+                <h2 class="font-display text-2xl text-[var(--hub-text)]">Branch activity log</h2>
+                <p class="mt-1 text-sm text-[var(--hub-muted)]">
                   Ordered with open source work first, then personal repositories.
                 </p>
               </div>
             </div>
 
             <%= if @loading_data and @activity_feed == [] do %>
-              <p class="mt-6 text-sm text-slate-500">Loading activity log...</p>
+              <p class="mt-6 text-sm text-[var(--hub-muted)]">Loading activity log...</p>
             <% else %>
               <%= if @activity_feed == [] do %>
-                <p class="mt-6 text-sm text-slate-500">No recent public activity loaded.</p>
+                <p class="mt-6 text-sm text-[var(--hub-muted)]">No recent public activity loaded.</p>
               <% else %>
                 <div class="mt-8 space-y-8">
                   <div :for={{title, items} <- activity_sections(@activity_feed)} class="space-y-4">
                     <div class="flex items-center gap-3">
-                      <h3 class="text-lg font-semibold text-slate-900"><%= title %></h3>
-                      <span class="rounded-full bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-700">
+                      <h3 class="text-lg font-semibold text-[var(--hub-text)]"><%= title %></h3>
+                      <span class="rounded-full bg-[color:var(--hub-accent)]/15 px-2.5 py-1 text-xs font-semibold text-[var(--hub-accent-2)]">
                         <%= length(items) %> entries
                       </span>
                     </div>
@@ -158,12 +156,12 @@ defmodule CoreWeb.ContributionsLive do
                     <div class="space-y-4">
                       <article
                         :for={entry <- items}
-                        class="rounded-2xl border border-purple-100 bg-white/80 p-5 shadow-sm"
+                        class="hub-glass rounded-2xl p-5"
                       >
                         <div class="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <div class="flex flex-wrap items-center gap-2">
-                              <a href={entry.repo_url} class="text-base font-semibold text-slate-900 hover:text-purple-700">
+                              <a href={entry.repo_url} class="text-base font-semibold text-[var(--hub-text)] hover:text-[var(--hub-accent-2)]">
                                 <%= entry.repo %>
                               </a>
                               <span class={category_badge_class(entry.category)}>
@@ -171,7 +169,7 @@ defmodule CoreWeb.ContributionsLive do
                               </span>
                             </div>
 
-                            <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                            <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--hub-muted)]">
                               <span>Account: <%= entry.account_username %></span>
                               <span>•</span>
                               <span><%= entry.type %></span>
@@ -182,10 +180,10 @@ defmodule CoreWeb.ContributionsLive do
                             </div>
                           </div>
 
-                          <div class="text-right text-xs text-slate-500">
+                          <div class="text-right text-xs text-[var(--hub-muted)]">
                             <p><%= entry.created_at_label %></p>
                             <%= if entry.pr_url do %>
-                              <a href={entry.pr_url} class="mt-2 inline-flex text-purple-600 hover:text-purple-700">
+                              <a href={entry.pr_url} class="mt-2 inline-flex text-[var(--hub-secondary)] hover:text-[var(--hub-accent-2)]">
                                 View PR #<%= entry.pr_number %>
                               </a>
                             <% end %>
@@ -193,17 +191,17 @@ defmodule CoreWeb.ContributionsLive do
                         </div>
 
                         <%= if entry.commits == [] do %>
-                          <p class="mt-4 text-sm text-slate-600">
+                          <p class="mt-4 text-sm text-[var(--hub-muted)]">
                             <%= activity_summary_line(entry) %>
                           </p>
                         <% else %>
-                          <div class="mt-4 rounded-xl border border-purple-100 bg-white p-4">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Recent commits</p>
+                          <div class="mt-4 rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] p-4">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Recent commits</p>
                             <ul class="mt-3 space-y-3">
                               <li :for={commit <- entry.commits} class="flex items-start justify-between gap-3">
                                 <div>
-                                  <p class="text-sm font-medium text-slate-900"><%= commit.message %></p>
-                                  <p class="mt-1 text-xs text-slate-500">
+                                  <p class="text-sm font-medium text-[var(--hub-text)]"><%= commit.message %></p>
+                                  <p class="mt-1 text-xs text-[var(--hub-muted)]">
                                     <%= if commit.short_sha != "" do %>
                                       SHA <%= commit.short_sha %>
                                     <% else %>
@@ -243,12 +241,62 @@ defmodule CoreWeb.ContributionsLive do
   defp category_label(:open_source), do: "Open source"
   defp category_label(_category), do: "Personal"
 
+  attr :calendar, :map, required: true
+
+  @doc false
+  def contribution_grid(assigns) do
+    ~H"""
+    <div>
+      <p class="text-xs text-[var(--hub-muted)]">
+        <%= @calendar.total %> contributions in the last year
+      </p>
+      <div class="mt-3 overflow-x-auto pb-1">
+        <div class="grid w-max grid-flow-col grid-rows-7 gap-[3px]">
+          <%= for {week, idx} <- Enum.with_index(@calendar.weeks) do %>
+            <%!-- the first week can start mid-week: pad so it lines up on the right weekday row --%>
+            <span :for={_ <- leading_pad(week, idx)} class="h-[11px] w-[11px]"></span>
+            <span
+              :for={day <- week}
+              title={contribution_title(day)}
+              class={["h-[11px] w-[11px] rounded-[3px]", contribution_level_class(day.level)]}
+            >
+            </span>
+          <% end %>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp leading_pad([%{weekday: weekday} | _], 0), do: List.duplicate(nil, weekday)
+  defp leading_pad(_week, _idx), do: []
+
+  defp contribution_title(%{count: 1, date: date}),
+    do: "1 contribution on #{Calendar.strftime(date, "%b %-d, %Y")}"
+
+  defp contribution_title(%{count: count, date: date}),
+    do: "#{count} contributions on #{Calendar.strftime(date, "%b %-d, %Y")}"
+
+  defp contribution_level_class(0),
+    do: "bg-[var(--hub-surface)] ring-1 ring-inset ring-[color:var(--hub-border)]"
+
+  defp contribution_level_class(1), do: "bg-[color:var(--hub-accent)]/30"
+  defp contribution_level_class(2), do: "bg-[color:var(--hub-accent)]/55"
+  defp contribution_level_class(3), do: "bg-[color:var(--hub-accent)]/80"
+  defp contribution_level_class(_), do: "bg-[var(--hub-accent-2)]"
+
   defp category_badge_class(:open_source) do
-    "rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700"
+    [
+      "rounded-full px-2.5 py-1 text-xs font-semibold",
+      CoreWeb.FinanceComponents.tone_class("income", :soft)
+    ]
   end
 
   defp category_badge_class(_category) do
-    "rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700"
+    [
+      "rounded-full px-2.5 py-1 text-xs font-semibold",
+      CoreWeb.FinanceComponents.tone_class("muted", :soft)
+    ]
   end
 
   defp activity_summary_line(%{action: action, type: type})

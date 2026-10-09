@@ -1,7 +1,6 @@
 defmodule CoreWeb.Api.Finance.ServiceEmailIngestionControllerTest do
   use CoreWeb.ConnCase, async: true
 
-  alias Core.Accounts
   alias Core.Finance
 
   setup %{conn: conn} do
@@ -74,46 +73,31 @@ defmodule CoreWeb.Api.Finance.ServiceEmailIngestionControllerTest do
     assert transaction.transaction_date == ~D[2026-04-25]
   end
 
-  test "returns duplicate for repeated message ids", %{conn: conn} do
+  # Parsing outcomes are covered in Core.Finance.EmailIngestionTest; this only
+  # checks that each one maps to the right HTTP status and JSON body.
+  test "maps ingestion outcomes to HTTP responses", %{conn: conn} do
     user = user_fixture()
     {:ok, token} = Finance.create_ingestion_token(user)
-    payload = %{email: valid_email_payload(), ingestion_token: token.token}
 
-    first_conn = post(conn, ~p"/api/service/finance/email-ingestion", payload)
-    assert %{"status" => "created"} = json_response(first_conn, :created)
+    ingest = fn email ->
+      post(conn, ~p"/api/service/finance/email-ingestion", %{
+        email: email,
+        ingestion_token: token.token
+      })
+    end
 
-    second_conn = post(conn, ~p"/api/service/finance/email-ingestion", payload)
-    assert %{"status" => "duplicate"} = json_response(second_conn, :ok)
+    assert %{"status" => "created"} = ingest.(valid_email_payload()) |> json_response(:created)
+    assert %{"status" => "duplicate"} = ingest.(valid_email_payload()) |> json_response(:ok)
+
+    assert ingest.(%{valid_email_payload() | "from" => "newsletter@example.com"})
+           |> json_response(:unprocessable_entity)
+           |> Map.fetch!("error") == "unsupported_email"
+
+    assert ingest.(%{valid_email_payload() | "text_body" => "Merchant: Cafe Central"})
+           |> json_response(:unprocessable_entity)
+           |> Map.fetch!("error") == "unparseable_email"
 
     assert length(Finance.list_pending_transactions_for_user(user)) == 1
-  end
-
-  test "returns unsupported_email for unsupported sender", %{conn: conn} do
-    user = user_fixture()
-    {:ok, token} = Finance.create_ingestion_token(user)
-    payload = %{valid_email_payload() | "from" => "newsletter@example.com"}
-
-    conn =
-      post(conn, ~p"/api/service/finance/email-ingestion", %{
-        email: payload,
-        ingestion_token: token.token
-      })
-
-    assert json_response(conn, :unprocessable_entity)["error"] == "unsupported_email"
-  end
-
-  test "returns unparseable_email for supported sender with missing amount", %{conn: conn} do
-    user = user_fixture()
-    {:ok, token} = Finance.create_ingestion_token(user)
-    payload = %{valid_email_payload() | "text_body" => "Merchant: Cafe Central"}
-
-    conn =
-      post(conn, ~p"/api/service/finance/email-ingestion", %{
-        email: payload,
-        ingestion_token: token.token
-      })
-
-    assert json_response(conn, :unprocessable_entity)["error"] == "unparseable_email"
   end
 
   defp valid_email_payload do
@@ -130,19 +114,5 @@ defmodule CoreWeb.Api.Finance.ServiceEmailIngestionControllerTest do
       """,
       "html_body" => nil
     }
-  end
-
-  defp user_fixture do
-    unique = System.unique_integer([:positive])
-
-    {:ok, user} =
-      Accounts.register_user(%{
-        email: "finance_service_api_user_#{unique}@example.com",
-        password: "Password123!",
-        username: "finance_service_api_user_#{unique}",
-        full_name: "Finance Service API User"
-      })
-
-    user
   end
 end

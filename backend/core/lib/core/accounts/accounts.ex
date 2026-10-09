@@ -255,6 +255,15 @@ defmodule Core.Accounts do
   end
 
   @doc """
+  Links (or clears) the user's GitHub username.
+  """
+  def update_github_username(user, attrs) do
+    user
+    |> User.github_username_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
   Updates user password
   """
   def update_user_password(user, password) do
