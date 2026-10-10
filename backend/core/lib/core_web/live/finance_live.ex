@@ -408,7 +408,7 @@ defmodule CoreWeb.FinanceLive do
     end
   end
 
-  def handle_event("create_account", %{"account" => params}, socket) do
+  def handle_event("create_account", %{"account" => params} = form_params, socket) do
     user = current_actor(socket)
     owner = current_finance_owner(socket)
 
@@ -422,10 +422,17 @@ defmodule CoreWeb.FinanceLive do
          |> assign_finance_data()}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply,
-         socket
-         |> open_action_surface("account")
-         |> assign(account_form: to_form(changeset, as: :account))}
+        changeset = Map.put(changeset, :action, :insert)
+
+        # "origin" is a hidden field saying which of the two forms was used.
+        if form_params["origin"] == "panel" do
+          {:noreply,
+           socket
+           |> open_action_surface("account")
+           |> assign(quick_account_form: to_form(changeset, as: :account, id: "quick_account"))}
+        else
+          {:noreply, assign(socket, account_form: to_form(changeset, as: :account))}
+        end
     end
   end
 
@@ -961,7 +968,15 @@ defmodule CoreWeb.FinanceLive do
       current_balance: Decimal.new("0")
     }
 
-    assign(socket, account_form: to_form(Finance.change_account(account), as: :account))
+    changeset = Finance.change_account(account)
+
+    # Two separate forms: the Accounts section form and the quick-add panel.
+    # Distinct ids keep their inputs from colliding when both are on screen,
+    # and errors are shown only in the one that was submitted.
+    assign(socket,
+      account_form: to_form(changeset, as: :account),
+      quick_account_form: to_form(changeset, as: :account, id: "quick_account")
+    )
   end
 
   defp assign_goal_form(socket) do

@@ -82,10 +82,18 @@ defmodule Core.Finance.Account do
   defp unique_scope_constraint(changeset) do
     if get_field(changeset, :household_id) do
       unique_constraint(changeset, [:household_id, :name],
-        name: :finance_accounts_household_id_name_index
+        name: :finance_accounts_household_id_name_index,
+        # report on :name (the field the user typed), not the first key :user_id
+        error_key: :name,
+        message: "is already used by another account in this household"
       )
     else
-      unique_constraint(changeset, [:user_id, :name], name: :finance_accounts_user_id_name_index)
+      unique_constraint(changeset, [:user_id, :name],
+        name: :finance_accounts_user_id_name_index,
+        # report on :name (the field the user typed), not the first key :user_id
+        error_key: :name,
+        message: "is already used by another of your accounts"
+      )
     end
   end
 end

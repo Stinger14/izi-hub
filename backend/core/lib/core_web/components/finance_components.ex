@@ -85,8 +85,11 @@ defmodule CoreWeb.FinanceComponents do
                  selected household), via the same quick-add panel as My Cards. --%>
             <button
               type="button"
-              phx-click="open_focus_panel"
-              phx-value-panel="account"
+              phx-click={
+                if @active_section == "accounts",
+                  do: Phoenix.LiveView.JS.focus(to: "#account_name"),
+                  else: Phoenix.LiveView.JS.push("open_focus_panel", value: %{panel: "account"})
+              }
               aria-label="New account in current scope"
               title={"Add an account to #{if @ownership_scope == "household", do: "this household", else: "your personal finances"}"}
               class="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 text-xs font-semibold text-[color:var(--fin-text)] transition hover:bg-[color:var(--fin-card)]"
@@ -164,8 +167,11 @@ defmodule CoreWeb.FinanceComponents do
                  selected household), via the same quick-add panel as My Cards. --%>
             <button
               type="button"
-              phx-click="open_focus_panel"
-              phx-value-panel="account"
+              phx-click={
+                if @active_section == "accounts",
+                  do: Phoenix.LiveView.JS.focus(to: "#account_name"),
+                  else: Phoenix.LiveView.JS.push("open_focus_panel", value: %{panel: "account"})
+              }
               aria-label="New account in current scope"
               title={"Add an account to #{if @ownership_scope == "household", do: "this household", else: "your personal finances"}"}
               class="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 text-xs font-semibold text-[color:var(--fin-text)] transition hover:bg-[color:var(--fin-card)]"
@@ -672,7 +678,8 @@ defmodule CoreWeb.FinanceComponents do
         <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Account setup</p>
         <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Track balances by scope</h2>
 
-        <.form for={@account_form} phx-submit="create_account" class="mt-5 space-y-4">
+        <.form for={@account_form} id="account-section-form" phx-submit="create_account" class="mt-5 space-y-4">
+          <input type="hidden" name="origin" value="section" />
           <.account_form_fields form={@account_form} />
 
           <div class="flex justify-end">
@@ -809,8 +816,9 @@ defmodule CoreWeb.FinanceComponents do
   def account_panel(assigns) do
     ~H"""
     <section class="mx-auto max-w-xl">
-      <.form for={@account_form} phx-submit="create_account" class="space-y-4">
-        <.account_form_fields form={@account_form} />
+      <.form for={@quick_account_form} phx-submit="create_account" class="space-y-4">
+        <input type="hidden" name="origin" value="panel" />
+        <.account_form_fields form={@quick_account_form} />
 
         <div class="flex justify-end">
           <button type="submit" class="btn btn-primary btn-sm">Save account</button>
