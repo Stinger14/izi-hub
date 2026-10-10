@@ -773,6 +773,83 @@ defmodule CoreWeb.FinanceLiveTest do
     end
   end
 
+  describe "transfers across scopes" do
+    setup %{conn: conn} do
+      user = user_fixture()
+      {:ok, household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
+
+      {:ok, personal} =
+        Finance.create_account(user, %{
+          "name" => "My savings",
+          "kind" => "savings",
+          "current_balance" => "1000.00"
+        })
+
+      {:ok, shared} =
+        Finance.create_account(user, household, %{
+          "name" => "Household checking",
+          "kind" => "checking",
+          "current_balance" => "200.00"
+        })
+
+      %{
+        conn: init_test_session(conn, user_id: user.id),
+        user: user,
+        household: household,
+        personal: personal,
+        shared: shared
+      }
+    end
+
+    test "one personal and one household account are enough to transfer", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/finance")
+
+      assert html =~ ~s(id="quick-send-form")
+      assert html =~ ~s(<optgroup label="Personal">)
+      assert html =~ ~s(<optgroup label="Garcia Home">)
+    end
+
+    test "moves money from personal into the household", ctx do
+      {:ok, view, _html} = live(ctx.conn, ~p"/finance")
+
+      view
+      |> form("#quick-send-form",
+        transfer: %{
+          "from_account_id" => ctx.personal.id,
+          "to_account_id" => ctx.shared.id,
+          "amount" => "250.00"
+        }
+      )
+      |> render_submit()
+
+      assert Decimal.equal?(
+               Core.Repo.get!(Core.Finance.Account, ctx.personal.id).current_balance,
+               "750.00"
+             )
+
+      assert Decimal.equal?(
+               Core.Repo.get!(Core.Finance.Account, ctx.shared.id).current_balance,
+               "450.00"
+             )
+    end
+
+    test "with a single account the form explains what's needed", %{conn: conn} do
+      lonely = user_fixture()
+
+      {:ok, _} =
+        Finance.create_account(lonely, %{
+          "name" => "Only one",
+          "kind" => "checking",
+          "current_balance" => "5"
+        })
+
+      {:ok, _view, html} = live(init_test_session(conn, user_id: lonely.id), ~p"/finance")
+
+      refute html =~ ~s(id="quick-send-form")
+      assert html =~ "second account" or html =~ "at least two accounts"
+    end
+  end
+
   defp submit_section_account(view, name) do
     view
     |> form("#account-section-form",

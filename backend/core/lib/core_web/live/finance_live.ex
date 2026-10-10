@@ -860,6 +860,7 @@ defmodule CoreWeb.FinanceLive do
       Map.merge(base_assigns, %{
         categories: categories,
         accounts: accounts,
+        transfer_account_groups: transfer_account_groups(user, households, owner, accounts),
         account_summaries: account_summaries,
         account_total_balance: account_total_balance(accounts),
         account_total_balance_totals: account_total_balance_totals,
@@ -1316,8 +1317,33 @@ defmodule CoreWeb.FinanceLive do
   # collapses currencies) since this is an at-a-glance trend widget, not a
   # precise ledger.
 
+  # Every account the user can move money between — personal plus each
+  # household they belong to — grouped for the transfer form's <optgroup>s,
+  # with the active scope first. Empty groups are left out.
+  defp transfer_account_groups(user, households, owner, owner_accounts) do
+    others =
+      [{"Personal", user} | Enum.map(households, &{&1.name, &1})]
+      |> Enum.reject(fn {_label, scope} -> same_owner?(scope, owner) end)
+      |> Enum.map(fn {label, scope} ->
+        {:ok, scope_accounts} = Finance.list_accounts(user, scope)
+        {label, scope_accounts}
+      end)
+
+    current_label =
+      case owner do
+        %Core.Accounts.Household{name: name} -> name
+        _ -> "Personal"
+      end
+
+    [{current_label, owner_accounts} | others]
+    |> Enum.reject(fn {_label, accounts} -> accounts == [] end)
+  end
+
+  defp same_owner?(%{__struct__: struct, id: id}, %{__struct__: struct, id: id}), do: true
+  defp same_owner?(_a, _b), do: false
+
   defp transfer_error_message(:missing_transfer_account), do: "Pick both accounts"
-  defp transfer_error_message(:invalid_account_scope), do: "Choose accounts from the active scope"
+  defp transfer_error_message(:invalid_account_scope), do: "Choose accounts you have access to"
   defp transfer_error_message(:same_account), do: "Pick two different accounts"
 
   defp transfer_error_message(:currency_mismatch),

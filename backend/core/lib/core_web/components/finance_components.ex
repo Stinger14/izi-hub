@@ -732,15 +732,15 @@ defmodule CoreWeb.FinanceComponents do
   def transfer_panel(assigns) do
     ~H"""
     <section class="mx-auto max-w-xl">
-      <div :if={length(@accounts) < 2} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 text-sm text-[color:var(--fin-muted)]">
-        You need at least two accounts in this scope to move money between them.
+      <div :if={transfer_account_count(@transfer_account_groups) < 2} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 text-sm text-[color:var(--fin-muted)]">
+        You need at least two accounts — personal or household — to move money between them.
       </div>
 
-      <form :if={length(@accounts) >= 2} phx-submit="create_transfer" class="space-y-4">
-        <.transfer_form_fields accounts={@accounts} />
+      <form :if={transfer_account_count(@transfer_account_groups) >= 2} id="transfer-panel-form" phx-submit="create_transfer" class="space-y-4">
+        <.transfer_form_fields groups={@transfer_account_groups} />
 
         <p class="text-xs leading-5 text-[color:var(--fin-muted)]">
-          Both accounts must use the same currency. Transfers move balances without counting as income or spending.
+          Both accounts must use the same currency. You can move money between your personal and household accounts; transfers move balances without counting as income or spending.
         </p>
 
         <div class="flex justify-end">
@@ -757,22 +757,28 @@ defmodule CoreWeb.FinanceComponents do
   # transfers. Caller owns the surrounding <form phx-submit="create_transfer">
   # and its own submit/disclaimer content, since the modal and the dashboard's
   # Quick Send card each want different chrome around the same fields.
-  attr :accounts, :list, required: true
+  attr :groups, :list, required: true, doc: "[{label, accounts}] from transfer_account_groups"
 
   defp transfer_form_fields(assigns) do
+    assigns = assign(assigns, :default_to_id, default_transfer_to(assigns.groups))
+
     ~H"""
     <div class="space-y-3">
       <div class="grid gap-3 sm:grid-cols-2">
         <label class="block">
           <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">From</span>
           <select name="transfer[from_account_id]" class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-3 py-2.5 text-sm text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--fin-accent)_25%,transparent)]">
-            <option :for={account <- @accounts} value={account.id}><%= account.name %> (<%= account.currency %>)</option>
+            <optgroup :for={{label, accounts} <- @groups} label={label}>
+              <option :for={account <- accounts} value={account.id}><%= account.name %> (<%= account.currency %>)</option>
+            </optgroup>
           </select>
         </label>
         <label class="block">
           <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">To</span>
           <select name="transfer[to_account_id]" class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-3 py-2.5 text-sm text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--fin-accent)_25%,transparent)]">
-            <option :for={account <- transfer_to_options(@accounts)} value={account.id}><%= account.name %> (<%= account.currency %>)</option>
+            <optgroup :for={{label, accounts} <- @groups} label={label}>
+              <option :for={account <- accounts} value={account.id} selected={account.id == @default_to_id}><%= account.name %> (<%= account.currency %>)</option>
+            </optgroup>
           </select>
         </label>
       </div>
@@ -798,12 +804,18 @@ defmodule CoreWeb.FinanceComponents do
   # the default "From" (always the first account) — otherwise the untouched
   # defaults are a guaranteed-to-fail cross-currency pair. Falls back to the
   # old "next account in list" order when no same-currency match exists.
-  defp transfer_to_options([]), do: []
+  def transfer_account_count(groups),
+    do: Enum.reduce(groups, 0, fn {_label, accounts}, acc -> acc + length(accounts) end)
 
-  defp transfer_to_options([from | rest]) do
-    case Enum.split_with(rest, &(&1.currency == from.currency)) do
-      {[], others} -> others ++ [from]
-      {matches, others} -> matches ++ others ++ [from]
+  # "From" defaults to the first account; "To" to the next account with the
+  # same currency (any scope), falling back to any other account.
+  defp default_transfer_to(groups) do
+    case Enum.flat_map(groups, fn {_label, accounts} -> accounts end) do
+      [from | rest] ->
+        (Enum.find(rest, &(&1.currency == from.currency)) || List.first(rest) || %{id: nil}).id
+
+      [] ->
+        nil
     end
   end
 
@@ -1367,12 +1379,12 @@ defmodule CoreWeb.FinanceComponents do
             <h2 class="mt-1 text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">Quick Send</h2>
           </div>
 
-          <div :if={length(@accounts) < 2} class="mt-4 rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-6 text-center text-sm text-[color:var(--fin-muted)]">
+          <div :if={transfer_account_count(@transfer_account_groups) < 2} class="mt-4 rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-6 text-center text-sm text-[color:var(--fin-muted)]">
             Add a second account to send money between your own accounts.
           </div>
 
-          <form :if={length(@accounts) >= 2} phx-submit="create_transfer" class="mt-4 space-y-3">
-            <.transfer_form_fields accounts={@accounts} />
+          <form :if={transfer_account_count(@transfer_account_groups) >= 2} id="quick-send-form" phx-submit="create_transfer" class="mt-4 space-y-3">
+            <.transfer_form_fields groups={@transfer_account_groups} />
             <p class="text-xs leading-5 text-[color:var(--fin-muted)]">
               Both accounts must use the same currency.
             </p>
