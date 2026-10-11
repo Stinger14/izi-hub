@@ -166,6 +166,7 @@ defmodule Core.Accounts do
       %HouseholdMember{}
       |> HouseholdMember.changeset(membership_attrs)
       |> Repo.insert()
+      |> notify_household_change(household.id)
     end
   end
 
@@ -240,6 +241,83 @@ defmodule Core.Accounts do
     |> where([membership], membership.status == "active" and membership.role == "owner")
     |> Repo.exists?()
   end
+
+  # ------ Managing a household ------
+  #
+  # Owners rename, remove members and delete; members can leave. Every change
+  # notifies the household's finance topic so open pages (and the hub) of all
+  # members reload — a removed member or a deleted household drops out of
+  # their scope picker immediately.
+
+  @doc "Renames a household (owner only). The slug is kept so links stay stable."
+  def rename_household(%User{} = actor, %Household{} = household, attrs) do
+    with :ok <- ensure_household_owner(actor, household) do
+      household
+      |> Household.changeset(Map.take(Map.new(attrs), ["name", :name]))
+      |> Repo.update()
+      |> notify_household_change(household.id)
+    end
+  end
+
+  @doc "Removes a member (owner only). The owner can't be removed."
+  def remove_household_member(%User{} = actor, %Household{} = household, member_user_id) do
+    with :ok <- ensure_household_owner(actor, household),
+         %HouseholdMember{} = membership <- get_membership(household.id, member_user_id),
+         :ok <- ensure_not_owner(membership) do
+      membership |> Repo.delete() |> notify_household_change(household.id)
+    else
+      nil -> {:error, :not_found}
+      error -> error
+    end
+  end
+
+  @doc """
+  Leaves a household. Owners can't leave (they would orphan it): they delete
+  the household instead.
+  """
+  def leave_household(%User{} = user, %Household{} = household) do
+    case get_membership(household.id, user.id) do
+      nil -> {:error, :not_found}
+      %HouseholdMember{role: "owner"} -> {:error, :owner_cannot_leave}
+      membership -> membership |> Repo.delete() |> notify_household_change(household.id)
+    end
+  end
+
+  @doc """
+  Deletes a household and, through the database's cascading foreign keys,
+  every finance record it owns. Owner only, and only when `confirmation`
+  matches the household's name (case and surrounding spaces ignored).
+  """
+  def delete_household(%User{} = actor, %Household{} = household, confirmation) do
+    with :ok <- ensure_household_owner(actor, household),
+         :ok <- ensure_confirmation(household, confirmation) do
+      household |> Repo.delete() |> notify_household_change(household.id)
+    end
+  end
+
+  defp get_membership(household_id, user_id) do
+    Repo.get_by(HouseholdMember, household_id: household_id, user_id: user_id)
+  end
+
+  defp ensure_not_owner(%HouseholdMember{role: "owner"}), do: {:error, :cannot_remove_owner}
+  defp ensure_not_owner(_membership), do: :ok
+
+  defp ensure_confirmation(%Household{name: name}, confirmation) when is_binary(confirmation) do
+    if normalize_confirmation(confirmation) == normalize_confirmation(name),
+      do: :ok,
+      else: {:error, :confirmation_mismatch}
+  end
+
+  defp ensure_confirmation(_household, _confirmation), do: {:error, :confirmation_mismatch}
+
+  defp normalize_confirmation(value), do: value |> String.trim() |> String.downcase()
+
+  defp notify_household_change({:ok, _} = result, household_id) do
+    Core.Finance.notify_household_change(household_id)
+    result
+  end
+
+  defp notify_household_change(result, _household_id), do: result
 
   def change_household(%Household{} = household \\ %Household{}) do
     Household.changeset(household, %{})

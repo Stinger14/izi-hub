@@ -580,11 +580,39 @@ defmodule CoreWeb.FinanceComponents do
             <h3 class="mt-2 text-xl font-semibold tracking-tight text-[color:var(--fin-text)]">
               <%= selected_household_name(@selected_household) %>
             </h3>
+            <button
+              :if={household_owner?(@current_scope.user, @selected_household) and !@household_rename_open}
+              type="button"
+              phx-click="open_household_rename"
+              class="mt-1 text-xs font-semibold text-[color:var(--fin-accent)]"
+            >
+              Rename
+            </button>
           </div>
           <span class="rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1 text-xs font-semibold text-[var(--fin-accent)]">
             <%= household_role_label(@current_scope.user, @selected_household) %>
           </span>
         </div>
+
+        <form
+          :if={@household_rename_open and @selected_household}
+          id="household-rename-form"
+          phx-submit="rename_household"
+          class="mt-4 flex flex-wrap items-end gap-2"
+        >
+          <label class="min-w-0 flex-1">
+            <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Household name</span>
+            <input
+              type="text"
+              name="household[name]"
+              value={@selected_household.name}
+              required
+              class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-2 text-sm text-[color:var(--fin-text)] outline-none focus:border-[var(--fin-accent)]"
+            />
+          </label>
+          <button type="button" phx-click="cancel_household_rename" class="btn btn-ghost btn-sm">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        </form>
 
         <div class="mt-5 space-y-3">
           <div
@@ -595,9 +623,20 @@ defmodule CoreWeb.FinanceComponents do
               <p class="font-semibold text-[color:var(--fin-text)]"><%= member.name %></p>
               <p class="mt-1 text-xs text-[color:var(--fin-muted)]"><%= member.label %></p>
             </div>
-            <span class="rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1 text-xs font-semibold text-[color:var(--fin-muted)]">
-              <%= member.role %>
-            </span>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              <span class="rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1 text-xs font-semibold text-[color:var(--fin-muted)]">
+                <%= member.role %>
+              </span>
+              <.record_actions
+                :if={household_owner?(@current_scope.user, @selected_household) and !member.owner?}
+                type="household_member"
+                id={member.user_id}
+                label={member.name}
+                confirming_delete={@confirming_delete}
+                edit={false}
+                delete_label="Remove"
+              />
+            </div>
           </div>
           <div :if={@selected_household == nil} class="rounded-xl border border-dashed border-[color:var(--fin-border)] p-4 text-sm text-[color:var(--fin-muted)]">
             Create a household to start shared tracking.
@@ -622,6 +661,61 @@ defmodule CoreWeb.FinanceComponents do
             </button>
           </div>
         </.form>
+
+        <div
+          :if={@selected_household && !household_owner?(@current_scope.user, @selected_household)}
+          class="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-[color:var(--fin-border)] pt-4"
+        >
+          <%= if @confirming_leave do %>
+            <span class="text-xs text-[color:var(--fin-text)]">
+              Leave <%= @selected_household.name %>? You'll lose access to its shared records.
+            </span>
+            <button type="button" phx-click="leave_household" class="btn btn-danger btn-xs">Leave</button>
+            <button type="button" phx-click="cancel_leave_household" class="btn btn-ghost btn-xs">Cancel</button>
+          <% else %>
+            <button type="button" phx-click="request_leave_household" class="btn btn-ghost btn-xs text-[var(--tone-expense)]">
+              Leave household
+            </button>
+          <% end %>
+        </div>
+
+        <div
+          :if={household_owner?(@current_scope.user, @selected_household)}
+          id="household-danger-zone"
+          class="mt-5 border-t border-[color:var(--fin-border)] pt-4"
+        >
+          <button
+            :if={!@household_delete_open}
+            type="button"
+            phx-click="open_household_delete"
+            class="btn btn-ghost btn-xs text-[var(--tone-expense)]"
+          >
+            Delete household
+          </button>
+
+          <form :if={@household_delete_open} id="household-delete-form" phx-submit="delete_household" class="space-y-3">
+            <p class={["rounded-lg px-3 py-2 text-xs leading-5", tone_class("expense", :soft)]}>
+              This permanently deletes <strong><%= @selected_household.name %></strong> and all of its accounts,
+              transactions, budgets, debts and goals — for every member. This can't be undone.
+            </p>
+            <label class="block">
+              <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">
+                Type <%= @selected_household.name %> to confirm
+              </span>
+              <input
+                type="text"
+                name="confirmation"
+                autocomplete="off"
+                required
+                class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-2 text-sm text-[color:var(--fin-text)] outline-none focus:border-[var(--tone-expense)]"
+              />
+            </label>
+            <div class="flex justify-end gap-2">
+              <button type="button" phx-click="cancel_household_delete" class="btn btn-ghost btn-sm">Cancel</button>
+              <button type="submit" class="btn btn-danger btn-sm">Delete household</button>
+            </div>
+          </form>
+        </div>
       </div>
     </section>
     """
@@ -711,6 +805,7 @@ defmodule CoreWeb.FinanceComponents do
   attr :confirming_delete, :any, default: nil
   attr :edit, :boolean, default: true
   attr :delete, :boolean, default: true
+  attr :delete_label, :string, default: "Delete"
   slot :inner_block
 
   @doc """
@@ -721,16 +816,16 @@ defmodule CoreWeb.FinanceComponents do
     ~H"""
     <div class="flex flex-wrap items-center justify-end gap-1.5">
       <%= if @confirming_delete == {@type, @id} do %>
-        <span class="text-xs text-[color:var(--fin-text)]">Delete “<%= @label %>”?</span>
+        <span class="text-xs text-[color:var(--fin-text)]"><%= @delete_label %> “<%= @label %>”?</span>
         <button
           type="button"
           phx-click="confirm_delete"
           phx-value-type={@type}
           phx-value-id={@id}
-          aria-label={"Confirm delete #{@label}"}
+          aria-label={"Confirm #{String.downcase(@delete_label)} #{@label}"}
           class="btn btn-danger btn-xs"
         >
-          Delete
+          <%= @delete_label %>
         </button>
         <button type="button" phx-click="cancel_delete" class="btn btn-ghost btn-xs">Cancel</button>
       <% else %>
@@ -752,10 +847,10 @@ defmodule CoreWeb.FinanceComponents do
           phx-click="request_delete"
           phx-value-type={@type}
           phx-value-id={@id}
-          aria-label={"Delete #{@label}"}
+          aria-label={"#{@delete_label} #{@label}"}
           class="btn btn-ghost btn-xs text-[var(--tone-expense)]"
         >
-          Delete
+          <%= @delete_label %>
         </button>
       <% end %>
     </div>
@@ -3349,6 +3444,8 @@ defmodule CoreWeb.FinanceComponents do
   def household_member_summaries(household) do
     Enum.map(household.memberships, fn membership ->
       %{
+        user_id: membership.user_id,
+        owner?: membership.role == "owner",
         name: membership.user.full_name || membership.user.username || membership.user.email,
         label: membership.user.username || membership.user.email,
         role: String.capitalize(membership.role)
