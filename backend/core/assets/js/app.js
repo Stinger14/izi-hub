@@ -9,6 +9,24 @@ let csrfToken = document
 
 let Hooks = {};
 
+// Flash toasts on LiveView pages: info messages auto-dismiss (errors stay
+// until closed). Clearing goes through lv:clear-flash so the server-side
+// flash is cleared too and the next patch doesn't bring it back.
+Hooks.Flash = {
+  mounted() {
+    const delay = parseInt(this.el.dataset.flashAutodismiss || "", 10);
+    if (delay > 0) {
+      this.timer = setTimeout(() => {
+        this.pushEvent("lv:clear-flash", { key: this.el.dataset.flashKind });
+        this.el.hidden = true;
+      }, delay);
+    }
+  },
+  destroyed() {
+    clearTimeout(this.timer);
+  },
+};
+
 Hooks.AutoGrow = {
   mounted() {
     this.resize = () => {
@@ -234,6 +252,47 @@ Hooks.StackPreview = {
     }
   },
 };
+
+// Controller-rendered pages (login, signup, set-password) have no LiveView,
+// so hooks and phx-click don't run there; handle their flashes directly.
+const setupStaticFlashes = () => {
+  document.querySelectorAll("[data-flash]").forEach((el) => {
+    if (el.closest("[data-phx-session]") || el.dataset.flashReady) return;
+    el.dataset.flashReady = "true";
+
+    const close = () => el.remove();
+    el.querySelector("[data-flash-dismiss]")?.addEventListener("click", close);
+
+    const delay = parseInt(el.dataset.flashAutodismiss || "", 10);
+    if (delay > 0) setTimeout(close, delay);
+  });
+};
+
+window.addEventListener("DOMContentLoaded", setupStaticFlashes);
+
+// Keep flash toasts visible: record where the header ends so they sit just
+// below it on phones, and float at the top centre once it has scrolled away.
+const syncFlashPosition = () => {
+  const header = document.querySelector("header");
+  if (!header) return;
+  const bottom = header.getBoundingClientRect().bottom;
+  document.body.style.setProperty("--flash-top", `${Math.max(bottom, 0) + 8}px`);
+  document.body.classList.toggle("header-offscreen", bottom <= 0);
+};
+
+let flashFrame = null;
+const scheduleFlashSync = () => {
+  if (flashFrame) return;
+  flashFrame = requestAnimationFrame(() => {
+    flashFrame = null;
+    syncFlashPosition();
+  });
+};
+
+window.addEventListener("scroll", scheduleFlashSync, { passive: true });
+window.addEventListener("resize", scheduleFlashSync);
+window.addEventListener("DOMContentLoaded", syncFlashPosition);
+window.addEventListener("phx:page-loading-stop", syncFlashPosition);
 
 let liveSocket = new LiveSocket("/live", Socket, {
   params: { _csrf_token: csrfToken },
