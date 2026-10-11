@@ -50,6 +50,10 @@ defmodule CoreWeb.FinanceLive do
        household_panel_open: false,
        focus_panel: nil,
        editing_transaction_id: nil,
+       editing: nil,
+       confirming_delete: nil,
+       show_archived_accounts: false,
+       contribution_goal_id: nil,
        debt_form_open: false,
        payment_form_debt_id: nil,
        comparison: [],
@@ -525,6 +529,139 @@ defmodule CoreWeb.FinanceLive do
     end
   end
 
+  # ------ Editing, deleting and archiving records ------
+  #
+  # One editing slot ({type, id}) and one delete-confirmation slot shared by
+  # accounts, budgets, categories, debts and goals. "Edit" loads the record
+  # into that type's existing form, which then submits "update_record".
+
+  @editable_types ~w(account budget category debt goal)
+  @deletable_types ~w(account budget category debt_payment)
+
+  def handle_event("edit_record", %{"type" => type, "id" => id}, socket)
+      when type in @editable_types do
+    record = fetch_record!(socket, type, id)
+
+    {:noreply,
+     socket
+     |> assign(editing: {type, id}, confirming_delete: nil)
+     |> assign_edit_form(type, record)
+     |> open_edit_surface(type)}
+  end
+
+  def handle_event("cancel_edit", _params, socket) do
+    {:noreply, socket |> close_action_surface() |> reset_record_forms()}
+  end
+
+  def handle_event("update_record", %{"record_type" => type} = params, socket)
+      when type in @editable_types do
+    with {^type, id} <- socket.assigns.editing,
+         record = fetch_record!(socket, type, id),
+         {:ok, _record} <- update_record(type, current_actor(socket), record, params[type]) do
+      {:noreply,
+       socket
+       |> put_flash(:info, "#{record_label(type)} updated")
+       |> close_action_surface()
+       |> reset_record_forms()
+       |> assign_finance_data()}
+    else
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply,
+         assign(socket, [
+           {form_assign(type), to_form(changeset, as: String.to_existing_atom(type))}
+         ])}
+
+      {:error, :invalid_category_scope} ->
+        {:noreply, put_flash(socket, :error, "Choose a category from the active scope")}
+
+      _other ->
+        {:noreply, put_flash(socket, :error, "Could not save the changes")}
+    end
+  end
+
+  def handle_event("request_delete", %{"type" => type, "id" => id}, socket)
+      when type in @deletable_types do
+    {:noreply, assign(socket, confirming_delete: {type, id})}
+  end
+
+  def handle_event("cancel_delete", _params, socket),
+    do: {:noreply, assign(socket, confirming_delete: nil)}
+
+  def handle_event("confirm_delete", %{"type" => type, "id" => id}, socket)
+      when type in @deletable_types do
+    socket = assign(socket, confirming_delete: nil)
+
+    case delete_record(socket, type, id) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "#{record_label(type)} deleted")
+         |> assign(comparison: [])
+         |> assign_finance_data()}
+
+      {:error, :has_transactions} ->
+        {:noreply,
+         put_flash(socket, :error, "This account has transactions, so it can only be archived")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "#{record_label(type)} could not be deleted")}
+    end
+  end
+
+  def handle_event("archive_account", %{"id" => id}, socket) do
+    account = fetch_record!(socket, "account", id)
+
+    case Finance.archive_account(current_actor(socket), account) do
+      {:ok, _} ->
+        {:noreply, socket |> put_flash(:info, "Account archived") |> assign_finance_data()}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Account could not be archived")}
+    end
+  end
+
+  def handle_event("restore_account", %{"id" => id}, socket) do
+    user = current_actor(socket)
+    owner = current_finance_owner(socket)
+    {:ok, archived} = Finance.list_archived_accounts(user, owner)
+
+    with %Account{} = account <- Enum.find(archived, &(&1.id == id)),
+         {:ok, _} <- Finance.restore_account(user, account) do
+      {:noreply, socket |> put_flash(:info, "Account restored") |> assign_finance_data()}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Account could not be restored")}
+    end
+  end
+
+  def handle_event("toggle_archived_accounts", _params, socket),
+    do: {:noreply, update(socket, :show_archived_accounts, &(!&1))}
+
+  def handle_event("open_contribution", %{"id" => id}, socket),
+    do: {:noreply, assign(socket, contribution_goal_id: id)}
+
+  def handle_event("close_contribution", _params, socket),
+    do: {:noreply, assign(socket, contribution_goal_id: nil)}
+
+  def handle_event(
+        "contribute_goal",
+        %{"goal_id" => id, "contribution" => %{"amount" => raw}},
+        socket
+      ) do
+    goal = fetch_record!(socket, "goal", id)
+
+    with {:ok, amount} <- Decimal.cast(raw),
+         :gt <- Decimal.compare(amount, 0),
+         {:ok, _goal} <- Finance.contribute_to_savings_goal(current_actor(socket), goal, amount) do
+      {:noreply,
+       socket
+       |> put_flash(:info, "Added to #{goal.name}")
+       |> assign(contribution_goal_id: nil)
+       |> assign_finance_data()}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Enter an amount above zero")}
+    end
+  end
+
   def handle_event("open_debt_form", _params, socket) do
     {:noreply, open_action_surface(socket, "debt")}
   end
@@ -758,6 +895,7 @@ defmodule CoreWeb.FinanceLive do
 
     {:ok, categories} = Finance.list_categories(user, owner)
     {:ok, accounts} = Finance.list_accounts(user, owner)
+    {:ok, archived_accounts} = Finance.list_archived_accounts(user, owner)
     {:ok, budgets} = Finance.list_budgets(user, owner)
     budget_statuses = Enum.map(budgets, &Finance.check_budget_status/1)
     event_budget_statuses = Enum.filter(budget_statuses, &event_budget_status?/1)
@@ -860,6 +998,9 @@ defmodule CoreWeb.FinanceLive do
       Map.merge(base_assigns, %{
         categories: categories,
         accounts: accounts,
+        archived_accounts: archived_accounts,
+        account_ids_with_history:
+          Finance.account_ids_with_transactions(Enum.map(accounts ++ archived_accounts, & &1.id)),
         transfer_account_groups: transfer_account_groups(user, households, owner, accounts),
         account_summaries: account_summaries,
         account_total_balance: account_total_balance(accounts),
@@ -935,6 +1076,92 @@ defmodule CoreWeb.FinanceLive do
       transaction_form: to_form(Finance.change_transaction(transaction), as: :transaction)
     )
   end
+
+  # ------ Record editing helpers ------
+
+  defp fetch_record!(socket, type, id) do
+    user = current_actor(socket)
+    owner = current_finance_owner(socket)
+
+    case type do
+      "account" -> Finance.get_account!(user, owner, id)
+      "budget" -> Finance.get_budget!(user, owner, id)
+      "category" -> Finance.get_category!(user, owner, id)
+      "debt" -> Finance.get_debt!(user, owner, id)
+      "goal" -> Finance.get_savings_goal!(user, owner, id)
+      "debt_payment" -> Finance.get_debt_payment!(user, owner, id)
+    end
+  end
+
+  defp update_record("account", user, record, attrs),
+    do: Finance.update_account(user, record, attrs || %{})
+
+  defp update_record("budget", user, record, attrs),
+    do: Finance.update_budget(user, record, attrs || %{})
+
+  defp update_record("category", user, record, attrs),
+    do: Finance.update_category(user, record, attrs || %{})
+
+  defp update_record("debt", user, record, attrs),
+    do: Finance.update_debt(user, record, attrs || %{})
+
+  defp update_record("goal", user, record, attrs),
+    do: Finance.update_savings_goal(user, record, attrs || %{})
+
+  defp delete_record(socket, type, id) do
+    user = current_actor(socket)
+    record = fetch_record!(socket, type, id)
+
+    case type do
+      "account" -> Finance.delete_account(user, record)
+      "budget" -> Finance.delete_budget(user, record)
+      "category" -> Finance.delete_category(user, record)
+      "debt_payment" -> Finance.delete_debt_payment(user, record)
+    end
+  end
+
+  defp assign_edit_form(socket, type, record) do
+    changeset =
+      case type do
+        "account" -> Finance.change_account(record)
+        "budget" -> Finance.change_budget(record)
+        "category" -> Finance.change_category(record)
+        "debt" -> Finance.change_debt(record)
+        "goal" -> Finance.change_savings_goal(record)
+      end
+
+    assign(socket, [{form_assign(type), to_form(changeset, as: String.to_existing_atom(type))}])
+  end
+
+  defp form_assign("account"), do: :account_form
+  defp form_assign("budget"), do: :budget_form
+  defp form_assign("category"), do: :category_form
+  defp form_assign("debt"), do: :debt_form
+  defp form_assign("goal"), do: :goal_form
+
+  # Accounts and goals are edited in their section's always-visible form;
+  # budgets, categories and debts in their focus panel.
+  defp open_edit_surface(socket, "account"), do: assign(socket, active_section: "accounts")
+  defp open_edit_surface(socket, "goal"), do: assign(socket, active_section: "goals")
+  defp open_edit_surface(socket, "category"), do: open_action_surface(socket, "budget")
+  defp open_edit_surface(socket, type), do: open_action_surface(socket, type)
+
+  defp reset_record_forms(socket) do
+    socket
+    |> assign(editing: nil)
+    |> assign_account_form()
+    |> assign_budget_form()
+    |> assign_category_form()
+    |> assign_debt_form()
+    |> assign_goal_form()
+  end
+
+  defp record_label("account"), do: "Account"
+  defp record_label("budget"), do: "Budget"
+  defp record_label("category"), do: "Category"
+  defp record_label("debt"), do: "Debt"
+  defp record_label("goal"), do: "Savings goal"
+  defp record_label("debt_payment"), do: "Payment"
 
   defp assign_category_form(socket) do
     category = %Category{type: "expense", color: "#10B981"}

@@ -666,6 +666,102 @@ defmodule CoreWeb.FinanceComponents do
     """
   end
 
+  # ------ Record actions (edit / delete with inline confirm) ------
+
+  @doc "True while `type` is the record being edited in the shared editing slot."
+  def editing?({type, _id}, type), do: true
+  def editing?(_editing, _type), do: false
+
+  @doc "The form's submit event: update_record while editing this type, else create."
+  def record_submit(editing, type, create_event),
+    do: if(editing?(editing, type), do: "update_record", else: create_event)
+
+  attr :editing, :any, default: nil
+  attr :type, :string, required: true
+
+  @doc "Hidden field telling update_record which record type the form edits."
+  def edit_marker(assigns) do
+    ~H"""
+    <input :if={editing?(@editing, @type)} type="hidden" name="record_type" value={@type} />
+    """
+  end
+
+  attr :editing, :any, default: nil
+  attr :type, :string, required: true
+  attr :create_label, :string, required: true
+  attr :button_class, :string, default: "btn btn-primary btn-sm"
+
+  @doc "Submit button that reads \"Save changes\" plus a Cancel while editing."
+  def form_submit(assigns) do
+    ~H"""
+    <div class="flex justify-end gap-2">
+      <button :if={editing?(@editing, @type)} type="button" phx-click="cancel_edit" class="btn btn-ghost btn-sm">
+        Cancel
+      </button>
+      <button type="submit" class={@button_class}>
+        <%= if editing?(@editing, @type), do: "Save changes", else: @create_label %>
+      </button>
+    </div>
+    """
+  end
+
+  attr :type, :string, required: true
+  attr :id, :string, required: true
+  attr :label, :string, required: true
+  attr :confirming_delete, :any, default: nil
+  attr :edit, :boolean, default: true
+  attr :delete, :boolean, default: true
+  slot :inner_block
+
+  @doc """
+  Edit / Delete buttons for a record. Delete asks for an inline confirmation
+  (driven by the LiveView's `confirming_delete` slot) before anything happens.
+  """
+  def record_actions(assigns) do
+    ~H"""
+    <div class="flex flex-wrap items-center justify-end gap-1.5">
+      <%= if @confirming_delete == {@type, @id} do %>
+        <span class="text-xs text-[color:var(--fin-text)]">Delete “<%= @label %>”?</span>
+        <button
+          type="button"
+          phx-click="confirm_delete"
+          phx-value-type={@type}
+          phx-value-id={@id}
+          aria-label={"Confirm delete #{@label}"}
+          class="btn btn-danger btn-xs"
+        >
+          Delete
+        </button>
+        <button type="button" phx-click="cancel_delete" class="btn btn-ghost btn-xs">Cancel</button>
+      <% else %>
+        <button
+          :if={@edit}
+          type="button"
+          phx-click="edit_record"
+          phx-value-type={@type}
+          phx-value-id={@id}
+          aria-label={"Edit #{@label}"}
+          class="btn btn-ghost btn-xs"
+        >
+          Edit
+        </button>
+        <%= render_slot(@inner_block) %>
+        <button
+          :if={@delete}
+          type="button"
+          phx-click="request_delete"
+          phx-value-type={@type}
+          phx-value-id={@id}
+          aria-label={"Delete #{@label}"}
+          class="btn btn-ghost btn-xs text-[var(--tone-expense)]"
+        >
+          Delete
+        </button>
+      <% end %>
+    </div>
+    """
+  end
+
   def accounts_panel(assigns) do
     ~H"""
     <section class="space-y-5">
@@ -676,15 +772,20 @@ defmodule CoreWeb.FinanceComponents do
       <div class="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
       <.fin_card>
         <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Account setup</p>
-        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Track balances by scope</h2>
+        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
+          <%= if editing?(@editing, "account"), do: "Edit account", else: "Track balances by scope" %>
+        </h2>
 
-        <.form for={@account_form} id="account-section-form" phx-submit="create_account" class="mt-5 space-y-4">
+        <.form for={@account_form} id="account-section-form" phx-submit={record_submit(@editing, "account", "create_account")} class="mt-5 space-y-4">
           <input type="hidden" name="origin" value="section" />
+          <.edit_marker editing={@editing} type="account" />
           <.account_form_fields form={@account_form} />
+          <p :if={editing?(@editing, "account")} class="text-xs leading-5 text-[color:var(--fin-muted)]">
+            Changing the current balance corrects it directly; it doesn't create a transaction.
+            The currency can't change once the account has transactions.
+          </p>
 
-          <div class="flex justify-end">
-            <button type="submit" class="btn btn-primary btn-sm">Save account</button>
-          </div>
+          <.form_submit editing={@editing} type="account" create_label="Save account" />
         </.form>
       </.fin_card>
 
@@ -717,10 +818,50 @@ defmodule CoreWeb.FinanceComponents do
               <.status_row label="Expenses" value={money(summary.expenses, summary.account.currency)} />
               <.status_row label="Linked tx" value={Integer.to_string(summary.transaction_count)} />
             </div>
+
+            <div class="mt-3 border-t border-[color:var(--fin-border)] pt-3">
+              <.record_actions
+                type="account"
+                id={summary.account.id}
+                label={summary.account.name}
+                confirming_delete={@confirming_delete}
+                delete={!MapSet.member?(@account_ids_with_history, summary.account.id)}
+              >
+                <button type="button" phx-click="archive_account" phx-value-id={summary.account.id} aria-label={"Archive #{summary.account.name}"} class="btn btn-ghost btn-xs">
+                  Archive
+                </button>
+              </.record_actions>
+            </div>
           </div>
 
           <div :if={@account_summaries == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] p-4 text-sm text-[color:var(--fin-muted)]">
             No accounts yet for this scope.
+          </div>
+        </div>
+
+        <div :if={@archived_accounts != []} class="mt-5 border-t border-[color:var(--fin-border)] pt-4">
+          <button type="button" phx-click="toggle_archived_accounts" aria-expanded={to_string(@show_archived_accounts)} class="text-xs font-semibold text-[color:var(--fin-accent)]">
+            <%= if @show_archived_accounts, do: "Hide", else: "Show" %> archived accounts (<%= length(@archived_accounts) %>)
+          </button>
+          <div :if={@show_archived_accounts} id="archived-accounts" class="mt-3 space-y-2">
+            <div :for={account <- @archived_accounts} class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-[color:var(--fin-border)] px-4 py-3">
+              <div>
+                <p class="text-sm font-semibold text-[color:var(--fin-text)]"><%= account.name %></p>
+                <p class="text-xs text-[color:var(--fin-muted)]"><%= money(account.current_balance, account.currency) %> · archived</p>
+              </div>
+              <.record_actions
+                type="account"
+                id={account.id}
+                label={account.name}
+                confirming_delete={@confirming_delete}
+                edit={false}
+                delete={!MapSet.member?(@account_ids_with_history, account.id)}
+              >
+                <button type="button" phx-click="restore_account" phx-value-id={account.id} aria-label={"Restore #{account.name}"} class="btn btn-secondary btn-xs">
+                  Restore
+                </button>
+              </.record_actions>
+            </div>
           </div>
         </div>
       </.fin_card>
@@ -916,9 +1057,12 @@ defmodule CoreWeb.FinanceComponents do
       <div class="space-y-5">
         <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
           <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Spending plan</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Create budget</h2>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
+            <%= if editing?(@editing, "budget"), do: "Edit budget", else: "Create budget" %>
+          </h2>
 
-          <.form for={@budget_form} phx-submit="create_budget" class="mt-5 space-y-4">
+          <.form for={@budget_form} id="budget-form" phx-submit={record_submit(@editing, "budget", "create_budget")} class="mt-5 space-y-4">
+            <.edit_marker editing={@editing} type="budget" />
             <.finance_input form={@budget_form} field={:name} label="Name" placeholder="Groceries, rent, subscriptions..." />
             <div class="grid gap-3 sm:grid-cols-2">
               <.finance_input form={@budget_form} field={:amount} label="Amount" placeholder="400.00" type="number" step="0.01" />
@@ -930,17 +1074,18 @@ defmodule CoreWeb.FinanceComponents do
               <.finance_input form={@budget_form} field={:alert_threshold} label="Alert at %" type="number" step="1" />
             </div>
 
-            <div class="flex justify-end">
-              <button type="submit" class="btn btn-primary btn-sm">Save budget</button>
-            </div>
+            <.form_submit editing={@editing} type="budget" create_label="Save budget" />
           </.form>
         </div>
 
         <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
           <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Categories</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Add category</h2>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
+            <%= if editing?(@editing, "category"), do: "Edit category", else: "Add category" %>
+          </h2>
 
-          <.form for={@category_form} phx-submit="create_category" class="mt-5 space-y-4">
+          <.form for={@category_form} id="category-form" phx-submit={record_submit(@editing, "category", "create_category")} class="mt-5 space-y-4">
+            <.edit_marker editing={@editing} type="category" />
             <div class="grid gap-3 sm:grid-cols-2">
               <.finance_input form={@category_form} field={:name} label="Name" placeholder="Food, salary..." />
               <.finance_select form={@category_form} field={:type} label="Type" options={transaction_type_options()} />
@@ -949,10 +1094,23 @@ defmodule CoreWeb.FinanceComponents do
             </div>
             <.finance_input form={@category_form} field={:description} label="Description" placeholder="Optional description" />
 
-            <div class="flex justify-end">
-              <button type="submit" class="btn btn-secondary btn-sm">Save category</button>
-            </div>
+            <.form_submit editing={@editing} type="category" create_label="Save category" button_class="btn btn-secondary btn-sm" />
           </.form>
+
+          <div :if={@categories != []} id="category-list" class="mt-5 space-y-2 border-t border-[color:var(--fin-border)] pt-4">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Your categories</p>
+            <div :for={category <- @categories} class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--fin-border)] px-3 py-2">
+              <span class="inline-flex items-center gap-2 text-sm text-[color:var(--fin-text)]">
+                <span class="h-2.5 w-2.5 rounded-full" style={"background: #{category.color || "#a1a1aa"}"}></span>
+                <%= category.name %>
+                <span class="text-xs text-[color:var(--fin-muted)]"><%= category.type %></span>
+              </span>
+              <.record_actions type="category" id={category.id} label={category.name} confirming_delete={@confirming_delete} />
+            </div>
+            <p class="text-[11px] leading-4 text-[color:var(--fin-muted)]">
+              Deleting a category keeps its transactions and budgets; they just become uncategorised.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -966,7 +1124,7 @@ defmodule CoreWeb.FinanceComponents do
         </div>
 
         <div class="mt-5 space-y-3">
-          <.budget_status_card :for={status <- @budget_statuses} status={status} />
+          <.budget_status_card :for={status <- @budget_statuses} status={status} actions={true} confirming_delete={@confirming_delete} />
           <div :if={@budget_statuses == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] p-4 text-sm text-[color:var(--fin-muted)]">
             No active budgets yet.
           </div>
@@ -982,10 +1140,13 @@ defmodule CoreWeb.FinanceComponents do
       <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
         <div>
           <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Debt setup</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Add debt</h2>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
+            <%= if editing?(@editing, "debt"), do: "Edit debt", else: "Add debt" %>
+          </h2>
         </div>
 
-        <.form for={@debt_form} phx-submit="create_debt" class="mt-5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
+        <.form for={@debt_form} id="debt-form" phx-submit={record_submit(@editing, "debt", "create_debt")} class="mt-5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
+          <.edit_marker editing={@editing} type="debt" />
           <div class="grid gap-3 md:grid-cols-2">
             <.finance_input form={@debt_form} field={:name} label="Name" placeholder="Visa, auto loan..." />
             <.finance_input form={@debt_form} field={:provider} label="Provider" placeholder="Bank or lender" />
@@ -998,8 +1159,8 @@ defmodule CoreWeb.FinanceComponents do
             <.finance_input form={@debt_form} field={:payoff_goal_date} label="Goal date" type="date" />
           </div>
 
-          <div class="mt-4 flex justify-end">
-            <button type="submit" class="btn btn-primary btn-sm">Save debt</button>
+          <div class="mt-4">
+            <.form_submit editing={@editing} type="debt" create_label="Save debt" />
           </div>
         </.form>
 
@@ -1008,7 +1169,7 @@ defmodule CoreWeb.FinanceComponents do
             Add debts to compare payoff strategies.
           </div>
 
-          <.debt_card :for={debt <- @debts} debt={debt} payment_form={@payment_form} payment_form_debt_id={@payment_form_debt_id} />
+          <.debt_card :for={debt <- @debts} debt={debt} payment_form={@payment_form} payment_form_debt_id={@payment_form_debt_id} confirming_delete={@confirming_delete} />
         </div>
       </div>
 
@@ -1037,9 +1198,12 @@ defmodule CoreWeb.FinanceComponents do
     <section class="grid gap-5 xl:grid-cols-[0.82fr_1.18fr]">
       <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-sm">
         <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Savings goals</p>
-        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Create goal</h2>
+        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
+          <%= if editing?(@editing, "goal"), do: "Edit goal", else: "Create goal" %>
+        </h2>
 
-        <.form for={@goal_form} phx-submit="create_goal" class="mt-5 space-y-4">
+        <.form for={@goal_form} id="goal-form" phx-submit={record_submit(@editing, "goal", "create_goal")} class="mt-5 space-y-4">
+          <.edit_marker editing={@editing} type="goal" />
           <.finance_input form={@goal_form} field={:name} label="Goal name" placeholder="Emergency fund, vacation..." />
           <div class="grid gap-3 sm:grid-cols-2">
             <.finance_input form={@goal_form} field={:target_amount} label="Target amount" type="number" step="0.01" placeholder="5000.00" />
@@ -1049,9 +1213,7 @@ defmodule CoreWeb.FinanceComponents do
           </div>
           <.finance_input form={@goal_form} field={:notes} label="Notes" placeholder="Optional note" />
 
-          <div class="flex justify-end">
-            <button type="submit" class="btn btn-primary btn-sm">Save goal</button>
-          </div>
+          <.form_submit editing={@editing} type="goal" create_label="Save goal" />
         </.form>
       </div>
 
@@ -1067,7 +1229,7 @@ defmodule CoreWeb.FinanceComponents do
         </div>
 
         <div class="mt-5 space-y-3">
-          <.savings_goal_card :for={goal <- @savings_goals} goal={goal} />
+          <.savings_goal_card :for={goal <- @savings_goals} goal={goal} contribution_goal_id={@contribution_goal_id} />
           <div :if={@savings_goals == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] p-4 text-sm text-[color:var(--fin-muted)]">
             Create your first savings goal to start tracking progress.
           </div>
@@ -1078,6 +1240,8 @@ defmodule CoreWeb.FinanceComponents do
   end
 
   attr :goal, :any, required: true
+
+  attr :contribution_goal_id, :string, default: nil
 
   def savings_goal_card(assigns) do
     assigns = assign(assigns, :pct, savings_goal_percentage(assigns.goal))
@@ -1115,7 +1279,43 @@ defmodule CoreWeb.FinanceComponents do
         </div>
       </div>
 
-      <div class="mt-4 flex justify-end">
+      <form
+        :if={@contribution_goal_id == @goal.id}
+        id={"contribute-#{@goal.id}"}
+        phx-submit="contribute_goal"
+        class="mt-4 flex flex-wrap items-end gap-2 rounded-lg border border-[color:var(--fin-border)] p-3"
+      >
+        <input type="hidden" name="goal_id" value={@goal.id} />
+        <label class="min-w-0 flex-1">
+          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Add to savings</span>
+          <input
+            type="number"
+            name="contribution[amount]"
+            step="0.01"
+            min="0.01"
+            required
+            placeholder="100.00"
+            class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-2 text-sm text-[color:var(--fin-text)] outline-none focus:border-[var(--fin-accent)]"
+          />
+        </label>
+        <button type="button" phx-click="close_contribution" class="btn btn-ghost btn-xs">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-xs">Add</button>
+      </form>
+
+      <div class="mt-4 flex flex-wrap justify-end gap-1.5">
+        <button
+          :if={@contribution_goal_id != @goal.id and @goal.status == "active"}
+          type="button"
+          phx-click="open_contribution"
+          phx-value-id={@goal.id}
+          aria-label={"Add money to #{@goal.name}"}
+          class="btn btn-secondary btn-xs"
+        >
+          Add money
+        </button>
+        <button type="button" phx-click="edit_record" phx-value-type="goal" phx-value-id={@goal.id} aria-label={"Edit #{@goal.name}"} class="btn btn-ghost btn-xs">
+          Edit
+        </button>
         <button type="button" phx-click="archive_goal" phx-value-id={@goal.id} class="btn btn-ghost btn-xs text-[var(--tone-expense)]">
           Archive
         </button>
@@ -1790,7 +1990,7 @@ defmodule CoreWeb.FinanceComponents do
         <p class="mt-1.5 text-[11px] text-[color:var(--fin-muted)]">Each budget tracks its own period — this shows the current calendar month for reference.</p>
 
         <div class="mt-4 space-y-3">
-          <.budget_status_card :for={status <- @budget_statuses} status={status} />
+          <.budget_status_card :for={status <- @budget_statuses} status={status} actions={true} confirming_delete={@confirming_delete} />
           <div :if={@budget_statuses == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4 text-sm text-[color:var(--fin-muted)]">
             No active budgets yet.
           </div>
@@ -1824,7 +2024,7 @@ defmodule CoreWeb.FinanceComponents do
             Add debts to compare payoff strategies.
           </div>
 
-          <.debt_card :for={debt <- @debts} debt={debt} payment_form={@payment_form} payment_form_debt_id={@payment_form_debt_id} />
+          <.debt_card :for={debt <- @debts} debt={debt} payment_form={@payment_form} payment_form_debt_id={@payment_form_debt_id} confirming_delete={@confirming_delete} />
         </div>
       </div>
 
@@ -2404,6 +2604,9 @@ defmodule CoreWeb.FinanceComponents do
 
   attr :status, :map, required: true
 
+  attr :actions, :boolean, default: false
+  attr :confirming_delete, :any, default: nil
+
   def budget_status_card(assigns) do
     ~H"""
     <div class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
@@ -2437,6 +2640,10 @@ defmodule CoreWeb.FinanceComponents do
           <p class="mt-1 font-semibold text-[color:var(--fin-text)]"><%= Float.round(@status.percentage, 1) %>%</p>
         </div>
       </div>
+
+      <div :if={@actions} class="mt-3 border-t border-[color:var(--fin-border)] pt-3">
+        <.record_actions type="budget" id={@status.budget.id} label={@status.budget.name} confirming_delete={@confirming_delete} />
+      </div>
     </div>
     """
   end
@@ -2444,6 +2651,7 @@ defmodule CoreWeb.FinanceComponents do
   attr :debt, :any, required: true
   attr :payment_form, :any, required: true
   attr :payment_form_debt_id, :string, default: nil
+  attr :confirming_delete, :any, default: nil
 
   def debt_card(assigns) do
     ~H"""
@@ -2458,6 +2666,9 @@ defmodule CoreWeb.FinanceComponents do
         <div class="flex flex-wrap justify-end gap-2">
           <button type="button" phx-click="open_payment_form" phx-value-id={@debt.id} class="btn btn-secondary btn-xs">
             Record payment
+          </button>
+          <button type="button" phx-click="edit_record" phx-value-type="debt" phx-value-id={@debt.id} aria-label={"Edit #{@debt.name}"} class="btn btn-ghost btn-xs">
+            Edit
           </button>
           <button type="button" phx-click="archive_debt" phx-value-id={@debt.id} class="btn btn-ghost btn-xs text-[var(--tone-expense)]">
             Archive
@@ -2505,11 +2716,20 @@ defmodule CoreWeb.FinanceComponents do
       <div :if={@debt.payments != []} class="mt-4 rounded-lg bg-[color:var(--fin-surface)] p-3">
         <p class="text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Recent payments</p>
         <div class="mt-2 space-y-2">
-          <div :for={payment <- @debt.payments} class="flex items-center justify-between gap-3 text-sm">
+          <div :for={payment <- @debt.payments} class="flex flex-wrap items-center justify-between gap-3 text-sm">
             <span class="text-[color:var(--fin-muted)]">
               <%= format_date(payment.payment_date) %> · <%= format_kind(payment.kind) %>
             </span>
-            <span class="font-semibold text-[color:var(--fin-text)]"><%= money(payment.amount, @debt.currency) %></span>
+            <span class="flex items-center gap-2">
+              <span class="font-semibold text-[color:var(--fin-text)]"><%= money(payment.amount, @debt.currency) %></span>
+              <.record_actions
+                type="debt_payment"
+                id={payment.id}
+                label={"#{money(payment.amount, @debt.currency)} payment"}
+                confirming_delete={@confirming_delete}
+                edit={false}
+              />
+            </span>
           </div>
         </div>
       </div>
