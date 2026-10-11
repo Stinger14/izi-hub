@@ -408,7 +408,7 @@ defmodule CoreWeb.FinanceLive do
     end
   end
 
-  def handle_event("create_account", %{"account" => params}, socket) do
+  def handle_event("create_account", %{"account" => params} = form_params, socket) do
     user = current_actor(socket)
     owner = current_finance_owner(socket)
 
@@ -422,10 +422,17 @@ defmodule CoreWeb.FinanceLive do
          |> assign_finance_data()}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply,
-         socket
-         |> open_action_surface("account")
-         |> assign(account_form: to_form(changeset, as: :account))}
+        changeset = Map.put(changeset, :action, :insert)
+
+        # "origin" is a hidden field saying which of the two forms was used.
+        if form_params["origin"] == "panel" do
+          {:noreply,
+           socket
+           |> open_action_surface("account")
+           |> assign(quick_account_form: to_form(changeset, as: :account, id: "quick_account"))}
+        else
+          {:noreply, assign(socket, account_form: to_form(changeset, as: :account))}
+        end
     end
   end
 
@@ -853,6 +860,7 @@ defmodule CoreWeb.FinanceLive do
       Map.merge(base_assigns, %{
         categories: categories,
         accounts: accounts,
+        transfer_account_groups: transfer_account_groups(user, households, owner, accounts),
         account_summaries: account_summaries,
         account_total_balance: account_total_balance(accounts),
         account_total_balance_totals: account_total_balance_totals,
@@ -961,7 +969,15 @@ defmodule CoreWeb.FinanceLive do
       current_balance: Decimal.new("0")
     }
 
-    assign(socket, account_form: to_form(Finance.change_account(account), as: :account))
+    changeset = Finance.change_account(account)
+
+    # Two separate forms: the Accounts section form and the quick-add panel.
+    # Distinct ids keep their inputs from colliding when both are on screen,
+    # and errors are shown only in the one that was submitted.
+    assign(socket,
+      account_form: to_form(changeset, as: :account),
+      quick_account_form: to_form(changeset, as: :account, id: "quick_account")
+    )
   end
 
   defp assign_goal_form(socket) do
@@ -1301,8 +1317,33 @@ defmodule CoreWeb.FinanceLive do
   # collapses currencies) since this is an at-a-glance trend widget, not a
   # precise ledger.
 
+  # Every account the user can move money between — personal plus each
+  # household they belong to — grouped for the transfer form's <optgroup>s,
+  # with the active scope first. Empty groups are left out.
+  defp transfer_account_groups(user, households, owner, owner_accounts) do
+    others =
+      [{"Personal", user} | Enum.map(households, &{&1.name, &1})]
+      |> Enum.reject(fn {_label, scope} -> same_owner?(scope, owner) end)
+      |> Enum.map(fn {label, scope} ->
+        {:ok, scope_accounts} = Finance.list_accounts(user, scope)
+        {label, scope_accounts}
+      end)
+
+    current_label =
+      case owner do
+        %Core.Accounts.Household{name: name} -> name
+        _ -> "Personal"
+      end
+
+    [{current_label, owner_accounts} | others]
+    |> Enum.reject(fn {_label, accounts} -> accounts == [] end)
+  end
+
+  defp same_owner?(%{__struct__: struct, id: id}, %{__struct__: struct, id: id}), do: true
+  defp same_owner?(_a, _b), do: false
+
   defp transfer_error_message(:missing_transfer_account), do: "Pick both accounts"
-  defp transfer_error_message(:invalid_account_scope), do: "Choose accounts from the active scope"
+  defp transfer_error_message(:invalid_account_scope), do: "Choose accounts you have access to"
   defp transfer_error_message(:same_account), do: "Pick two different accounts"
 
   defp transfer_error_message(:currency_mismatch),

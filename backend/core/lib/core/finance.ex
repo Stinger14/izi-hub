@@ -186,14 +186,15 @@ defmodule Core.Finance do
   defp owner_topic({:household, id}), do: "finance:household:#{id}"
 
   defp broadcast_change({:ok, value} = result) do
-    with false <- Repo.in_transaction?(),
-         {_kind, _id} = owner_ref <- owner_ref(value) do
-      Phoenix.PubSub.broadcast_from(
-        @pubsub,
-        self(),
-        owner_topic(owner_ref),
-        {:finance_changed, owner_ref}
-      )
+    unless Repo.in_transaction?() do
+      for owner_ref <- owner_refs(value) do
+        Phoenix.PubSub.broadcast_from(
+          @pubsub,
+          self(),
+          owner_topic(owner_ref),
+          {:finance_changed, owner_ref}
+        )
+      end
     end
 
     result
@@ -201,7 +202,10 @@ defmodule Core.Finance do
 
   defp broadcast_change(result), do: result
 
-  defp owner_ref({first, _second}), do: owner_ref(first)
+  # A transfer returns both legs, which may belong to different owners.
+  defp owner_refs({first, second}), do: Enum.uniq(owner_refs(first) ++ owner_refs(second))
+  defp owner_refs(value), do: value |> owner_ref() |> List.wrap()
+
   defp owner_ref(%{household_id: id}) when not is_nil(id), do: {:household, id}
   defp owner_ref(%{user_id: id}) when not is_nil(id), do: {:user, id}
   defp owner_ref(_value), do: nil
@@ -288,8 +292,21 @@ defmodule Core.Finance do
   reverses the balance movement on both accounts atomically.
   """
   def delete_transaction(%User{} = user, %Transaction{} = transaction) do
-    with :ok <- ensure_resource_owner(user, transaction) do
+    with :ok <- ensure_resource_owner(user, transaction),
+         :ok <- ensure_counterpart_owner(user, transaction) do
       delete_transaction(transaction)
+    end
+  end
+
+  # Deleting a transfer leg deletes both legs and reverses both balances, so
+  # the actor must be able to access the counterpart's owner too — otherwise a
+  # household member could undo someone's personal leg.
+  defp ensure_counterpart_owner(_user, %Transaction{counterpart_transaction_id: nil}), do: :ok
+
+  defp ensure_counterpart_owner(user, %Transaction{counterpart_transaction_id: id}) do
+    case Repo.get(Transaction, id) do
+      nil -> :ok
+      counterpart -> ensure_resource_owner(user, counterpart)
     end
   end
 
@@ -308,7 +325,15 @@ defmodule Core.Finance do
 
       transaction
     end)
-    |> broadcast_change()
+    |> case do
+      # notify both legs' owners (a transfer can span personal and household)
+      {:ok, _} = ok ->
+        broadcast_change({:ok, {transaction, counterpart}})
+        ok
+
+      error ->
+        error
+    end
   end
 
   defp reverse_transfer_leg_balance(%Transaction{account_id: nil}), do: :ok
@@ -368,20 +393,25 @@ defmodule Core.Finance do
   end
 
   @doc """
-  Moves money between two accounts in the same owner scope by creating a
-  linked pair of transactions (expense on the source, income on the
-  destination) and shifting both balances atomically. Transfer legs carry a
-  `counterpart_transaction_id` and are excluded from income/expense
-  aggregates so moving money never reads as earning or spending it.
+  Moves money between two accounts by creating a linked pair of transactions
+  (expense on the source, income on the destination) and shifting both
+  balances atomically. Transfer legs carry a `counterpart_transaction_id` and
+  are excluded from income/expense aggregates so moving money never reads as
+  earning or spending it.
+
+  The accounts may belong to different owners — e.g. personal savings into a
+  household account — as long as the actor can access both. Each leg is
+  owned by its own account's owner, so each scope's balance moves while
+  neither scope books the transfer as income or spending.
 
   Cross-currency transfers are rejected for now.
   """
   def create_account_transfer(%User{} = actor, owner, attrs) do
     with :ok <- ensure_scope_access(actor, owner),
          {:ok, from_account} <-
-           fetch_transfer_account(attrs, "from_account_id", :from_account_id, owner),
+           fetch_transfer_account(attrs, "from_account_id", :from_account_id, actor),
          {:ok, to_account} <-
-           fetch_transfer_account(attrs, "to_account_id", :to_account_id, owner),
+           fetch_transfer_account(attrs, "to_account_id", :to_account_id, actor),
          :ok <- ensure_transfer_accounts_differ(from_account, to_account),
          :ok <- ensure_transfer_same_currency(from_account, to_account),
          {:ok, amount} <- parse_transfer_amount(attrs),
@@ -405,7 +435,7 @@ defmodule Core.Finance do
               "description" => "Transfer to #{to_account.name}",
               "account_id" => from_account.id
             }),
-            owner
+            resource_owner(from_account)
           )
 
         in_leg =
@@ -415,7 +445,7 @@ defmodule Core.Finance do
               "description" => "Transfer from #{from_account.name}",
               "account_id" => to_account.id
             }),
-            owner
+            resource_owner(to_account)
           )
 
         out_leg = link_transfer_counterpart!(out_leg, in_leg)
@@ -430,18 +460,19 @@ defmodule Core.Finance do
     end
   end
 
-  defp fetch_transfer_account(attrs, key, atom_key, owner) do
+  # Any active account the actor can access (personal or a household they
+  # belong to); anything else reads as an invalid scope.
+  defp fetch_transfer_account(attrs, key, atom_key, %User{} = actor) do
     case presence(Map.get(attrs, key) || Map.get(attrs, atom_key)) do
       nil ->
         {:error, :missing_transfer_account}
 
       account_id ->
-        account = Repo.get(Account, account_id)
-
-        if account && same_scope?(owner, account) do
+        with %Account{status: "active"} = account <- Repo.get(Account, account_id),
+             :ok <- ensure_resource_owner(actor, account) do
           {:ok, account}
         else
-          {:error, :invalid_account_scope}
+          _ -> {:error, :invalid_account_scope}
         end
     end
   end

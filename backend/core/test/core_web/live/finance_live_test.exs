@@ -691,6 +691,178 @@ defmodule CoreWeb.FinanceLiveTest do
     end
   end
 
+  describe "account forms" do
+    test "a second account with a new name is added and listed", %{conn: conn} do
+      user = user_fixture()
+      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+      render_click(view, "show_section", %{"section" => "accounts"})
+
+      submit_section_account(view, "Checking A")
+      html = submit_section_account(view, "Savings B")
+
+      assert html =~ "Checking A"
+      assert html =~ "Savings B"
+      assert {:ok, accounts} = Finance.list_accounts(user, user)
+      assert length(accounts) == 2
+    end
+
+    test "a duplicate name shows the error in the section form, without opening the panel", %{
+      conn: conn
+    } do
+      user = user_fixture()
+      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+      render_click(view, "show_section", %{"section" => "accounts"})
+
+      submit_section_account(view, "Main")
+      html = submit_section_account(view, "Main")
+
+      assert html =~ "is already used by another of your accounts"
+      refute html =~ ~s(id="quick_account_name")
+      assert {:ok, [_only_one]} = Finance.list_accounts(user, user)
+    end
+
+    test "a failed save from the quick-add panel keeps the error in the panel", %{conn: conn} do
+      user = user_fixture()
+
+      {:ok, _} =
+        Finance.create_account(user, %{
+          "name" => "Main",
+          "kind" => "checking",
+          "current_balance" => "1"
+        })
+
+      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+
+      view |> element("button[aria-label=\"New account in current scope\"]") |> render_click()
+
+      html =
+        view
+        |> form("#quick_account",
+          account: %{
+            "name" => "Main",
+            "kind" => "savings",
+            "currency" => "DOP",
+            "current_balance" => "1"
+          }
+        )
+        |> render_submit()
+
+      assert html =~ ~s(id="quick_account_name")
+      assert html =~ "is already used by another of your accounts"
+    end
+
+    test "the Accounts section never renders two account forms", %{conn: conn} do
+      user = user_fixture()
+      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+      render_click(view, "show_section", %{"section" => "accounts"})
+
+      html = render(view)
+      assert length(Regex.scan(~r/phx-submit="create_account"/, html)) == 1
+
+      # Here the header button only focuses the section form (client-side JS);
+      # it no longer pushes open_focus_panel, so no second form can open.
+      [button] =
+        html
+        |> LazyHTML.from_fragment()
+        |> LazyHTML.query(~s(button[aria-label="New account in current scope"]))
+        |> Enum.to_list()
+
+      click = button |> LazyHTML.attribute("phx-click") |> List.first()
+      assert click =~ "focus"
+      refute click =~ "open_focus_panel"
+    end
+  end
+
+  describe "transfers across scopes" do
+    setup %{conn: conn} do
+      user = user_fixture()
+      {:ok, household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
+
+      {:ok, personal} =
+        Finance.create_account(user, %{
+          "name" => "My savings",
+          "kind" => "savings",
+          "current_balance" => "1000.00"
+        })
+
+      {:ok, shared} =
+        Finance.create_account(user, household, %{
+          "name" => "Household checking",
+          "kind" => "checking",
+          "current_balance" => "200.00"
+        })
+
+      %{
+        conn: init_test_session(conn, user_id: user.id),
+        user: user,
+        household: household,
+        personal: personal,
+        shared: shared
+      }
+    end
+
+    test "one personal and one household account are enough to transfer", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/finance")
+
+      assert html =~ ~s(id="quick-send-form")
+      assert html =~ ~s(<optgroup label="Personal">)
+      assert html =~ ~s(<optgroup label="Garcia Home">)
+    end
+
+    test "moves money from personal into the household", ctx do
+      {:ok, view, _html} = live(ctx.conn, ~p"/finance")
+
+      view
+      |> form("#quick-send-form",
+        transfer: %{
+          "from_account_id" => ctx.personal.id,
+          "to_account_id" => ctx.shared.id,
+          "amount" => "250.00"
+        }
+      )
+      |> render_submit()
+
+      assert Decimal.equal?(
+               Core.Repo.get!(Core.Finance.Account, ctx.personal.id).current_balance,
+               "750.00"
+             )
+
+      assert Decimal.equal?(
+               Core.Repo.get!(Core.Finance.Account, ctx.shared.id).current_balance,
+               "450.00"
+             )
+    end
+
+    test "with a single account the form explains what's needed", %{conn: conn} do
+      lonely = user_fixture()
+
+      {:ok, _} =
+        Finance.create_account(lonely, %{
+          "name" => "Only one",
+          "kind" => "checking",
+          "current_balance" => "5"
+        })
+
+      {:ok, _view, html} = live(init_test_session(conn, user_id: lonely.id), ~p"/finance")
+
+      refute html =~ ~s(id="quick-send-form")
+      assert html =~ "second account" or html =~ "at least two accounts"
+    end
+  end
+
+  defp submit_section_account(view, name) do
+    view
+    |> form("#account-section-form",
+      account: %{
+        "name" => name,
+        "kind" => "checking",
+        "currency" => "DOP",
+        "current_balance" => "10.00"
+      }
+    )
+    |> render_submit()
+  end
+
   defp submit_account(view, name) do
     view
     |> form("form[phx-submit=\"create_account\"]",
