@@ -342,6 +342,34 @@ defmodule Core.Accounts do
   end
 
   @doc """
+  Updates the signed-in user's name and username from the settings page.
+  """
+  def update_account_profile(%User{} = user, attrs) do
+    user
+    |> User.account_profile_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Changes the signed-in user's email. Requires their current password.
+  """
+  def change_user_email(%User{} = user, current_password, attrs) do
+    user
+    |> User.email_update_changeset(attrs, current_password)
+    |> Repo.update()
+  end
+
+  @doc """
+  Changes the signed-in user's password. Requires their current password and
+  a matching `password_confirmation`.
+  """
+  def change_user_password(%User{} = user, current_password, attrs) do
+    user
+    |> User.password_update_changeset(attrs, current_password)
+    |> Repo.update()
+  end
+
+  @doc """
   Updates user password
   """
   def update_user_password(user, password) do
