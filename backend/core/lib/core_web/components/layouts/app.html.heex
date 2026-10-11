@@ -33,6 +33,8 @@
       </div>
     </header>
 
+    <.flash_group flash={Map.get(assigns, :flash, %{})} />
+
     <div class="flex-1">
       <%= if Map.has_key?(assigns, :inner_block) do %>
         <%= render_slot(@inner_block) %>
