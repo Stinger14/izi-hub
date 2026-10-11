@@ -130,7 +130,8 @@ defmodule CoreWeb.HubLiveTest do
 
       {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/hub")
 
-      html = view |> element("#focus-task-#{task.id} button") |> render_click()
+      html =
+        view |> element("#focus-task-#{task.id} button[phx-click=advance_task]") |> render_click()
 
       assert html =~ "→ QA"
       assert Office.get_user_work_item(user, task.id).status == "wip"

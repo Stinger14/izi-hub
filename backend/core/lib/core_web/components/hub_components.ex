@@ -355,6 +355,9 @@ defmodule CoreWeb.HubComponents do
   attr :focus, :map, default: nil
   attr :form, :any, default: nil
   attr :selected_date, :any, default: nil
+  attr :editing_task_id, :string, default: nil
+  attr :edit_form, :any, default: nil
+  attr :confirming_delete_id, :string, default: nil
 
   def tasks_panel(assigns) do
     ~H"""
@@ -392,9 +395,33 @@ defmodule CoreWeb.HubComponents do
           <.card_empty_state message="Nothing open. Add a task above or plan your week in IziOffice." />
         <% else %>
           <div class="mt-4 space-y-4">
-            <.task_group :if={@focus.overdue != []} label="Overdue" tone="expense" tasks={@focus.overdue} />
-            <.task_group :if={@focus.today != []} label="Today" tone="income" tasks={@focus.today} />
-            <.task_group :if={@focus.up_next != []} label="Up next" tone="muted" tasks={@focus.up_next} />
+            <.task_group
+              :if={@focus.overdue != []}
+              label="Overdue"
+              tone="expense"
+              tasks={@focus.overdue}
+              editing_task_id={@editing_task_id}
+              edit_form={@edit_form}
+              confirming_delete_id={@confirming_delete_id}
+            />
+            <.task_group
+              :if={@focus.today != []}
+              label="Today"
+              tone="income"
+              tasks={@focus.today}
+              editing_task_id={@editing_task_id}
+              edit_form={@edit_form}
+              confirming_delete_id={@confirming_delete_id}
+            />
+            <.task_group
+              :if={@focus.up_next != []}
+              label="Up next"
+              tone="muted"
+              tasks={@focus.up_next}
+              editing_task_id={@editing_task_id}
+              edit_form={@edit_form}
+              confirming_delete_id={@confirming_delete_id}
+            />
           </div>
         <% end %>
 
@@ -412,6 +439,9 @@ defmodule CoreWeb.HubComponents do
   attr :label, :string, required: true
   attr :tone, :string, required: true
   attr :tasks, :list, required: true
+  attr :editing_task_id, :string, default: nil
+  attr :edit_form, :any, default: nil
+  attr :confirming_delete_id, :string, default: nil
 
   defp task_group(assigns) do
     ~H"""
@@ -420,24 +450,76 @@ defmodule CoreWeb.HubComponents do
         <%= @label %>
       </p>
       <ul class="mt-2 divide-y divide-[color:var(--hub-border)] rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)]">
-        <li :for={%{task: task, date: date} <- @tasks} id={"focus-task-#{task.id}"} class="flex items-center gap-3 px-3 py-2.5">
-          <span class={["h-2.5 w-2.5 shrink-0 rounded-full", stage_dot_class(task.status)]} title={stage_label(task.status)}></span>
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium text-[var(--hub-text)]"><%= task.title %></p>
-            <p class="truncate text-[11px] text-[var(--hub-muted)]">
-              <%= task.project.name %><%= if date, do: " · #{Calendar.strftime(date, "%b %-d")}" %> · <%= stage_label(task.status) %>
-            </p>
-          </div>
-          <button
-            :if={next = Core.Office.next_status(task.status)}
-            type="button"
-            phx-click="advance_task"
-            phx-value-id={task.id}
-            title={"Move to #{stage_label(next)}"}
-            class="shrink-0 rounded-lg border border-[color:var(--hub-border)] px-2 py-1 text-[11px] font-semibold text-[var(--hub-secondary)] transition hover:border-[color:var(--hub-accent)]/50 hover:text-[var(--hub-accent-2)]"
-          >
-            → <%= stage_label(next) %>
-          </button>
+        <li :for={%{task: task, date: date} <- @tasks} id={"focus-task-#{task.id}"} class="px-3 py-2.5">
+          <%= cond do %>
+            <% @editing_task_id == task.id and @edit_form -> %>
+              <.form for={@edit_form} id={"hub-task-edit-#{task.id}"} phx-submit="save_hub_task" class="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  name={@edit_form[:title].name}
+                  value={@edit_form[:title].value}
+                  aria-label="Task title"
+                  maxlength="140"
+                  required
+                  class="min-w-0 flex-1 rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-card)] px-2.5 py-1.5 text-sm text-[var(--hub-text)] focus:border-[color:var(--hub-accent)] focus:outline-none"
+                />
+                <input
+                  type="date"
+                  name={@edit_form[:scheduled_for].name}
+                  value={@edit_form[:scheduled_for].value}
+                  aria-label="Scheduled day"
+                  class="rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-card)] px-2 py-1.5 text-xs text-[var(--hub-text)] focus:outline-none"
+                />
+                <button type="button" phx-click="cancel_hub_task_edit" class="btn btn-ghost btn-xs">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-xs">Save</button>
+              </.form>
+            <% @confirming_delete_id == task.id -> %>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="min-w-0 truncate text-sm text-[var(--hub-text)]">Delete “<%= task.title %>”?</span>
+                <span class="flex gap-2">
+                  <button type="button" phx-click="delete_hub_task" phx-value-id={task.id} class="btn btn-danger btn-xs">Delete</button>
+                  <button type="button" phx-click="cancel_hub_task_delete" class="btn btn-ghost btn-xs">Cancel</button>
+                </span>
+              </div>
+            <% true -> %>
+              <div class="flex items-center gap-3">
+                <span class={["h-2.5 w-2.5 shrink-0 rounded-full", stage_dot_class(task.status)]} title={stage_label(task.status)}></span>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-medium text-[var(--hub-text)]"><%= task.title %></p>
+                  <p class="truncate text-[11px] text-[var(--hub-muted)]">
+                    <%= task.project.name %><%= if date, do: " · #{Calendar.strftime(date, "%b %-d")}" %> · <%= stage_label(task.status) %>
+                  </p>
+                </div>
+                <button
+                  :if={next = Core.Office.next_status(task.status)}
+                  type="button"
+                  phx-click="advance_task"
+                  phx-value-id={task.id}
+                  title={"Move to #{stage_label(next)}"}
+                  class="shrink-0 rounded-lg border border-[color:var(--hub-border)] px-2 py-1 text-[11px] font-semibold text-[var(--hub-secondary)] transition hover:border-[color:var(--hub-accent)]/50 hover:text-[var(--hub-accent-2)]"
+                >
+                  → <%= stage_label(next) %>
+                </button>
+                <button
+                  type="button"
+                  phx-click="edit_hub_task"
+                  phx-value-id={task.id}
+                  aria-label={"Edit #{task.title}"}
+                  class="shrink-0 rounded-md p-1 text-[var(--hub-muted)] transition hover:text-[var(--hub-text)]"
+                >
+                  <.icon name="hero-pencil-square" class="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  phx-click="request_hub_task_delete"
+                  phx-value-id={task.id}
+                  aria-label={"Delete #{task.title}"}
+                  class="shrink-0 rounded-md p-1 text-[var(--hub-muted)] transition hover:text-[var(--tone-expense)]"
+                >
+                  <.icon name="hero-x-mark" class="h-3.5 w-3.5" />
+                </button>
+              </div>
+          <% end %>
         </li>
       </ul>
     </section>
