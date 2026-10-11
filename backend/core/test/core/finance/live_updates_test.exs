@@ -147,7 +147,7 @@ defmodule Core.Finance.LiveUpdatesTest do
         Finance.record_debt_payment(user, debt, %{
           "amount" => "50.00",
           "payment_date" => Date.to_iso8601(Date.utc_today()),
-          "create_transaction" => "true"
+          "create_expense_transaction" => "true"
         })
       end)
 

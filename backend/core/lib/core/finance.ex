@@ -687,6 +687,106 @@ defmodule Core.Finance do
     end
   end
 
+  @doc """
+  Edits an account's details. Status changes go through archive/restore, and
+  the currency is locked once the account has transactions (otherwise its
+  history would be re-labelled in another currency).
+  """
+  def update_account(%User{} = user, %Account{} = account, attrs) do
+    with :ok <- ensure_resource_owner(user, account) do
+      account
+      |> Account.changeset(
+        Map.drop(Map.new(attrs), [
+          "status",
+          :status,
+          "user_id",
+          :user_id,
+          "household_id",
+          :household_id
+        ])
+      )
+      |> lock_currency_with_history(account)
+      |> Repo.update()
+      |> broadcast_change()
+    end
+  end
+
+  @doc "Hides an account from lists and pickers; its history stays intact."
+  def archive_account(%User{} = user, %Account{} = account),
+    do: set_account_status(user, account, "archived")
+
+  def restore_account(%User{} = user, %Account{} = account),
+    do: set_account_status(user, account, "active")
+
+  @doc """
+  Deletes an account only when nothing references it. Accounts with
+  transactions must be archived instead: deleting them would orphan their
+  transactions and break transfer pairs.
+  """
+  def delete_account(%User{} = user, %Account{} = account) do
+    with :ok <- ensure_resource_owner(user, account) do
+      if account_has_transactions?(account) do
+        {:error, :has_transactions}
+      else
+        account |> Repo.delete() |> broadcast_change()
+      end
+    end
+  end
+
+  @doc "Which of the given account ids have at least one transaction."
+  def account_ids_with_transactions([]), do: MapSet.new()
+
+  def account_ids_with_transactions(account_ids) do
+    Transaction
+    |> where([transaction], transaction.account_id in ^account_ids)
+    |> distinct(true)
+    |> select([transaction], transaction.account_id)
+    |> Repo.all()
+    |> MapSet.new()
+  end
+
+  def get_debt_payment!(%User{} = actor, owner, id) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      DebtPayment |> scope_query(owner) |> Repo.get!(id)
+    end
+  end
+
+  def account_has_transactions?(%Account{id: id}) do
+    Transaction |> where([transaction], transaction.account_id == ^id) |> Repo.exists?()
+  end
+
+  def list_archived_accounts(%User{} = actor, owner) do
+    with :ok <- ensure_scope_access(actor, owner) do
+      {:ok,
+       Account
+       |> scope_query(owner)
+       |> where([account], account.status == "archived")
+       |> order_by([account], asc: account.name)
+       |> Repo.all()}
+    end
+  end
+
+  defp set_account_status(user, account, status) do
+    with :ok <- ensure_resource_owner(user, account) do
+      account
+      |> Ecto.Changeset.change(status: status)
+      |> Repo.update()
+      |> broadcast_change()
+    end
+  end
+
+  defp lock_currency_with_history(changeset, account) do
+    if Ecto.Changeset.get_change(changeset, :currency) && account_has_transactions?(account) do
+      Ecto.Changeset.add_error(
+        changeset,
+        :currency,
+        "can't change once the account has transactions"
+      )
+    else
+      changeset
+    end
+  end
+
   def change_account(%Account{} = account \\ %Account{}) do
     Account.changeset(account, %{})
   end
@@ -890,7 +990,7 @@ defmodule Core.Finance do
     with :ok <- ensure_scope_access(actor, owner) do
       Budget
       |> scope_query(owner)
-      |> preload([:user, :household, :category, :account])
+      |> preload([:user, :household, :category])
       |> Repo.get!(id)
     end
   end
@@ -1082,10 +1182,36 @@ defmodule Core.Finance do
     end
   end
 
+  @doc """
+  Undoes a recorded payment: deletes it, deletes the expense transaction it
+  created (if any) and puts the amount back on the debt, reopening a debt
+  the payment had marked paid off.
+  """
   def delete_debt_payment(%User{} = user, %DebtPayment{} = payment) do
     with :ok <- ensure_resource_owner(user, payment) do
-      payment |> Repo.delete() |> broadcast_change()
+      Repo.transaction(fn ->
+        if payment.transaction_id do
+          case Repo.get(Transaction, payment.transaction_id) do
+            nil -> :ok
+            transaction -> Repo.delete!(transaction)
+          end
+        end
+
+        restore_debt_after_payment_removal!(payment)
+        Repo.delete!(payment)
+      end)
+      |> broadcast_change()
     end
+  end
+
+  defp restore_debt_after_payment_removal!(%DebtPayment{debt_id: debt_id, amount: amount}) do
+    debt = Repo.get!(Debt, debt_id)
+    balance = Decimal.add(debt.current_balance, amount)
+    status = if debt.status == "paid_off", do: "active", else: debt.status
+
+    debt
+    |> Debt.changeset(%{"current_balance" => balance, "status" => status})
+    |> Repo.update!()
   end
 
   def list_payoff_plans_for_user(%User{} = user) do
