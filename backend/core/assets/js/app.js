@@ -270,6 +270,30 @@ const setupStaticFlashes = () => {
 
 window.addEventListener("DOMContentLoaded", setupStaticFlashes);
 
+// Keep flash toasts visible: record where the header ends so they sit just
+// below it on phones, and float at the top centre once it has scrolled away.
+const syncFlashPosition = () => {
+  const header = document.querySelector("header");
+  if (!header) return;
+  const bottom = header.getBoundingClientRect().bottom;
+  document.body.style.setProperty("--flash-top", `${Math.max(bottom, 0) + 8}px`);
+  document.body.classList.toggle("header-offscreen", bottom <= 0);
+};
+
+let flashFrame = null;
+const scheduleFlashSync = () => {
+  if (flashFrame) return;
+  flashFrame = requestAnimationFrame(() => {
+    flashFrame = null;
+    syncFlashPosition();
+  });
+};
+
+window.addEventListener("scroll", scheduleFlashSync, { passive: true });
+window.addEventListener("resize", scheduleFlashSync);
+window.addEventListener("DOMContentLoaded", syncFlashPosition);
+window.addEventListener("phx:page-loading-stop", syncFlashPosition);
+
 let liveSocket = new LiveSocket("/live", Socket, {
   params: { _csrf_token: csrfToken },
   hooks: Hooks,

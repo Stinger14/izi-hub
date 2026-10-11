@@ -9,6 +9,11 @@ defmodule CoreWeb.Layouts do
   Flash messages plus a "reconnecting" notice, rendered once by the app
   layout on every page (LiveViews and controller-rendered pages alike).
   Only call this from the layout.
+
+  It sits centred in the header's middle slot. `syncFlashPosition` in app.js
+  plus the `#flash-group` rules in app.css move it to a fixed top-centre
+  position once the header has scrolled away, and below the header on
+  phones (where the header has no free space).
   """
   attr :flash, :map, required: true
 
@@ -17,7 +22,7 @@ defmodule CoreWeb.Layouts do
     <div
       id="flash-group"
       aria-live="polite"
-      class="pointer-events-none fixed inset-x-4 top-16 z-[70] flex flex-col items-end gap-2 sm:left-auto sm:right-6 sm:w-96"
+      class="pointer-events-none absolute inset-x-2 inset-y-0 z-[70] flex flex-col items-center justify-center gap-1.5"
     >
       <.flash kind={:info} flash={@flash} />
       <.flash kind={:error} flash={@flash} />
@@ -28,7 +33,7 @@ defmodule CoreWeb.Layouts do
         phx-disconnected={JS.show(to: "#client-reconnecting")}
         phx-connected={JS.hide(to: "#client-reconnecting")}
         role="status"
-        class="hub-glass pointer-events-auto w-full rounded-xl px-4 py-3 text-sm text-[var(--hub-text)]"
+        class="hub-glass pointer-events-auto w-full max-w-md rounded-xl px-3 py-2 text-sm text-[var(--hub-text)]"
       >
         <span class="inline-flex items-center gap-2">
           <.icon name="hero-arrow-path" class="h-4 w-4 animate-spin text-[var(--hub-secondary)]" />
@@ -58,15 +63,17 @@ defmodule CoreWeb.Layouts do
       data-flash-autodismiss={if @kind == :info, do: "5000"}
       phx-hook="Flash"
       role={if @kind == :error, do: "alert", else: "status"}
-      class="hub-glass pointer-events-auto flex w-full items-start gap-3 rounded-xl px-4 py-3 text-sm"
+      class="hub-glass pointer-events-auto flex w-full max-w-md items-center gap-2.5 rounded-xl px-3 py-2 text-sm"
     >
       <span class={[
-        "mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+        "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
         tone_class(if(@kind == :error, do: "expense", else: "income"), :soft)
       ]}>
-        <.icon name={if @kind == :error, do: "hero-x-mark", else: "hero-check"} class="h-3.5 w-3.5" />
+        <.icon name={if @kind == :error, do: "hero-x-mark", else: "hero-check"} class="h-3 w-3" />
       </span>
-      <p class="min-w-0 flex-1 leading-5 text-[var(--hub-text)]"><%= @message %></p>
+      <p class="line-clamp-2 min-w-0 flex-1 leading-5 text-[var(--hub-text)]" title={@message}>
+        <%= @message %>
+      </p>
       <button
         type="button"
         data-flash-dismiss

@@ -1,11 +1,17 @@
 <% current_scope = Map.get(assigns, :current_scope) %>
 <section class="hub-shell min-h-screen">
   <div class="flex min-h-screen flex-col">
-    <header class="relative z-40 border-b border-[color:var(--hub-border)] bg-transparent backdrop-blur">
+    <header class="relative z-40 border-b border-[color:var(--hub-border)] bg-transparent">
       <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
         <a href={~p"/hub"} class="font-display text-xl text-[var(--hub-secondary)]">
           IziHub
         </a>
+
+        <%!-- Toast slot: takes only the space between the logo and the buttons,
+             so a message can never cover them or change the header's height. --%>
+        <div class="relative min-w-0 flex-1 self-stretch">
+          <.flash_group flash={Map.get(assigns, :flash, %{})} />
+        </div>
 
         <div class="flex min-w-0 flex-wrap items-center justify-end gap-2">
           <%= if current_scope do %>
@@ -32,8 +38,6 @@
         </div>
       </div>
     </header>
-
-    <.flash_group flash={Map.get(assigns, :flash, %{})} />
 
     <div class="flex-1">
       <%= if Map.has_key?(assigns, :inner_block) do %>
