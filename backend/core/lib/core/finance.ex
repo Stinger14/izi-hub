@@ -182,6 +182,19 @@ defmodule Core.Finance do
   def subscribe_household(%Household{id: id}),
     do: Phoenix.PubSub.subscribe(@pubsub, owner_topic({:household, id}))
 
+  @doc """
+  Tells every member viewing a household that it changed (renamed, a member
+  added or removed, deleted), so their pages reload.
+  """
+  def notify_household_change(household_id) do
+    Phoenix.PubSub.broadcast_from(
+      @pubsub,
+      self(),
+      owner_topic({:household, household_id}),
+      {:finance_changed, {:household, household_id}}
+    )
+  end
+
   defp owner_topic({:user, id}), do: "finance:user:#{id}"
   defp owner_topic({:household, id}), do: "finance:household:#{id}"
 
