@@ -51,6 +51,9 @@ defmodule CoreWeb.FinanceLive do
        focus_panel: nil,
        editing_transaction_id: nil,
        editing: nil,
+       household_rename_open: false,
+       household_delete_open: false,
+       confirming_leave: false,
        confirming_delete: nil,
        show_archived_accounts: false,
        contribution_goal_id: nil,
@@ -289,6 +292,85 @@ defmodule CoreWeb.FinanceLive do
          socket
          |> open_action_surface("household")
          |> assign(household_form: to_form(changeset, as: :household))}
+    end
+  end
+
+  # ------ Managing the selected household ------
+
+  def handle_event("open_household_rename", _params, socket),
+    do: {:noreply, assign(socket, household_rename_open: true, household_delete_open: false)}
+
+  def handle_event("cancel_household_rename", _params, socket),
+    do: {:noreply, assign(socket, household_rename_open: false)}
+
+  def handle_event("rename_household", %{"household" => params}, socket) do
+    case Accounts.rename_household(
+           current_actor(socket),
+           socket.assigns.selected_household,
+           params
+         ) do
+      {:ok, _household} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Household renamed")
+         |> assign(household_rename_open: false)
+         |> assign_finance_data()}
+
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "Only the household owner can rename it")}
+
+      {:error, %Ecto.Changeset{}} ->
+        {:noreply, put_flash(socket, :error, "Enter a household name")}
+    end
+  end
+
+  def handle_event("request_leave_household", _params, socket),
+    do: {:noreply, assign(socket, confirming_leave: true)}
+
+  def handle_event("cancel_leave_household", _params, socket),
+    do: {:noreply, assign(socket, confirming_leave: false)}
+
+  def handle_event("leave_household", _params, socket) do
+    case Accounts.leave_household(current_actor(socket), socket.assigns.selected_household) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "You left the household")
+         |> back_to_personal_scope()}
+
+      {:error, :owner_cannot_leave} ->
+        {:noreply,
+         put_flash(socket, :error, "Owners can't leave their household; delete it instead")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not leave the household")}
+    end
+  end
+
+  def handle_event("open_household_delete", _params, socket),
+    do: {:noreply, assign(socket, household_delete_open: true, household_rename_open: false)}
+
+  def handle_event("cancel_household_delete", _params, socket),
+    do: {:noreply, assign(socket, household_delete_open: false)}
+
+  def handle_event("delete_household", %{"confirmation" => confirmation}, socket) do
+    household = socket.assigns.selected_household
+
+    case Accounts.delete_household(current_actor(socket), household, confirmation) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "#{household.name} was deleted")
+         |> back_to_personal_scope()}
+
+      {:error, :confirmation_mismatch} ->
+        {:noreply, put_flash(socket, :error, "Type the household's name exactly to confirm")}
+
+      {:error, :forbidden} ->
+        {:noreply, put_flash(socket, :error, "Only the household owner can delete it")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not delete the household")}
     end
   end
 
@@ -536,7 +618,7 @@ defmodule CoreWeb.FinanceLive do
   # into that type's existing form, which then submits "update_record".
 
   @editable_types ~w(account budget category debt goal)
-  @deletable_types ~w(account budget category debt_payment)
+  @deletable_types ~w(account budget category debt_payment household_member)
 
   def handle_event("edit_record", %{"type" => type, "id" => id}, socket)
       when type in @editable_types do
@@ -595,7 +677,7 @@ defmodule CoreWeb.FinanceLive do
       {:ok, _} ->
         {:noreply,
          socket
-         |> put_flash(:info, "#{record_label(type)} deleted")
+         |> put_flash(:info, deleted_message(type))
          |> assign(comparison: [])
          |> assign_finance_data()}
 
@@ -604,7 +686,7 @@ defmodule CoreWeb.FinanceLive do
          put_flash(socket, :error, "This account has transactions, so it can only be archived")}
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "#{record_label(type)} could not be deleted")}
+        {:noreply, put_flash(socket, :error, "#{record_label(type)} could not be removed")}
     end
   end
 
@@ -1077,6 +1159,20 @@ defmodule CoreWeb.FinanceLive do
     )
   end
 
+  defp back_to_personal_scope(socket) do
+    socket
+    |> assign(
+      ownership_scope: "personal",
+      selected_household_id: nil,
+      selected_household: nil,
+      confirming_leave: false,
+      household_delete_open: false,
+      household_rename_open: false
+    )
+    |> close_action_surface()
+    |> assign_finance_data()
+  end
+
   # ------ Record editing helpers ------
 
   defp fetch_record!(socket, type, id) do
@@ -1107,6 +1203,14 @@ defmodule CoreWeb.FinanceLive do
 
   defp update_record("goal", user, record, attrs),
     do: Finance.update_savings_goal(user, record, attrs || %{})
+
+  defp delete_record(socket, "household_member", user_id) do
+    Accounts.remove_household_member(
+      current_actor(socket),
+      socket.assigns.selected_household,
+      user_id
+    )
+  end
 
   defp delete_record(socket, type, id) do
     user = current_actor(socket)
@@ -1162,6 +1266,10 @@ defmodule CoreWeb.FinanceLive do
   defp record_label("debt"), do: "Debt"
   defp record_label("goal"), do: "Savings goal"
   defp record_label("debt_payment"), do: "Payment"
+  defp record_label("household_member"), do: "Member"
+
+  defp deleted_message("household_member"), do: "Member removed"
+  defp deleted_message(type), do: "#{record_label(type)} deleted"
 
   defp assign_category_form(socket) do
     category = %Category{type: "expense", color: "#10B981"}
