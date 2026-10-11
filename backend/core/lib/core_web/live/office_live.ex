@@ -39,7 +39,12 @@ defmodule CoreWeb.OfficeLive do
        selected_date: nil,
        selected_day_entry_form_open: false,
        selected_day_expanded_task_ids: [],
-       timeline_edit_form: nil
+       timeline_edit_form: nil,
+       editing_task_id: nil,
+       task_edit_form: nil,
+       confirming_task_delete_id: nil,
+       confirming_entry_delete: false,
+       project_rename_open: false
      )
      |> assign_project_form()
      |> assign_entry_form()
@@ -254,6 +259,122 @@ defmodule CoreWeb.OfficeLive do
     end
   end
 
+  # ------ Editing and deleting tasks, milestones and projects ------
+
+  def handle_event("edit_task", %{"id" => id}, socket) do
+    task = current_project_task!(socket, id)
+
+    {:noreply,
+     assign(socket,
+       editing_task_id: task.id,
+       confirming_task_delete_id: nil,
+       task_edit_form: to_form(Office.planner_changeset(task, task_attrs(task)), as: :task_edit)
+     )}
+  end
+
+  def handle_event("cancel_task_edit", _params, socket),
+    do: {:noreply, assign(socket, editing_task_id: nil, task_edit_form: nil)}
+
+  def handle_event("save_task", %{"task_edit" => params}, socket) do
+    task = current_project_task!(socket, socket.assigns.editing_task_id)
+
+    case Office.update_work_item(task, params) do
+      {:ok, updated} ->
+        {:noreply,
+         socket
+         |> assign(editing_task_id: nil, task_edit_form: nil)
+         |> assign_workbench()
+         |> assign(
+           expanded_item_ids:
+             Enum.uniq(["work-item:" <> updated.id | socket.assigns.expanded_item_ids])
+         )
+         |> put_flash(:info, "Task updated")}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign(socket, task_edit_form: to_form(changeset, as: :task_edit))}
+    end
+  end
+
+  def handle_event("request_task_delete", %{"id" => id}, socket),
+    do: {:noreply, assign(socket, confirming_task_delete_id: id, editing_task_id: nil)}
+
+  def handle_event("cancel_task_delete", _params, socket),
+    do: {:noreply, assign(socket, confirming_task_delete_id: nil)}
+
+  def handle_event("delete_task", %{"id" => id}, socket) do
+    task = current_project_task!(socket, id)
+
+    case Office.delete_work_item(socket.assigns.current_scope.user, task) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(confirming_task_delete_id: nil)
+         |> assign_workbench()
+         |> put_flash(:info, "Task deleted")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Unable to delete that task")}
+    end
+  end
+
+  def handle_event("request_entry_delete", _params, socket),
+    do: {:noreply, assign(socket, confirming_entry_delete: true)}
+
+  def handle_event("cancel_entry_delete", _params, socket),
+    do: {:noreply, assign(socket, confirming_entry_delete: false)}
+
+  def handle_event("delete_timeline_entry", _params, socket) do
+    user = socket.assigns.current_scope.user
+
+    entry =
+      Office.get_timeline_entry_for_project!(
+        user.id,
+        socket.assigns.current_project.id,
+        socket.assigns.editing_timeline_entry_id
+      )
+
+    case Office.delete_timeline_entry(user, entry) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(
+           editing_timeline_entry_id: nil,
+           timeline_edit_form: nil,
+           confirming_entry_delete: false
+         )
+         |> assign_workbench()
+         |> put_flash(:info, "Milestone deleted")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Unable to delete that milestone")}
+    end
+  end
+
+  def handle_event("open_project_rename", _params, socket),
+    do: {:noreply, assign(socket, project_rename_open: true, project_delete_confirm: false)}
+
+  def handle_event("cancel_project_rename", _params, socket),
+    do: {:noreply, assign(socket, project_rename_open: false)}
+
+  def handle_event("rename_project", %{"project" => params}, socket) do
+    user = socket.assigns.current_scope.user
+
+    case Office.rename_project(user, socket.assigns.current_project, params) do
+      {:ok, project} ->
+        {:noreply,
+         socket
+         |> assign(
+           current_project: project,
+           projects: Office.list_projects_for_user(user),
+           project_rename_open: false
+         )
+         |> put_flash(:info, "Project renamed")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Enter a project name")}
+    end
+  end
+
   def handle_event("edit_timeline_entry", %{"id" => id}, socket) do
     user = socket.assigns.current_scope.user
     project = socket.assigns.current_project
@@ -275,7 +396,12 @@ defmodule CoreWeb.OfficeLive do
   end
 
   def handle_event("cancel_timeline_edit", _params, socket) do
-    {:noreply, assign(socket, editing_timeline_entry_id: nil, timeline_edit_form: nil)}
+    {:noreply,
+     assign(socket,
+       editing_timeline_entry_id: nil,
+       timeline_edit_form: nil,
+       confirming_entry_delete: false
+     )}
   end
 
   def handle_event("save_timeline_entry", %{"entry" => params}, socket) do
@@ -451,8 +577,28 @@ defmodule CoreWeb.OfficeLive do
               <div class="flex items-start justify-between gap-4">
                 <div>
                   <p class="text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Current project</p>
-                  <div class="mt-1 flex items-center gap-2">
+                  <form
+                    :if={@project_rename_open}
+                    id="project-rename-form"
+                    phx-submit="rename_project"
+                    class="mt-1 flex flex-wrap items-center gap-2"
+                  >
+                    <input
+                      type="text"
+                      name="project[name]"
+                      value={@current_project.name}
+                      required
+                      aria-label="Project name"
+                      class={task_input_class()}
+                    />
+                    <button type="button" phx-click="cancel_project_rename" class="btn btn-ghost btn-xs">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-xs">Save</button>
+                  </form>
+                  <div :if={!@project_rename_open} class="mt-1 flex items-center gap-2">
                     <p class="text-sm font-semibold text-[var(--hub-text)]"><%= @current_project.name %></p>
+                    <button type="button" phx-click="open_project_rename" aria-label="Rename project" class="text-xs font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)]">
+                      Rename
+                    </button>
                     <span
                       :if={current_project_default?(@current_project, @default_project_id)}
                       class="rounded-full border border-[color:var(--hub-border)] bg-[color:var(--hub-accent)]/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--hub-secondary)]"
@@ -1050,13 +1196,26 @@ defmodule CoreWeb.OfficeLive do
                                           </div>
                                         </div>
 
-                                        <div class="flex flex-wrap items-center justify-end gap-2">
-                                          <button type="button" phx-click="cancel_timeline_edit" class="btn btn-ghost btn-xs">
-                                            Cancel
-                                          </button>
-                                          <button type="submit" class="btn btn-primary btn-glow transition duration-300 hover:-translate-y-0.5">
-                                            Save changes
-                                          </button>
+                                        <div class="flex flex-wrap items-center justify-between gap-2">
+                                          <%= if @confirming_entry_delete do %>
+                                            <span class="flex flex-wrap items-center gap-2 text-xs text-[var(--hub-text)]">
+                                              Delete this milestone?
+                                              <button type="button" phx-click="delete_timeline_entry" class="btn btn-danger btn-xs">Delete</button>
+                                              <button type="button" phx-click="cancel_entry_delete" class="btn btn-ghost btn-xs">Keep</button>
+                                            </span>
+                                          <% else %>
+                                            <button type="button" phx-click="request_entry_delete" class="btn btn-ghost btn-xs text-[var(--tone-expense)]">
+                                              Delete
+                                            </button>
+                                          <% end %>
+                                          <span class="flex items-center gap-2">
+                                            <button type="button" phx-click="cancel_timeline_edit" class="btn btn-ghost btn-xs">
+                                              Cancel
+                                            </button>
+                                            <button type="submit" class="btn btn-primary btn-glow transition duration-300 hover:-translate-y-0.5">
+                                              Save changes
+                                            </button>
+                                          </span>
                                         </div>
                                       </.form>
                                     <% else %>
@@ -1278,7 +1437,34 @@ defmodule CoreWeb.OfficeLive do
                                   <div class="mt-3 space-y-3">
                                     <p :if={present?(item.description)} class="text-sm leading-6 text-[var(--hub-muted)]"><%= item.description %></p>
 
-                                    <div class="flex flex-wrap gap-2">
+                                    <.form
+                                      :if={@editing_task_id == item.record_id && @task_edit_form}
+                                      for={@task_edit_form}
+                                      id={"task-edit-#{item.record_id}"}
+                                      phx-submit="save_task"
+                                      class="space-y-3"
+                                    >
+                                      <.task_field form={@task_edit_form} field={:title} label="Title" />
+                                      <.task_field form={@task_edit_form} field={:description} label="Description" type="textarea" />
+                                      <div class="grid gap-2 sm:grid-cols-2">
+                                        <label class="block">
+                                          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Priority</span>
+                                          <select name={@task_edit_form[:priority].name} class={task_input_class()}>
+                                            <option :for={priority <- ~w(low medium high)} value={priority} selected={@task_edit_form[:priority].value == priority}>
+                                              <%= String.capitalize(priority) %>
+                                            </option>
+                                          </select>
+                                        </label>
+                                        <.task_field form={@task_edit_form} field={:scheduled_for} label="Scheduled" type="date" />
+                                      </div>
+                                      <.task_field form={@task_edit_form} field={:due_at} label="Due" type="datetime-local" />
+                                      <div class="flex justify-end gap-2">
+                                        <button type="button" phx-click="cancel_task_edit" class="btn btn-ghost btn-xs">Cancel</button>
+                                        <button type="submit" class="btn btn-primary btn-xs">Save task</button>
+                                      </div>
+                                    </.form>
+
+                                    <div :if={@editing_task_id != item.record_id} class="flex flex-wrap gap-2">
                                       <button
                                         :for={action <- transition_actions(item.status)}
                                         type="button"
@@ -1289,6 +1475,32 @@ defmodule CoreWeb.OfficeLive do
                                       >
                                         <%= action.label %>
                                       </button>
+                                    </div>
+
+                                    <div
+                                      :if={@editing_task_id != item.record_id}
+                                      class="flex flex-wrap items-center justify-end gap-2 border-t border-[color:var(--hub-border)] pt-3"
+                                    >
+                                      <%= if @confirming_task_delete_id == item.record_id do %>
+                                        <span class="text-xs text-[var(--hub-text)]">Delete this task?</span>
+                                        <button type="button" phx-click="delete_task" phx-value-id={item.record_id} class="btn btn-danger btn-xs">
+                                          Delete
+                                        </button>
+                                        <button type="button" phx-click="cancel_task_delete" class="btn btn-ghost btn-xs">Cancel</button>
+                                      <% else %>
+                                        <button type="button" phx-click="edit_task" phx-value-id={item.record_id} aria-label={"Edit #{item.title}"} class="btn btn-ghost btn-xs">
+                                          Edit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          phx-click="request_task_delete"
+                                          phx-value-id={item.record_id}
+                                          aria-label={"Delete #{item.title}"}
+                                          class="btn btn-ghost btn-xs text-[var(--tone-expense)]"
+                                        >
+                                          Delete
+                                        </button>
+                                      <% end %>
                                     </div>
                                   </div>
                                 </div>
@@ -1933,6 +2145,24 @@ defmodule CoreWeb.OfficeLive do
 
   defp due_date(nil), do: nil
   defp due_date(%NaiveDateTime{} = due_at), do: NaiveDateTime.to_date(due_at)
+
+  defp current_project_task!(socket, id) do
+    Office.get_work_item_for_project!(
+      socket.assigns.current_scope.user.id,
+      socket.assigns.current_project.id,
+      id
+    )
+  end
+
+  defp task_attrs(task) do
+    %{
+      "title" => task.title,
+      "description" => task.description,
+      "priority" => task.priority,
+      "scheduled_for" => task.scheduled_for && Date.to_iso8601(task.scheduled_for),
+      "due_at" => datetime_local_value(task.due_at)
+    }
+  end
 
   defp timeline_entry_attrs(timeline_entry) do
     %{
@@ -2613,4 +2843,32 @@ defmodule CoreWeb.OfficeLive do
       String.replace(acc, "%{#{key}}", to_string(value))
     end)
   end
+
+  attr :form, :any, required: true
+  attr :field, :atom, required: true
+  attr :label, :string, required: true
+  attr :type, :string, default: "text"
+
+  defp task_field(assigns) do
+    assigns = assign(assigns, :f, assigns.form[assigns.field])
+
+    ~H"""
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]"><%= @label %></span>
+      <textarea :if={@type == "textarea"} name={@f.name} rows="2" class={task_input_class()}><%= @f.value %></textarea>
+      <input
+        :if={@type != "textarea"}
+        type={@type}
+        name={@f.name}
+        value={if @type == "datetime-local", do: datetime_local_value(@f.value), else: @f.value}
+        class={task_input_class()}
+      />
+      <span :for={error <- @f.errors} class="mt-1 block text-xs text-[var(--tone-expense)]"><%= translate_error(error) %></span>
+    </label>
+    """
+  end
+
+  defp task_input_class,
+    do:
+      "w-full rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] outline-none focus:border-[color:var(--hub-accent)]"
 end

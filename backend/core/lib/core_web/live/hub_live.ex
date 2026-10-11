@@ -34,7 +34,12 @@ defmodule CoreWeb.HubLive do
        translator_text: "",
        translator_direction: "en-es"
      )
-     |> assign(task_form: task_form(%{}))
+     |> assign(
+       task_form: task_form(%{}),
+       editing_hub_task_id: nil,
+       hub_task_form: nil,
+       confirming_hub_task_delete_id: nil
+     )
      |> assign_office()
      |> assign_finance_card("personal")
      |> assign(github_editing: false, github_form: github_form(%{}))
@@ -130,6 +135,67 @@ defmodule CoreWeb.HubLive do
     else
       _ -> {:noreply, socket}
     end
+  end
+
+  # Quick edits from the hub: title and scheduled day. Everything else is
+  # edited in IziOffice.
+  def handle_event("edit_hub_task", %{"id" => id}, socket) do
+    with %{} = user <- current_user(socket),
+         %{} = task <- Office.get_user_work_item(user, id) do
+      form =
+        to_form(
+          %{
+            "title" => task.title,
+            "scheduled_for" => task.scheduled_for && Date.to_iso8601(task.scheduled_for)
+          },
+          as: :hub_task
+        )
+
+      {:noreply,
+       assign(socket,
+         editing_hub_task_id: id,
+         hub_task_form: form,
+         confirming_hub_task_delete_id: nil
+       )}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("cancel_hub_task_edit", _params, socket),
+    do: {:noreply, assign(socket, editing_hub_task_id: nil, hub_task_form: nil)}
+
+  def handle_event("save_hub_task", %{"hub_task" => params}, socket) do
+    with %{} = user <- current_user(socket),
+         %{} = task <- Office.get_user_work_item(user, socket.assigns.editing_hub_task_id),
+         {:ok, _task} <-
+           Office.update_work_item(task, Map.take(params, ["title", "scheduled_for"])) do
+      {:noreply,
+       socket
+       |> assign(editing_hub_task_id: nil, hub_task_form: nil)
+       |> assign_office()}
+    else
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, assign(socket, hub_task_form: to_form(changeset, as: :hub_task))}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("request_hub_task_delete", %{"id" => id}, socket),
+    do: {:noreply, assign(socket, confirming_hub_task_delete_id: id, editing_hub_task_id: nil)}
+
+  def handle_event("cancel_hub_task_delete", _params, socket),
+    do: {:noreply, assign(socket, confirming_hub_task_delete_id: nil)}
+
+  def handle_event("delete_hub_task", %{"id" => id}, socket) do
+    with %{} = user <- current_user(socket),
+         %{} = task <- Office.get_user_work_item(user, id) do
+      Office.delete_work_item(user, task)
+    end
+
+    {:noreply, socket |> assign(confirming_hub_task_delete_id: nil) |> assign_office()}
   end
 
   def handle_event("advance_task", %{"id" => id}, socket) do
@@ -349,7 +415,15 @@ defmodule CoreWeb.HubLive do
           </div>
 
           <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <.tasks_panel current_scope={@current_scope} focus={@focus} form={@task_form} selected_date={@selected_date} />
+            <.tasks_panel
+              current_scope={@current_scope}
+              focus={@focus}
+              form={@task_form}
+              selected_date={@selected_date}
+              editing_task_id={@editing_hub_task_id}
+              edit_form={@hub_task_form}
+              confirming_delete_id={@confirming_hub_task_delete_id}
+            />
             <aside class="grid content-start gap-5" aria-label="Sidebar">
               <.calendar_card
                 month={@calendar_month}

@@ -234,6 +234,38 @@ defmodule Core.Office do
     |> broadcast_change(timeline_entry.user_id)
   end
 
+  @doc "Renames a project (owner only). Its slug is kept so links stay stable."
+  def rename_project(%User{} = user, %Project{} = project, attrs) do
+    with :ok <- ensure_project_owner(user, project) do
+      project
+      |> Project.changeset(Map.take(Map.new(attrs), ["name", :name]))
+      # the changeset derives a slug from the new name; keep the old one so
+      # /office/<slug> links and bookmarks keep working
+      |> Ecto.Changeset.delete_change(:slug)
+      |> Repo.update()
+      |> broadcast_change(user.id)
+    end
+  end
+
+  @doc """
+  Deletes a task. Its stage-transition history goes with it; milestones that
+  pointed at it stay on the timeline, just no longer linked.
+  """
+  def delete_work_item(%User{} = user, %WorkItem{} = work_item) do
+    with :ok <- ensure_record_owner(user, work_item) do
+      work_item |> Repo.delete() |> broadcast_change(user.id)
+    end
+  end
+
+  def delete_timeline_entry(%User{} = user, %TimelineEntry{} = timeline_entry) do
+    with :ok <- ensure_record_owner(user, timeline_entry) do
+      timeline_entry |> Repo.delete() |> broadcast_change(user.id)
+    end
+  end
+
+  defp ensure_record_owner(%User{id: user_id}, %{user_id: user_id}), do: :ok
+  defp ensure_record_owner(_user, _record), do: {:error, :forbidden}
+
   def get_work_item_for_project!(user_id, project_id, work_item_id) do
     WorkItem
     |> where(
