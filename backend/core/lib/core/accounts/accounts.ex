@@ -37,6 +37,7 @@ defmodule Core.Accounts do
     with {:ok, user} <- get_user_by_token(token, "setup_password"),
          {:ok, user} <- update_user_password(user, password),
          :ok <- delete_user_token(token, "setup_password") do
+      revoke_user_sessions(user)
       {:ok, user}
     else
       :error -> {:error, :invalid_or_expired_token}
@@ -57,7 +58,9 @@ defmodule Core.Accounts do
   def get_user_by_email_password(email, password)
       when is_binary(email) and is_binary(password) do
     user = Repo.get_by(User, email: email)
-    if User.valid_password?(user, password), do: user
+    # Inactive accounts get the same answer as a wrong password, so the
+    # response doesn't reveal which emails have accounts.
+    if User.valid_password?(user, password) and user.is_active, do: user
   end
 
   @doc """
@@ -363,10 +366,128 @@ defmodule Core.Accounts do
   Changes the signed-in user's password. Requires their current password and
   a matching `password_confirmation`.
   """
-  def change_user_password(%User{} = user, current_password, attrs) do
-    user
-    |> User.password_update_changeset(attrs, current_password)
-    |> Repo.update()
+  def change_user_password(%User{} = user, current_password, attrs, opts \\ []) do
+    changeset = User.password_update_changeset(user, attrs, current_password)
+
+    Repo.transaction(fn ->
+      with {:ok, user} <- Repo.update(changeset) do
+        {user, delete_session_tokens(user, opts)}
+      else
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
+    |> case do
+      {:ok, {user, revoked_ids}} ->
+        disconnect_sessions(revoked_ids)
+        {:ok, user}
+
+      error ->
+        error
+    end
+  end
+
+  # ------ Sessions ------
+  #
+  # A signed-in browser holds a random session token; only its SHA-256 hash is
+  # stored in `user_tokens`. Deleting the row signs that browser out, and
+  # `disconnect_sessions/1` drops its open LiveViews (their socket id is
+  # "user_sessions:<row id>", set in the session at sign-in).
+
+  @session_validity_in_days 60
+
+  def session_validity_in_seconds, do: @session_validity_in_days * 24 * 60 * 60
+
+  @doc "Issues a session token. Returns `{raw_token, token_row_id}`."
+  def generate_user_session_token(%User{} = user) do
+    {token, user_token} = UserToken.create_token(user, "session", session_validity_in_seconds())
+    %UserToken{id: id} = Repo.insert!(user_token)
+    {token, id}
+  end
+
+  @doc "The active user for a session token, or nil if it's unknown, expired or the user is inactive."
+  def get_user_by_session_token(token) when is_binary(token) do
+    with {:ok, query} <- UserToken.verify_token_query(token, "session"),
+         %User{is_active: true} = user <- Repo.one(query) do
+      user
+    else
+      _ -> nil
+    end
+  end
+
+  def get_user_by_session_token(_token), do: nil
+
+  @doc "Signs out one session (logout)."
+  def delete_user_session_token(token) when is_binary(token) do
+    case UserToken.hash_token(token) do
+      {:ok, hashed} ->
+        {_, ids} =
+          Repo.delete_all(
+            from(t in UserToken,
+              where: t.token_type == "session" and t.token == ^hashed,
+              select: t.id
+            )
+          )
+
+        disconnect_sessions(ids)
+        :ok
+
+      :error ->
+        :ok
+    end
+  end
+
+  def delete_user_session_token(_token), do: :ok
+
+  @doc """
+  Signs the user out of every session, or every one but the token passed as
+  `except:`. Returns how many were revoked.
+  """
+  def revoke_user_sessions(%User{} = user, opts \\ []) do
+    ids = delete_session_tokens(user, opts)
+    disconnect_sessions(ids)
+    length(ids)
+  end
+
+  defp delete_session_tokens(user, opts) do
+    query =
+      from(t in UserToken,
+        where: t.user_id == ^user.id and t.token_type == "session",
+        select: t.id
+      )
+
+    query =
+      with token when is_binary(token) <- opts[:except],
+           {:ok, hashed} <- UserToken.hash_token(token) do
+        where(query, [t], t.token != ^hashed)
+      else
+        _ -> query
+      end
+
+    {_, ids} = Repo.delete_all(query)
+    ids
+  end
+
+  defp disconnect_sessions(ids) do
+    Enum.each(ids, fn id ->
+      topic = session_socket_id(id)
+
+      Phoenix.PubSub.broadcast(Core.PubSub, topic, %Phoenix.Socket.Broadcast{
+        topic: topic,
+        event: "disconnect",
+        payload: %{}
+      })
+    end)
+  end
+
+  @doc "The LiveView socket id for a session, so it can be disconnected."
+  def session_socket_id(token_row_id), do: "user_sessions:#{token_row_id}"
+
+  @doc "Deactivates or reactivates a user. Deactivating signs them out everywhere."
+  def set_user_active(%User{} = user, active?) when is_boolean(active?) do
+    with {:ok, user} <- user |> Ecto.Changeset.change(is_active: active?) |> Repo.update() do
+      unless active?, do: revoke_user_sessions(user)
+      {:ok, user}
+    end
   end
 
   @doc """
@@ -535,7 +656,13 @@ defmodule Core.Accounts do
   Deletes all tokens for a user
   """
   def delete_user_tokens(%User{} = user) do
-    Repo.delete_all(UserToken, user_id: user.id)
+    {count, rows} =
+      Repo.delete_all(
+        from(t in UserToken, where: t.user_id == ^user.id, select: {t.id, t.token_type})
+      )
+
+    disconnect_sessions(for {id, "session"} <- rows, do: id)
+    {count, nil}
   end
 
   @doc """

@@ -13,7 +13,7 @@ defmodule Core.Accounts.User do
     field :full_name, :string
     field :avatar_url, :string
     field :role, :string, default: "user"
-    field :is_active, :boolean, default: false
+    field :is_active, :boolean, default: true
     field :email_verified, :boolean, default: false
     field :email_verified_at, :naive_datetime
     field :last_login_at, :naive_datetime
