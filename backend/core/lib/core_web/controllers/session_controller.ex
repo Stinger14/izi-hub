@@ -2,6 +2,7 @@ defmodule CoreWeb.SessionController do
   use CoreWeb, :controller
 
   alias Core.Accounts
+  alias CoreWeb.UserAuth
 
   def new(conn, params) do
     case conn.assigns.current_scope do
@@ -23,8 +24,7 @@ defmodule CoreWeb.SessionController do
         _ = Accounts.update_last_login(user)
 
         conn
-        |> configure_session(renew: true)
-        |> put_session(:user_id, user.id)
+        |> UserAuth.log_in_user(user)
         |> put_flash(:info, "Welcome back")
         |> redirect(to: after_login_path(user))
     end
@@ -36,7 +36,7 @@ defmodule CoreWeb.SessionController do
 
   def delete(conn, _params) do
     conn
-    |> configure_session(drop: true)
+    |> UserAuth.log_out_user()
     |> put_flash(:info, "Logged out")
     |> redirect(to: ~p"/hub")
   end

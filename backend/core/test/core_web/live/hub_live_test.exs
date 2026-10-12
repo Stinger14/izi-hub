@@ -96,7 +96,7 @@ defmodule CoreWeb.HubLiveTest do
           "scheduled_for" => Date.to_iso8601(Date.add(today, -2))
         })
 
-      {:ok, _view, html} = live(init_test_session(conn, user_id: user.id), ~p"/hub")
+      {:ok, _view, html} = live(log_in_user(conn, user), ~p"/hub")
 
       assert html =~ "2 open"
       assert html =~ "Overdue"
@@ -108,7 +108,7 @@ defmodule CoreWeb.HubLiveTest do
 
     test "quick add creates a task in the default project for the selected day", %{conn: conn} do
       user = user_fixture()
-      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/hub")
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/hub")
       day = Date.add(Date.utc_today(), 3)
 
       render_click(view, "select_calendar_date", %{"date" => Date.to_iso8601(day)})
@@ -128,7 +128,7 @@ defmodule CoreWeb.HubLiveTest do
           "title" => "Ship it"
         })
 
-      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/hub")
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/hub")
 
       html =
         view |> element("#focus-task-#{task.id} button[phx-click=advance_task]") |> render_click()
@@ -148,7 +148,7 @@ defmodule CoreWeb.HubLiveTest do
           "scheduled_for" => Date.to_iso8601(today)
         })
 
-      {:ok, view, html} = live(init_test_session(conn, user_id: user.id), ~p"/hub")
+      {:ok, view, html} = live(log_in_user(conn, user), ~p"/hub")
       assert html =~ "#{Calendar.strftime(today, "%B %-d")}, 1 planned"
 
       html = render_click(view, "select_calendar_date", %{"date" => Date.to_iso8601(today)})
@@ -158,7 +158,7 @@ defmodule CoreWeb.HubLiveTest do
 
     test "reflects changes made in IziOffice without reloading", %{conn: conn} do
       user = user_fixture()
-      {:ok, view, html} = live(init_test_session(conn, user_id: user.id), ~p"/hub")
+      {:ok, view, html} = live(log_in_user(conn, user), ~p"/hub")
       refute html =~ "Made in Office"
 
       {:ok, _} =
@@ -177,7 +177,7 @@ defmodule CoreWeb.HubLiveTest do
     end
 
     test "points users without accounts to Finance", %{conn: conn} do
-      conn = init_test_session(conn, user_id: user_fixture().id)
+      conn = log_in_user(conn, user_fixture())
       {:ok, _view, html} = live(conn, ~p"/hub")
 
       assert html =~ "No accounts yet"
@@ -186,7 +186,7 @@ defmodule CoreWeb.HubLiveTest do
 
     test "shows the live balance and this month's spending", %{conn: conn} do
       user = user_fixture()
-      conn = init_test_session(conn, user_id: user.id)
+      conn = log_in_user(conn, user)
 
       {:ok, _account} =
         Finance.create_account(user, %{
@@ -215,7 +215,7 @@ defmodule CoreWeb.HubLiveTest do
 
     test "updates the balance live when an account is added elsewhere", %{conn: conn} do
       user = user_fixture()
-      {:ok, view, html} = live(init_test_session(conn, user_id: user.id), ~p"/hub")
+      {:ok, view, html} = live(log_in_user(conn, user), ~p"/hub")
       assert html =~ "No accounts yet"
 
       {:ok, _} =
@@ -234,7 +234,7 @@ defmodule CoreWeb.HubLiveTest do
       {:ok, household} = Accounts.create_household(owner, %{"name" => "Garcia Home"})
       {:ok, _} = Accounts.add_household_member(owner, household, member)
 
-      {:ok, view, _html} = live(init_test_session(conn, user_id: owner.id), ~p"/hub")
+      {:ok, view, _html} = live(log_in_user(conn, owner), ~p"/hub")
       render_click(view, "set_finance_scope", %{"scope" => "household"})
 
       {:ok, _} =
@@ -249,7 +249,7 @@ defmodule CoreWeb.HubLiveTest do
 
     test "offers a household toggle to household members", %{conn: conn} do
       user = user_fixture()
-      conn = init_test_session(conn, user_id: user.id)
+      conn = log_in_user(conn, user)
       {:ok, _household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
 
       {:ok, view, html} = live(conn, ~p"/hub")
@@ -268,7 +268,7 @@ defmodule CoreWeb.HubLiveTest do
 
     test "links a GitHub username and shows its stats", %{conn: conn} do
       user = user_fixture()
-      conn = init_test_session(conn, user_id: user.id)
+      conn = log_in_user(conn, user)
       login = "hubtest-#{System.unique_integer([:positive])}"
 
       seed_developer_stats(
@@ -303,14 +303,14 @@ defmodule CoreWeb.HubLiveTest do
       seed_developer_stats(login, {:error, :not_found})
 
       {:ok, user} = Accounts.update_github_username(user_fixture(), %{"github_username" => login})
-      conn = init_test_session(conn, user_id: user.id)
+      conn = log_in_user(conn, user)
 
       {:ok, view, _html} = live(conn, ~p"/hub")
       assert render_async(view) =~ "was not found"
     end
 
     test "rejects an invalid username", %{conn: conn} do
-      conn = init_test_session(conn, user_id: user_fixture().id)
+      conn = log_in_user(conn, user_fixture())
       {:ok, view, _html} = live(conn, ~p"/hub")
 
       html =

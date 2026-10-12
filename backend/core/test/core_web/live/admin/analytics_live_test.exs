@@ -10,7 +10,7 @@ defmodule CoreWeb.Admin.AnalyticsLiveTest do
 
     conn =
       conn
-      |> init_test_session(user_id: admin.id)
+      |> log_in_user(admin)
 
     {:ok, _} =
       Analytics.record_page_view(%{

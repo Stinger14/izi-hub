@@ -35,7 +35,7 @@ defmodule CoreWeb.PasswordSetupControllerTest do
         })
 
       assert redirected_to(conn) == ~p"/hub"
-      assert get_session(conn, :user_id) == user.id
+      assert Accounts.get_user_by_session_token(get_session(conn, :user_token)).id == user.id
       assert :error == Accounts.get_user_by_token(token, "setup_password")
       assert Accounts.get_user_by_email_password(email, "Password123!")
     end

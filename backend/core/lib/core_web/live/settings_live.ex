@@ -9,12 +9,14 @@ defmodule CoreWeb.SettingsLive do
   alias Core.Accounts.{Scope, User}
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     user = socket.assigns.current_scope.user
 
     {:ok,
      socket
-     |> assign(page_title: "Account settings")
+     # This browser's session token: kept when signing out other sessions.
+     # Never rendered.
+     |> assign(page_title: "Account settings", session_token: session["user_token"])
      |> assign_forms(user)}
   end
 
@@ -57,13 +59,32 @@ defmodule CoreWeb.SettingsLive do
   def handle_event("save_password", %{"password" => params}, socket) do
     {current_password, attrs} = Map.pop(params, "current_password")
 
-    case Accounts.change_user_password(current_user(socket), current_password, attrs) do
+    case Accounts.change_user_password(current_user(socket), current_password, attrs,
+           except: socket.assigns.session_token
+         ) do
       {:ok, user} ->
-        {:noreply, socket |> refresh_user(user) |> put_flash(:info, "Password changed")}
+        {:noreply,
+         socket
+         |> refresh_user(user)
+         |> put_flash(:info, "Password changed. Other devices have been signed out.")}
 
       {:error, changeset} ->
         {:noreply, assign(socket, password_form: to_form(changeset, as: :password))}
     end
+  end
+
+  def handle_event("sign_out_other_sessions", _params, socket) do
+    count =
+      Accounts.revoke_user_sessions(current_user(socket), except: socket.assigns.session_token)
+
+    message =
+      case count do
+        0 -> "No other devices were signed in"
+        1 -> "Signed out of 1 other device"
+        n -> "Signed out of #{n} other devices"
+      end
+
+    {:noreply, put_flash(socket, :info, message)}
   end
 
   defp current_user(socket), do: socket.assigns.current_scope.user
@@ -167,6 +188,23 @@ defmodule CoreWeb.SettingsLive do
               />
               <.save_button>Change password</.save_button>
             </.form>
+          </.settings_card>
+
+          <.settings_card
+            title="Signed-in devices"
+            description="Sign-ins last 60 days. Changing your password also signs out every other device."
+          >
+            <div class="flex justify-end">
+              <button
+                type="button"
+                id="sign-out-other-sessions"
+                phx-click="sign_out_other_sessions"
+                phx-disable-with="Signing out…"
+                class="btn btn-secondary btn-sm"
+              >
+                Sign out everywhere else
+              </button>
+            </div>
           </.settings_card>
         </div>
       </main>

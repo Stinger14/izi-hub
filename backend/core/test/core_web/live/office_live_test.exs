@@ -11,7 +11,7 @@ defmodule CoreWeb.OfficeLiveTest do
 
   test "renders the office workbench for authenticated users", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
 
     assert {:ok, _view, html} = live(conn, ~p"/office")
 
@@ -30,7 +30,7 @@ defmodule CoreWeb.OfficeLiveTest do
 
   test "creates queue tasks and advances them through the canvas flow", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     {:ok, view, _html} = live(conn, ~p"/office")
 
     expanded_html =
@@ -77,7 +77,7 @@ defmodule CoreWeb.OfficeLiveTest do
         "priority" => "medium"
       })
 
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     {:ok, view, html} = live(conn, ~p"/office")
 
     refute html =~ ">Start<"
@@ -104,7 +104,7 @@ defmodule CoreWeb.OfficeLiveTest do
 
   test "creates milestone entries on the roadmap track", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     {:ok, view, _html} = live(conn, ~p"/office")
 
     view
@@ -149,7 +149,7 @@ defmodule CoreWeb.OfficeLiveTest do
         "due_at" => Date.to_iso8601(selected_date) <> "T13:30"
       })
 
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     {:ok, view, _html} = live(conn, ~p"/office")
 
     view
@@ -186,7 +186,7 @@ defmodule CoreWeb.OfficeLiveTest do
 
   test "opens project creator inline without hiding add entry", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     {:ok, view, _html} = live(conn, ~p"/office")
 
     html =
@@ -201,7 +201,7 @@ defmodule CoreWeb.OfficeLiveTest do
   test "archives a non-default project from the current project card", %{conn: conn} do
     user = user_fixture()
     {:ok, project} = Office.create_project(user, %{"name" => "Client launch"})
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     {:ok, view, _html} = live(conn, ~p"/office/#{project.slug}")
 
     html =
@@ -228,7 +228,7 @@ defmodule CoreWeb.OfficeLiveTest do
                "starts_at" => "2026-03-21T10:00"
              })
 
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     {:ok, view, _html} = live(conn, ~p"/office/#{project.slug}")
 
     html =
@@ -276,7 +276,7 @@ defmodule CoreWeb.OfficeLiveTest do
                "starts_at" => Date.to_iso8601(other_date) <> "T11:00"
              })
 
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     {:ok, view, html} = live(conn, ~p"/office")
 
     assert html =~ "Calendar"
@@ -325,7 +325,7 @@ defmodule CoreWeb.OfficeLiveTest do
                "starts_at" => Date.to_iso8601(selected_date) <> "T10:00"
              })
 
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     {:ok, view, _html} = live(conn, ~p"/office")
 
     html =
@@ -353,7 +353,7 @@ defmodule CoreWeb.OfficeLiveTest do
                "starts_at" => Date.to_iso8601(selected_date) <> "T11:00"
              })
 
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     {:ok, view, _html} = live(conn, ~p"/office")
 
     view
@@ -403,7 +403,7 @@ defmodule CoreWeb.OfficeLiveTest do
         "starts_at" => Date.to_iso8601(selected_date) <> "T09:00"
       })
 
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     {:ok, view, _html} = live(conn, ~p"/office")
 
     view
@@ -456,7 +456,7 @@ defmodule CoreWeb.OfficeLiveTest do
         "starts_at" => Date.to_iso8601(selected_date) <> "T11:00"
       })
 
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     {:ok, view, _html} = live(conn, ~p"/office")
 
     view
@@ -497,7 +497,7 @@ defmodule CoreWeb.OfficeLiveTest do
         "scheduled_for" => Date.to_iso8601(selected_date)
       })
 
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     {:ok, view, _html} = live(conn, ~p"/office")
 
     view
@@ -520,7 +520,7 @@ defmodule CoreWeb.OfficeLiveTest do
 
   test "reloads the board when office data changes elsewhere", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     {:ok, view, html} = live(conn, ~p"/office")
     refute html =~ "Added from the hub"
 

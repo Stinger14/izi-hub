@@ -9,7 +9,7 @@ defmodule CoreWeb.OfficeEditingTest do
   setup %{conn: conn} do
     user = user_fixture()
     project = Office.default_project_for_user(user)
-    %{conn: init_test_session(conn, user_id: user.id), user: user, project: project}
+    %{conn: log_in_user(conn, user), user: user, project: project}
   end
 
   defp open_task(view, task) do

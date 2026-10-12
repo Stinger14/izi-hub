@@ -11,14 +11,14 @@ defmodule CoreWeb.Admin.FinOpsLiveTest do
 
   test "redirects non-admin users", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
 
     assert {:error, {:redirect, %{to: "/hub"}}} = live(conn, ~p"/admin/finops")
   end
 
   test "renders the finops console for admins", %{conn: conn} do
     admin = admin_fixture()
-    conn = init_test_session(conn, user_id: admin.id)
+    conn = log_in_user(conn, admin)
 
     assert {:ok, _view, html} = live(conn, ~p"/admin/finops")
 
@@ -30,7 +30,7 @@ defmodule CoreWeb.Admin.FinOpsLiveTest do
   test "ingests a sample bank email for a target user", %{conn: conn} do
     admin = admin_fixture()
     target_user = user_fixture()
-    conn = init_test_session(conn, user_id: admin.id)
+    conn = log_in_user(conn, admin)
 
     {:ok, view, _html} = live(conn, ~p"/admin/finops")
 

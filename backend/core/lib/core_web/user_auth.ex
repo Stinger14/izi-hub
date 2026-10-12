@@ -17,23 +17,52 @@ defmodule CoreWeb.UserAuth do
   def call(conn, :require_authenticated_api_user), do: require_authenticated_api_user(conn, [])
   def call(conn, :require_admin_user), do: require_admin_user(conn, [])
 
+  @doc """
+  Signs the user in: issues a server-side session token and stores it, with
+  the LiveView socket id used to disconnect this session later, in a fresh
+  session cookie.
+  """
+  def log_in_user(conn, user) do
+    {token, token_id} = Accounts.generate_user_session_token(user)
+
+    conn
+    |> configure_session(renew: true)
+    |> delete_session(:user_id)
+    |> put_session(:user_token, token)
+    |> put_session(:live_socket_id, Accounts.session_socket_id(token_id))
+  end
+
+  @doc "Signs out this browser: revokes its token and drops its open LiveViews."
+  def log_out_user(conn) do
+    conn |> get_session(:user_token) |> Accounts.delete_user_session_token()
+    configure_session(conn, drop: true)
+  end
+
   def fetch_current_scope(conn, _opts) do
     conn = ensure_analytics_session_id(conn)
 
-    scope =
+    case conn |> get_session(:user_token) |> Accounts.get_user_by_session_token() do
+      nil ->
+        conn
+        |> clear_stale_sign_in()
+        |> assign(:current_scope, nil)
+
+      user ->
+        assign(conn, :current_scope, Scope.for_user(user))
+    end
+  end
+
+  # A revoked/expired token, or a cookie from before session tokens (it held
+  # only `user_id`), means signed out; drop the leftovers.
+  defp clear_stale_sign_in(conn) do
+    if get_session(conn, :user_token) || get_session(conn, :user_id) do
       conn
-      |> get_session(:user_id)
-      |> case do
-        nil ->
-          nil
-
-        user_id ->
-          user_id
-          |> Accounts.get_user()
-          |> Scope.for_user()
-      end
-
-    assign(conn, :current_scope, scope)
+      |> delete_session(:user_token)
+      |> delete_session(:user_id)
+      |> delete_session(:live_socket_id)
+    else
+      conn
+    end
   end
 
   def require_admin_user(conn, _opts) do
@@ -79,26 +108,23 @@ defmodule CoreWeb.UserAuth do
 
   def on_mount(:mount_current_scope, _params, session, socket) do
     scope =
-      case Map.get(session, "user_id") || Map.get(session, :user_id) do
-        nil ->
-          nil
-
-        user_id ->
-          user_id
-          |> Accounts.get_user()
-          |> Scope.for_user()
-      end
+      session
+      |> Map.get("user_token")
+      |> Accounts.get_user_by_session_token()
+      |> Scope.for_user()
 
     {:cont, Phoenix.Component.assign(socket, :current_scope, scope)}
   end
 
   def on_mount(:track_site_presence, _params, session, socket) do
     if Phoenix.LiveView.connected?(socket) do
+      user_id = scope_user_id(socket.assigns[:current_scope])
+
       _ =
-        Presence.track(self(), @presence_topic, presence_key(session), %{
+        Presence.track(self(), @presence_topic, presence_key(session, user_id), %{
           joined_at: System.system_time(:second),
           live_view: inspect(socket.view),
-          user_id: session_user_id(session)
+          user_id: user_id
         })
     end
 
@@ -145,11 +171,11 @@ defmodule CoreWeb.UserAuth do
     end
   end
 
-  defp presence_key(session) do
+  defp presence_key(session, user_id) do
     analytics_session_id =
       Map.get(session, "analytics_session_id") || Map.get(session, :analytics_session_id)
 
-    case session_user_id(session) do
+    case user_id do
       nil when is_binary(analytics_session_id) ->
         "anon:" <> analytics_session_id
 
@@ -161,7 +187,6 @@ defmodule CoreWeb.UserAuth do
     end
   end
 
-  defp session_user_id(session) do
-    Map.get(session, "user_id") || Map.get(session, :user_id)
-  end
+  defp scope_user_id(%Scope{user: user}), do: user.id
+  defp scope_user_id(_scope), do: nil
 end

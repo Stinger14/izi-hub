@@ -11,14 +11,14 @@ defmodule CoreWeb.Admin.DashboardLiveTest do
 
   test "redirects non-admin users", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
 
     assert {:error, {:redirect, %{to: "/hub"}}} = live(conn, ~p"/admin")
   end
 
   test "renders admin dashboard metrics for admins", %{conn: conn} do
     admin = admin_fixture()
-    conn = init_test_session(conn, user_id: admin.id)
+    conn = log_in_user(conn, admin)
     {:ok, _} = Analytics.record_page_view(%{page_path: "/cv/download", session_id: "session-a"})
     {:ok, _} = Analytics.record_page_view(%{page_path: "/cv/download", session_id: "session-b"})
 
