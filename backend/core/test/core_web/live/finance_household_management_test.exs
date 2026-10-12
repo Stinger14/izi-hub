@@ -15,7 +15,7 @@ defmodule CoreWeb.FinanceHouseholdManagementTest do
   end
 
   defp open_panel(conn, user) do
-    {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+    {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
     render_click(view, "set_ownership_scope", %{"scope" => "household"})
     render_click(view, "open_household_panel", %{})
     view
@@ -88,7 +88,7 @@ defmodule CoreWeb.FinanceHouseholdManagementTest do
     member: member,
     household: household
   } do
-    {:ok, member_view, html} = live(init_test_session(conn, user_id: member.id), ~p"/finance")
+    {:ok, member_view, html} = live(log_in_user(conn, member), ~p"/finance")
     assert html =~ "Garcia Home"
 
     {:ok, _} = Accounts.delete_household(owner, household, "Garcia Home")

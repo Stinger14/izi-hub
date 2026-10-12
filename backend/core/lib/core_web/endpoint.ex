@@ -9,6 +9,9 @@ defmodule CoreWeb.Endpoint do
     key: "_core_key",
     signing_salt: "GI71qW3j29IIGwNi",
     same_site: "Lax",
+    # Matches the server-side session token's 60-day lifetime
+    # (`Core.Accounts.session_validity_in_seconds/0`).
+    max_age: 60 * 24 * 60 * 60,
     secure: Application.compile_env(:core, :session_secure, false)
   ]
 

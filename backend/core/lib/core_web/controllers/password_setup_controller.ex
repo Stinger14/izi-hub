@@ -26,8 +26,7 @@ defmodule CoreWeb.PasswordSetupController do
         _ = Accounts.update_last_login(user)
 
         conn
-        |> configure_session(renew: true)
-        |> put_session(:user_id, user.id)
+        |> CoreWeb.UserAuth.log_in_user(user)
         |> put_flash(:info, "Password set successfully. Welcome.")
         |> redirect(to: after_setup_path(user))
 

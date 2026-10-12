@@ -13,7 +13,7 @@ defmodule Core.Accounts.User do
     field :full_name, :string
     field :avatar_url, :string
     field :role, :string, default: "user"
-    field :is_active, :boolean, default: false
+    field :is_active, :boolean, default: true
     field :email_verified, :boolean, default: false
     field :email_verified_at, :naive_datetime
     field :last_login_at, :naive_datetime
@@ -96,6 +96,55 @@ defmodule Core.Accounts.User do
     |> validate_required([:password])
     |> validate_password()
     |> hash_password()
+  end
+
+  @doc """
+  Changeset for the account settings page: name and username only. Role,
+  status and verification flags are never castable here.
+  """
+  def account_profile_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:full_name, :username])
+    |> update_change(:full_name, &String.trim/1)
+    |> validate_required([:username])
+    |> validate_length(:full_name, max: 120)
+    |> validate_username()
+  end
+
+  @doc """
+  Changeset for a signed-in user changing their own password: needs the
+  current password and a matching confirmation. Both are checked before
+  hashing, because hashing drops the plain password from the changes.
+  """
+  def password_update_changeset(user, attrs, current_password) do
+    user
+    |> cast(attrs, [:password])
+    |> validate_required([:password])
+    |> validate_password()
+    |> validate_confirmation(:password, message: "does not match password", required: true)
+    |> validate_current_password(current_password)
+    |> hash_password()
+  end
+
+  @doc """
+  Changeset for a signed-in user changing their own email: needs the current
+  password, and marks the new address unverified.
+  """
+  def email_update_changeset(user, attrs, current_password) do
+    user
+    |> email_changeset(attrs)
+    |> then(fn changeset ->
+      if get_change(changeset, :email),
+        do: changeset,
+        else: add_error(changeset, :email, "did not change")
+    end)
+    |> validate_current_password(current_password)
+  end
+
+  defp validate_current_password(changeset, password) do
+    if valid_password?(changeset.data, password),
+      do: changeset,
+      else: add_error(changeset, :current_password, "is not valid")
   end
 
   @doc """

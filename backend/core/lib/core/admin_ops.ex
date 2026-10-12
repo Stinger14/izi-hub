@@ -156,7 +156,7 @@ defmodule Core.AdminOps do
     with {:ok, user} <- fetch_user_by_email(email) do
       {:ok,
        %{
-         summary: "User will be deactivated.",
+         summary: "User will be deactivated and signed out everywhere.",
          email: user.email,
          active_change: "#{user.is_active} -> false"
        }}
@@ -268,10 +268,10 @@ defmodule Core.AdminOps do
 
   defp do_run(:deactivate_user, %{email: email}) do
     with {:ok, user} <- fetch_user_by_email(email),
-         {:ok, updated} <- apply_user_update(user, %{is_active: false}) do
+         {:ok, updated} <- Accounts.set_user_active(user, false) do
       {:ok,
        %{
-         summary: "User deactivated.",
+         summary: "User deactivated and signed out everywhere.",
          email: updated.email,
          is_active: updated.is_active
        }}
@@ -297,7 +297,7 @@ defmodule Core.AdminOps do
 
       {:ok,
        %{
-         summary: "User tokens invalidated.",
+         summary: "User tokens invalidated and signed out everywhere.",
          email: user.email,
          tokens_deleted: deleted_count
        }}

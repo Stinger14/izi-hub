@@ -36,4 +36,17 @@ defmodule CoreWeb.ConnCase do
     Core.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
+
+  @doc """
+  Signs `user` in on `conn` the way the login form does: a real server-side
+  session token plus the LiveView socket id.
+  """
+  def log_in_user(conn, user) do
+    {token, token_id} = Core.Accounts.generate_user_session_token(user)
+
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{})
+    |> Plug.Conn.put_session(:user_token, token)
+    |> Plug.Conn.put_session(:live_socket_id, Core.Accounts.session_socket_id(token_id))
+  end
 end

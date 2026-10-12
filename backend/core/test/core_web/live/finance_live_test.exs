@@ -13,7 +13,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "renders the finance dashboard for authenticated users", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
 
     assert {:ok, _view, html} = live(conn, ~p"/finance")
 
@@ -24,7 +24,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "creates a manual transaction from the dashboard", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     today = Date.utc_today()
 
     {:ok, category} = Finance.create_category(user, %{"name" => "Salary", "type" => "income"})
@@ -67,7 +67,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "creates a budget and shows active budget status", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     today = Date.utc_today()
     month_start = Date.beginning_of_month(today)
 
@@ -108,7 +108,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "review queue confirms a pending transaction", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     today = Date.utc_today()
 
     {:ok, transaction} =
@@ -140,7 +140,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "editing a pending transaction confirms it", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     today = Date.utc_today()
 
     {:ok, transaction} =
@@ -191,7 +191,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "review queue can ignore a pending transaction", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     today = Date.utc_today()
 
     {:ok, transaction} =
@@ -221,7 +221,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "records a debt payment from the finance dashboard", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     today = Date.utc_today()
 
     {:ok, debt} =
@@ -268,7 +268,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "switches to a household workspace without showing personal finance data", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     today = Date.utc_today()
 
     {:ok, %Household{} = household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
@@ -310,7 +310,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "opens the household panel from the header cta", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
 
     {:ok, _household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
     {:ok, view, _html} = live(conn, ~p"/finance")
@@ -328,7 +328,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "creates an account from the account panel", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
 
     {:ok, view, _html} = live(conn, ~p"/finance")
 
@@ -367,7 +367,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "creates an account transfer between two accounts", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
 
     {:ok, from_account} =
       Finance.create_account(user, %{
@@ -408,7 +408,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "hero currency selector switches the displayed balance", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
 
     {:ok, _dop} =
       Finance.create_account(user, %{
@@ -441,7 +441,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "hero month selector updates income for the selected month", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     today = Date.utc_today()
     current_month_value = Calendar.strftime(today, "%Y-%m")
 
@@ -477,7 +477,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "cashflow year and window selectors update the active selection", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     last_year = Date.utc_today().year - 1
 
     {:ok, view, _html} = live(conn, ~p"/finance")
@@ -499,7 +499,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "filters the transactions table by type", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     today = Date.utc_today()
 
     {:ok, _income} =
@@ -535,7 +535,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "sorts the transactions table by amount", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     today = Date.utc_today()
 
     {:ok, _small} =
@@ -574,7 +574,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "paginates the transactions table", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     today = Date.utc_today()
 
     for n <- 1..26 do
@@ -617,7 +617,7 @@ defmodule CoreWeb.FinanceLiveTest do
     test "adds the account to the personal scope when Personal is selected", %{conn: conn} do
       user = user_fixture()
       {:ok, household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
-      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
 
       view |> element("button[aria-label=\"New account in current scope\"]") |> render_click()
       submit_account(view, "Personal wallet")
@@ -630,7 +630,7 @@ defmodule CoreWeb.FinanceLiveTest do
     test "adds the account to the household when Household is selected", %{conn: conn} do
       user = user_fixture()
       {:ok, household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
-      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
 
       render_click(view, "set_ownership_scope", %{"scope" => "household"})
       view |> element("button[aria-label=\"New account in current scope\"]") |> render_click()
@@ -643,7 +643,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
     test "is labelled as an account action, not a household one", %{conn: conn} do
       user = user_fixture()
-      {:ok, _view, html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+      {:ok, _view, html} = live(log_in_user(conn, user), ~p"/finance")
 
       assert html =~ "New account in current scope"
       # with no household yet, household creation lives on the "+ Household" toggle only
@@ -654,7 +654,7 @@ defmodule CoreWeb.FinanceLiveTest do
   describe "live updates" do
     test "shows a transaction added elsewhere without reloading", %{conn: conn} do
       user = user_fixture()
-      {:ok, view, html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+      {:ok, view, html} = live(log_in_user(conn, user), ~p"/finance")
       refute html =~ "Live coffee"
 
       {:ok, _} =
@@ -670,7 +670,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
     test "picks up a household created in this session right away", %{conn: conn} do
       user = user_fixture()
-      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
 
       render_click(view, "open_household_panel", %{})
 
@@ -694,7 +694,7 @@ defmodule CoreWeb.FinanceLiveTest do
   describe "account forms" do
     test "a second account with a new name is added and listed", %{conn: conn} do
       user = user_fixture()
-      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
       render_click(view, "show_section", %{"section" => "accounts"})
 
       submit_section_account(view, "Checking A")
@@ -710,7 +710,7 @@ defmodule CoreWeb.FinanceLiveTest do
       conn: conn
     } do
       user = user_fixture()
-      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
       render_click(view, "show_section", %{"section" => "accounts"})
 
       submit_section_account(view, "Main")
@@ -731,7 +731,7 @@ defmodule CoreWeb.FinanceLiveTest do
           "current_balance" => "1"
         })
 
-      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
 
       view |> element("button[aria-label=\"New account in current scope\"]") |> render_click()
 
@@ -753,7 +753,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
     test "the Accounts section never renders two account forms", %{conn: conn} do
       user = user_fixture()
-      {:ok, view, _html} = live(init_test_session(conn, user_id: user.id), ~p"/finance")
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
       render_click(view, "show_section", %{"section" => "accounts"})
 
       html = render(view)
@@ -793,7 +793,7 @@ defmodule CoreWeb.FinanceLiveTest do
         })
 
       %{
-        conn: init_test_session(conn, user_id: user.id),
+        conn: log_in_user(conn, user),
         user: user,
         household: household,
         personal: personal,
@@ -843,7 +843,7 @@ defmodule CoreWeb.FinanceLiveTest do
           "current_balance" => "5"
         })
 
-      {:ok, _view, html} = live(init_test_session(conn, user_id: lonely.id), ~p"/finance")
+      {:ok, _view, html} = live(log_in_user(conn, lonely), ~p"/finance")
 
       refute html =~ ~s(id="quick-send-form")
       assert html =~ "second account" or html =~ "at least two accounts"

@@ -35,7 +35,7 @@ defmodule CoreWeb.SessionControllerTest do
 
       conn =
         conn
-        |> init_test_session(%{user_id: user.id})
+        |> log_in_user(user)
         |> get(~p"/set-password?token=#{token}")
 
       html = html_response(conn, 200)
@@ -60,7 +60,7 @@ defmodule CoreWeb.SessionControllerTest do
         })
 
       assert redirected_to(conn) == ~p"/hub"
-      assert get_session(conn, :user_id) == user.id
+      assert Accounts.get_user_by_session_token(get_session(conn, :user_token)).id == user.id
     end
 
     test "sets session for admin credentials and redirects to admin", %{conn: conn} do
@@ -82,7 +82,7 @@ defmodule CoreWeb.SessionControllerTest do
         })
 
       assert redirected_to(conn) == ~p"/admin"
-      assert get_session(conn, :user_id) == user.id
+      assert Accounts.get_user_by_session_token(get_session(conn, :user_token)).id == user.id
     end
 
     test "rejects invalid credentials", %{conn: conn} do
@@ -92,24 +92,18 @@ defmodule CoreWeb.SessionControllerTest do
         })
 
       assert html_response(conn, 422) =~ "Invalid login or password"
-      assert get_session(conn, :user_id) == nil
+      assert get_session(conn, :user_token) == nil
     end
   end
 
   describe "DELETE /logout" do
-    test "drops session", %{conn: conn} do
-      logout_conn =
-        conn
-        |> init_test_session(%{user_id: Ecto.UUID.generate()})
-        |> delete(~p"/logout")
-
-      conn =
-        logout_conn
-        |> recycle()
-        |> get(~p"/hub")
+    test "drops session and revokes its token", %{conn: conn} do
+      conn = log_in_user(conn, user_fixture())
+      token = get_session(conn, :user_token)
+      logout_conn = delete(conn, ~p"/logout")
 
       assert redirected_to(logout_conn) == ~p"/hub"
-      assert get_session(conn, :user_id) == nil
+      assert Accounts.get_user_by_session_token(token) == nil
     end
   end
 end

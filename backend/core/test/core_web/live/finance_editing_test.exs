@@ -8,7 +8,7 @@ defmodule CoreWeb.FinanceEditingTest do
 
   setup %{conn: conn} do
     user = user_fixture()
-    %{conn: init_test_session(conn, user_id: user.id), user: user}
+    %{conn: log_in_user(conn, user), user: user}
   end
 
   defp open(conn, section) do

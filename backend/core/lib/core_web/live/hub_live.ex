@@ -600,6 +600,7 @@ defmodule CoreWeb.HubLive do
       {"Live Apps", ~p"/liveapps", false},
       {"Contributions", ~p"/contributions", true},
       {"Profile", ~p"/profile", false},
+      {"Account settings", ~p"/settings", true},
       {"Welcome", ~p"/welcome", false}
     ]
   end
