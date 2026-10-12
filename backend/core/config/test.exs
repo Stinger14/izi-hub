@@ -1,5 +1,9 @@
 import Config
 
+# Only in tests: hash passwords with the cheapest bcrypt cost so user fixtures
+# are fast. Production keeps the library default (12 rounds).
+config :bcrypt_elixir, :log_rounds, 1
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used
@@ -25,6 +29,9 @@ config :core, CoreWeb.Endpoint,
 
 # In test we don't send emails
 config :core, Core.Mailer, adapter: Swoosh.Adapters.Test
+
+# Fixed shared secret for the service-to-service finance ingestion path
+config :core, :finance_ingestion_api_key, "test_finance_ingestion_api_key"
 
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false

@@ -1,28 +1,36 @@
-<div class="min-h-screen bg-purple-100/40 text-slate-900">
-  <header class="border-b border-purple-100 bg-white/70 backdrop-blur">
+<div class="min-h-screen">
+  <header class="border-b border-[color:var(--hub-border)]">
     <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
       <div>
-        <h1 class="text-lg font-semibold tracking-tight text-slate-900">Set password</h1>
+        <h1 class="font-display text-lg text-[var(--hub-accent-2)]">Set password</h1>
       </div>
       <a href={~p"/hub"} class="btn btn-secondary btn-sm">Back to hub</a>
     </div>
   </header>
 
   <main class="mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-md items-center px-6 py-12">
-    <div class="w-full rounded-2xl border border-purple-100 bg-white/85 p-6 shadow-xl backdrop-blur">
+    <div class="hub-glass w-full rounded-2xl p-6">
       <div class="mb-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Authentication</p>
-        <h2 class="mt-2 text-2xl font-semibold text-slate-900">Complete your account</h2>
-        <p class="mt-1 text-sm text-slate-600">Your generated username is ready.</p>
+        <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--hub-accent-2)]">
+          Authentication
+        </p>
+        <h2 class="font-display mt-2 text-2xl text-[var(--hub-text)]">Complete your account</h2>
+        <p class="mt-1 text-sm text-[var(--hub-muted)]">Your generated username is ready.</p>
       </div>
 
-      <div class="mb-4 rounded-xl border border-purple-100 bg-white px-3 py-2">
-        <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Username</p>
-        <p class="mt-1 text-sm font-semibold text-purple-700"><%= @username %></p>
+      <div class="mb-4 rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2">
+        <p class="text-[10px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Username</p>
+        <p class="mt-1 text-sm font-semibold text-[var(--hub-accent-2)]"><%= @username %></p>
       </div>
 
       <%= if @errors != [] do %>
-        <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+        <div
+          role="alert"
+          class={[
+            "mb-4 rounded-xl border border-[color:var(--tone-expense)]/30 px-3 py-2 text-xs",
+            CoreWeb.FinanceComponents.tone_class("expense", :soft)
+          ]}
+        >
           <ul class="space-y-1">
             <%= for error <- @errors do %>
               <li><%= error %></li>
@@ -35,14 +43,14 @@
         <input type="hidden" name="user[token]" value={@token} />
 
         <div>
-          <label for="user_password" class="mb-1 block text-sm font-medium text-slate-700">Password</label>
+          <label for="user_password" class="mb-1 block text-sm font-medium text-[var(--hub-text)]">Password</label>
           <input
             id="user_password"
             name="user[password]"
             type="password"
             required
             autocomplete="new-password"
-            class="w-full rounded-lg border border-purple-100 bg-white px-3 py-2 text-sm focus:border-purple-400 focus:outline-none"
+            class="w-full rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] transition focus:border-[color:var(--hub-accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
           />
         </div>
 

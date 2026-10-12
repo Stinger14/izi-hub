@@ -76,4 +76,119 @@ defmodule Core.GitHubTest do
     assert summary.open_source_repos == 1
     assert summary.last_activity_at == "Jun 05, 2026"
   end
+
+  describe "parse_contribution_calendar/1" do
+    test "maps weeks, counts and quartile levels" do
+      body = %{
+        "data" => %{
+          "user" => %{
+            "contributionsCollection" => %{
+              "contributionCalendar" => %{
+                "totalContributions" => 7,
+                "weeks" => [
+                  %{
+                    "contributionDays" => [
+                      %{
+                        "date" => "2026-10-04",
+                        "contributionCount" => 0,
+                        "contributionLevel" => "NONE",
+                        "weekday" => 0
+                      },
+                      %{
+                        "date" => "2026-10-05",
+                        "contributionCount" => 7,
+                        "contributionLevel" => "FOURTH_QUARTILE",
+                        "weekday" => 1
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+
+      assert {:ok, %{total: 7, weeks: [[first, second]]}} =
+               GitHub.parse_contribution_calendar(body)
+
+      assert first == %{date: ~D[2026-10-04], count: 0, level: 0, weekday: 0}
+      assert second == %{date: ~D[2026-10-05], count: 7, level: 4, weekday: 1}
+    end
+
+    test "surfaces GraphQL errors" do
+      assert {:error, {:graphql, [%{"message" => "Bad credentials"}]}} =
+               GitHub.parse_contribution_calendar(%{
+                 "errors" => [%{"message" => "Bad credentials"}]
+               })
+    end
+
+    test "reports an unknown user" do
+      assert {:error, :user_not_found} =
+               GitHub.parse_contribution_calendar(%{"data" => %{"user" => nil}})
+    end
+
+    test "rejects unexpected payloads" do
+      assert {:error, :unexpected_shape} = GitHub.parse_contribution_calendar("<html>")
+    end
+  end
+
+  describe "parse_developer_stats/1" do
+    test "returns repos, yearly contributions and the last active day" do
+      body = %{
+        "data" => %{
+          "user" => %{
+            "login" => "octocat",
+            "repositories" => %{"totalCount" => 8},
+            "contributionsCollection" => %{
+              "contributionCalendar" => %{
+                "totalContributions" => 5,
+                "weeks" => [
+                  %{
+                    "contributionDays" => [
+                      %{
+                        "date" => "2026-10-01",
+                        "contributionCount" => 5,
+                        "contributionLevel" => "FOURTH_QUARTILE",
+                        "weekday" => 4
+                      },
+                      %{
+                        "date" => "2026-10-02",
+                        "contributionCount" => 0,
+                        "contributionLevel" => "NONE",
+                        "weekday" => 5
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+
+      assert {:ok, stats} = GitHub.parse_developer_stats(body)
+
+      assert stats == %{
+               login: "octocat",
+               public_repos: 8,
+               contributions_last_year: 5,
+               last_active_on: ~D[2026-10-01]
+             }
+    end
+
+    test "maps GitHub's NOT_FOUND error to an unknown user" do
+      body = %{
+        "data" => %{"user" => nil},
+        "errors" => [%{"type" => "NOT_FOUND", "message" => "Could not resolve to a User"}]
+      }
+
+      assert {:error, :user_not_found} = GitHub.parse_developer_stats(body)
+    end
+
+    test "passes other GraphQL errors through" do
+      assert {:error, {:graphql, _}} =
+               GitHub.parse_developer_stats(%{"errors" => [%{"message" => "Bad credentials"}]})
+    end
+  end
 end

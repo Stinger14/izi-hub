@@ -6,7 +6,7 @@ defmodule Core.Accounts do
   import Ecto.Query, warn: false
   alias Core.Repo
 
-  alias Core.Accounts.{User, UserToken, UsernameGenerator}
+  alias Core.Accounts.{Household, HouseholdMember, User, UserToken, UsernameGenerator}
 
   @setup_password_token_ttl_seconds 86_400
   @username_generation_attempts 20
@@ -37,6 +37,7 @@ defmodule Core.Accounts do
     with {:ok, user} <- get_user_by_token(token, "setup_password"),
          {:ok, user} <- update_user_password(user, password),
          :ok <- delete_user_token(token, "setup_password") do
+      revoke_user_sessions(user)
       {:ok, user}
     else
       :error -> {:error, :invalid_or_expired_token}
@@ -57,7 +58,9 @@ defmodule Core.Accounts do
   def get_user_by_email_password(email, password)
       when is_binary(email) and is_binary(password) do
     user = Repo.get_by(User, email: email)
-    if User.valid_password?(user, password), do: user
+    # Inactive accounts get the same answer as a wrong password, so the
+    # response doesn't reveal which emails have accounts.
+    if User.valid_password?(user, password) and user.is_active, do: user
   end
 
   @doc """
@@ -113,6 +116,216 @@ defmodule Core.Accounts do
 
   def get_user(id), do: Repo.get(User, id)
 
+  def create_household(%User{} = owner, attrs) do
+    attrs =
+      attrs
+      |> Map.new()
+      |> Map.put_new(
+        "slug",
+        slugify_household_name(Map.get(attrs, "name") || Map.get(attrs, :name))
+      )
+
+    Repo.transaction(fn ->
+      case %Household{} |> Household.changeset(attrs) |> Repo.insert() do
+        {:ok, household} ->
+          membership_attrs = %{
+            "household_id" => household.id,
+            "user_id" => owner.id,
+            "role" => "owner",
+            "status" => "active"
+          }
+
+          case %HouseholdMember{}
+               |> HouseholdMember.changeset(membership_attrs)
+               |> Repo.insert() do
+            {:ok, _membership} ->
+              household
+
+            {:error, changeset} ->
+              Repo.rollback(changeset)
+          end
+
+        {:error, changeset} ->
+          Repo.rollback(changeset)
+      end
+    end)
+  end
+
+  def add_household_member(
+        %User{} = actor,
+        %Household{} = household,
+        %User{} = member,
+        attrs \\ %{}
+      ) do
+    with :ok <- ensure_household_owner(actor, household) do
+      membership_attrs =
+        attrs
+        |> Map.new()
+        |> Map.put("household_id", household.id)
+        |> Map.put("user_id", member.id)
+        |> Map.put_new("role", "member")
+        |> Map.put_new("status", "active")
+
+      %HouseholdMember{}
+      |> HouseholdMember.changeset(membership_attrs)
+      |> Repo.insert()
+      |> notify_household_change(household.id)
+    end
+  end
+
+  def add_household_member_by_email(
+        %User{} = actor,
+        %Household{} = household,
+        email,
+        attrs \\ %{}
+      )
+      when is_binary(email) do
+    email = String.trim(email)
+
+    with %User{} = member <- get_user_by_email(email),
+         {:ok, membership} <- add_household_member(actor, household, member, attrs) do
+      {:ok, membership}
+    else
+      nil -> {:error, :user_not_found}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  def list_households_for_user(%User{} = user) do
+    Household
+    |> join(:inner, [household], membership in HouseholdMember,
+      on: membership.household_id == household.id
+    )
+    |> where(
+      [_household, membership],
+      membership.user_id == ^user.id and membership.status == "active"
+    )
+    |> where([household, _membership], household.status == "active")
+    |> order_by([household, _membership], asc: household.name)
+    |> preload([_household, membership], memberships: ^active_memberships_query())
+    |> distinct(true)
+    |> Repo.all()
+  end
+
+  def get_household_for_user!(%User{} = user, household_id) do
+    Household
+    |> join(:inner, [household], membership in HouseholdMember,
+      on: membership.household_id == household.id
+    )
+    |> where(
+      [household, membership],
+      household.id == ^household_id and membership.user_id == ^user.id
+    )
+    |> where(
+      [household, membership],
+      household.status == "active" and membership.status == "active"
+    )
+    |> preload([_household, _membership], memberships: ^active_memberships_query())
+    |> distinct(true)
+    |> Repo.one!()
+  end
+
+  def user_household?(%User{} = user, household_id) do
+    HouseholdMember
+    |> where(
+      [membership],
+      membership.user_id == ^user.id and membership.household_id == ^household_id
+    )
+    |> where([membership], membership.status == "active")
+    |> Repo.exists?()
+  end
+
+  def user_household_owner?(%User{} = user, household_id) do
+    HouseholdMember
+    |> where(
+      [membership],
+      membership.user_id == ^user.id and membership.household_id == ^household_id
+    )
+    |> where([membership], membership.status == "active" and membership.role == "owner")
+    |> Repo.exists?()
+  end
+
+  # ------ Managing a household ------
+  #
+  # Owners rename, remove members and delete; members can leave. Every change
+  # notifies the household's finance topic so open pages (and the hub) of all
+  # members reload — a removed member or a deleted household drops out of
+  # their scope picker immediately.
+
+  @doc "Renames a household (owner only). The slug is kept so links stay stable."
+  def rename_household(%User{} = actor, %Household{} = household, attrs) do
+    with :ok <- ensure_household_owner(actor, household) do
+      household
+      |> Household.changeset(Map.take(Map.new(attrs), ["name", :name]))
+      |> Repo.update()
+      |> notify_household_change(household.id)
+    end
+  end
+
+  @doc "Removes a member (owner only). The owner can't be removed."
+  def remove_household_member(%User{} = actor, %Household{} = household, member_user_id) do
+    with :ok <- ensure_household_owner(actor, household),
+         %HouseholdMember{} = membership <- get_membership(household.id, member_user_id),
+         :ok <- ensure_not_owner(membership) do
+      membership |> Repo.delete() |> notify_household_change(household.id)
+    else
+      nil -> {:error, :not_found}
+      error -> error
+    end
+  end
+
+  @doc """
+  Leaves a household. Owners can't leave (they would orphan it): they delete
+  the household instead.
+  """
+  def leave_household(%User{} = user, %Household{} = household) do
+    case get_membership(household.id, user.id) do
+      nil -> {:error, :not_found}
+      %HouseholdMember{role: "owner"} -> {:error, :owner_cannot_leave}
+      membership -> membership |> Repo.delete() |> notify_household_change(household.id)
+    end
+  end
+
+  @doc """
+  Deletes a household and, through the database's cascading foreign keys,
+  every finance record it owns. Owner only, and only when `confirmation`
+  matches the household's name (case and surrounding spaces ignored).
+  """
+  def delete_household(%User{} = actor, %Household{} = household, confirmation) do
+    with :ok <- ensure_household_owner(actor, household),
+         :ok <- ensure_confirmation(household, confirmation) do
+      household |> Repo.delete() |> notify_household_change(household.id)
+    end
+  end
+
+  defp get_membership(household_id, user_id) do
+    Repo.get_by(HouseholdMember, household_id: household_id, user_id: user_id)
+  end
+
+  defp ensure_not_owner(%HouseholdMember{role: "owner"}), do: {:error, :cannot_remove_owner}
+  defp ensure_not_owner(_membership), do: :ok
+
+  defp ensure_confirmation(%Household{name: name}, confirmation) when is_binary(confirmation) do
+    if normalize_confirmation(confirmation) == normalize_confirmation(name),
+      do: :ok,
+      else: {:error, :confirmation_mismatch}
+  end
+
+  defp ensure_confirmation(_household, _confirmation), do: {:error, :confirmation_mismatch}
+
+  defp normalize_confirmation(value), do: value |> String.trim() |> String.downcase()
+
+  defp notify_household_change({:ok, _} = result, household_id) do
+    Core.Finance.notify_household_change(household_id)
+    result
+  end
+
+  defp notify_household_change(result, _household_id), do: result
+
+  def change_household(%Household{} = household \\ %Household{}) do
+    Household.changeset(household, %{})
+  end
+
   @doc """
   Updates user profile
   """
@@ -120,6 +333,161 @@ defmodule Core.Accounts do
     user
     |> User.profile_changeset(attrs)
     |> Repo.update()
+  end
+
+  @doc """
+  Links (or clears) the user's GitHub username.
+  """
+  def update_github_username(user, attrs) do
+    user
+    |> User.github_username_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Updates the signed-in user's name and username from the settings page.
+  """
+  def update_account_profile(%User{} = user, attrs) do
+    user
+    |> User.account_profile_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Changes the signed-in user's email. Requires their current password.
+  """
+  def change_user_email(%User{} = user, current_password, attrs) do
+    user
+    |> User.email_update_changeset(attrs, current_password)
+    |> Repo.update()
+  end
+
+  @doc """
+  Changes the signed-in user's password. Requires their current password and
+  a matching `password_confirmation`.
+  """
+  def change_user_password(%User{} = user, current_password, attrs, opts \\ []) do
+    changeset = User.password_update_changeset(user, attrs, current_password)
+
+    Repo.transaction(fn ->
+      with {:ok, user} <- Repo.update(changeset) do
+        {user, delete_session_tokens(user, opts)}
+      else
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
+    |> case do
+      {:ok, {user, revoked_ids}} ->
+        disconnect_sessions(revoked_ids)
+        {:ok, user}
+
+      error ->
+        error
+    end
+  end
+
+  # ------ Sessions ------
+  #
+  # A signed-in browser holds a random session token; only its SHA-256 hash is
+  # stored in `user_tokens`. Deleting the row signs that browser out, and
+  # `disconnect_sessions/1` drops its open LiveViews (their socket id is
+  # "user_sessions:<row id>", set in the session at sign-in).
+
+  @session_validity_in_days 60
+
+  def session_validity_in_seconds, do: @session_validity_in_days * 24 * 60 * 60
+
+  @doc "Issues a session token. Returns `{raw_token, token_row_id}`."
+  def generate_user_session_token(%User{} = user) do
+    {token, user_token} = UserToken.create_token(user, "session", session_validity_in_seconds())
+    %UserToken{id: id} = Repo.insert!(user_token)
+    {token, id}
+  end
+
+  @doc "The active user for a session token, or nil if it's unknown, expired or the user is inactive."
+  def get_user_by_session_token(token) when is_binary(token) do
+    with {:ok, query} <- UserToken.verify_token_query(token, "session"),
+         %User{is_active: true} = user <- Repo.one(query) do
+      user
+    else
+      _ -> nil
+    end
+  end
+
+  def get_user_by_session_token(_token), do: nil
+
+  @doc "Signs out one session (logout)."
+  def delete_user_session_token(token) when is_binary(token) do
+    case UserToken.hash_token(token) do
+      {:ok, hashed} ->
+        {_, ids} =
+          Repo.delete_all(
+            from(t in UserToken,
+              where: t.token_type == "session" and t.token == ^hashed,
+              select: t.id
+            )
+          )
+
+        disconnect_sessions(ids)
+        :ok
+
+      :error ->
+        :ok
+    end
+  end
+
+  def delete_user_session_token(_token), do: :ok
+
+  @doc """
+  Signs the user out of every session, or every one but the token passed as
+  `except:`. Returns how many were revoked.
+  """
+  def revoke_user_sessions(%User{} = user, opts \\ []) do
+    ids = delete_session_tokens(user, opts)
+    disconnect_sessions(ids)
+    length(ids)
+  end
+
+  defp delete_session_tokens(user, opts) do
+    query =
+      from(t in UserToken,
+        where: t.user_id == ^user.id and t.token_type == "session",
+        select: t.id
+      )
+
+    query =
+      with token when is_binary(token) <- opts[:except],
+           {:ok, hashed} <- UserToken.hash_token(token) do
+        where(query, [t], t.token != ^hashed)
+      else
+        _ -> query
+      end
+
+    {_, ids} = Repo.delete_all(query)
+    ids
+  end
+
+  defp disconnect_sessions(ids) do
+    Enum.each(ids, fn id ->
+      topic = session_socket_id(id)
+
+      Phoenix.PubSub.broadcast(Core.PubSub, topic, %Phoenix.Socket.Broadcast{
+        topic: topic,
+        event: "disconnect",
+        payload: %{}
+      })
+    end)
+  end
+
+  @doc "The LiveView socket id for a session, so it can be disconnected."
+  def session_socket_id(token_row_id), do: "user_sessions:#{token_row_id}"
+
+  @doc "Deactivates or reactivates a user. Deactivating signs them out everywhere."
+  def set_user_active(%User{} = user, active?) when is_boolean(active?) do
+    with {:ok, user} <- user |> Ecto.Changeset.change(is_active: active?) |> Repo.update() do
+      unless active?, do: revoke_user_sessions(user)
+      {:ok, user}
+    end
   end
 
   @doc """
@@ -288,7 +656,13 @@ defmodule Core.Accounts do
   Deletes all tokens for a user
   """
   def delete_user_tokens(%User{} = user) do
-    Repo.delete_all(UserToken, user_id: user.id)
+    {count, rows} =
+      Repo.delete_all(
+        from(t in UserToken, where: t.user_id == ^user.id, select: {t.id, t.token_type})
+      )
+
+    disconnect_sessions(for {id, "session"} <- rows, do: id)
+    {count, nil}
   end
 
   @doc """
@@ -330,5 +704,27 @@ defmodule Core.Accounts do
 
   defp generate_bootstrap_password do
     "TmpA1a-" <> Base.url_encode64(:crypto.strong_rand_bytes(12), padding: false)
+  end
+
+  defp ensure_household_owner(%User{} = user, %Household{} = household) do
+    if user_household_owner?(user, household.id), do: :ok, else: {:error, :forbidden}
+  end
+
+  defp active_memberships_query do
+    from membership in HouseholdMember,
+      where: membership.status == "active",
+      order_by: [asc: membership.role, asc: membership.inserted_at],
+      preload: [:user]
+  end
+
+  defp slugify_household_name(nil), do: nil
+
+  defp slugify_household_name(name) do
+    name
+    |> to_string()
+    |> String.trim()
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/u, "-")
+    |> String.trim("-")
   end
 end

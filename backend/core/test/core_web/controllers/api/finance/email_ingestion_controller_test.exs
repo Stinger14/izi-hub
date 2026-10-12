@@ -1,7 +1,6 @@
 defmodule CoreWeb.Api.Finance.EmailIngestionControllerTest do
   use CoreWeb.ConnCase, async: true
 
-  alias Core.Accounts
   alias Core.Finance
 
   test "rejects unauthenticated requests", %{conn: conn} do
@@ -12,7 +11,7 @@ defmodule CoreWeb.Api.Finance.EmailIngestionControllerTest do
 
   test "creates a pending review transaction for the session user", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
 
     conn = post(conn, ~p"/api/finance/email-ingestions", %{email: valid_email_payload()})
 
@@ -31,7 +30,7 @@ defmodule CoreWeb.Api.Finance.EmailIngestionControllerTest do
 
   test "returns duplicate for repeated message ids", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
 
     first_conn =
       post(conn, ~p"/api/finance/email-ingestions", %{email: valid_email_payload()})
@@ -47,7 +46,7 @@ defmodule CoreWeb.Api.Finance.EmailIngestionControllerTest do
 
   test "returns unsupported_email for unsupported sender", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     payload = %{valid_email_payload() | "from" => "newsletter@example.com"}
 
     conn = post(conn, ~p"/api/finance/email-ingestions", %{email: payload})
@@ -57,7 +56,7 @@ defmodule CoreWeb.Api.Finance.EmailIngestionControllerTest do
 
   test "returns unparseable_email for supported sender with missing amount", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
     payload = %{valid_email_payload() | "text_body" => "Merchant: Cafe Central"}
 
     conn = post(conn, ~p"/api/finance/email-ingestions", %{email: payload})
@@ -79,19 +78,5 @@ defmodule CoreWeb.Api.Finance.EmailIngestionControllerTest do
       """,
       "html_body" => nil
     }
-  end
-
-  defp user_fixture do
-    unique = System.unique_integer([:positive])
-
-    {:ok, user} =
-      Accounts.register_user(%{
-        email: "finance_api_user_#{unique}@example.com",
-        password: "Password123!",
-        username: "finance_api_user_#{unique}",
-        full_name: "Finance API User"
-      })
-
-    user
   end
 end

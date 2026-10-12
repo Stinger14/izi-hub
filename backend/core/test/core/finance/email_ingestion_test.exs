@@ -1,7 +1,6 @@
 defmodule Core.Finance.EmailIngestionTest do
   use Core.DataCase, async: true
 
-  alias Core.Accounts
   alias Core.Finance
 
   test "ingests a supported bank alert into a pending review transaction" do
@@ -135,19 +134,5 @@ defmodule Core.Finance.EmailIngestionTest do
 
     health_after = Finance.get_financial_health(user, today: ~D[2026-04-25])
     assert health_after.current_month.expenses == Decimal.new("54.25")
-  end
-
-  defp user_fixture do
-    unique = System.unique_integer([:positive])
-
-    {:ok, user} =
-      Accounts.register_user(%{
-        email: "finance_ingestion_user_#{unique}@example.com",
-        password: "Password123!",
-        username: "finance_ingestion_user_#{unique}",
-        full_name: "Finance Ingestion User"
-      })
-
-    user
   end
 end

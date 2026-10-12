@@ -2,7 +2,260 @@ defmodule Core.FinanceTest do
   use Core.DataCase, async: true
 
   alias Core.Accounts
+  alias Core.Accounts.Household
   alias Core.Finance
+
+  test "create_account stores the owning scope and is listed by that scope" do
+    user = user_fixture()
+    {:ok, %Household{} = household} = Accounts.create_household(user, %{"name" => "Shared Home"})
+
+    assert {:ok, personal_account} =
+             Finance.create_account(user, %{
+               "name" => "Main checking",
+               "kind" => "checking",
+               "current_balance" => "2500.00"
+             })
+
+    assert {:ok, household_account} =
+             Finance.create_account(user, household, %{
+               "name" => "Household reserve",
+               "kind" => "savings",
+               "current_balance" => "800.00"
+             })
+
+    assert personal_account.user_id == user.id
+    assert is_nil(personal_account.household_id)
+    assert household_account.household_id == household.id
+    assert is_nil(household_account.user_id)
+
+    {:ok, personal_accounts} = Finance.list_accounts(user, user)
+    {:ok, household_accounts} = Finance.list_accounts(user, household)
+
+    assert Enum.any?(personal_accounts, &(&1.id == personal_account.id))
+    refute Enum.any?(personal_accounts, &(&1.id == household_account.id))
+    assert Enum.any?(household_accounts, &(&1.id == household_account.id))
+  end
+
+  test "list_transactions supports sort, offset, account filter, and count_transactions" do
+    user = user_fixture()
+
+    {:ok, account} =
+      Finance.create_account(user, %{
+        "name" => "Sorted checking",
+        "kind" => "checking",
+        "current_balance" => "1000.00"
+      })
+
+    for {amount, date} <- [
+          {"10.00", ~D[2026-05-01]},
+          {"30.00", ~D[2026-05-03]},
+          {"20.00", ~D[2026-05-02]}
+        ] do
+      {:ok, _} =
+        Finance.create_transaction(user, user, %{
+          "amount" => amount,
+          "type" => "expense",
+          "description" => "txn #{amount}",
+          "transaction_date" => Date.to_iso8601(date),
+          "account_id" => account.id
+        })
+    end
+
+    {:ok, by_amount_asc} = Finance.list_transactions(user, user, sort: {:amount, :asc})
+    assert Enum.map(by_amount_asc, &Decimal.to_string(&1.amount)) == ["10.00", "20.00", "30.00"]
+
+    {:ok, by_date_desc} = Finance.list_transactions(user, user, sort: {:transaction_date, :desc})
+
+    assert Enum.map(by_date_desc, & &1.transaction_date) ==
+             [~D[2026-05-03], ~D[2026-05-02], ~D[2026-05-01]]
+
+    {:ok, page_two} =
+      Finance.list_transactions(user, user, sort: {:amount, :asc}, limit: 2, offset: 2)
+
+    assert Enum.map(page_two, &Decimal.to_string(&1.amount)) == ["30.00"]
+
+    {:ok, filtered} = Finance.list_transactions(user, user, account_id: account.id)
+    assert length(filtered) == 3
+
+    assert {:ok, 3} = Finance.count_transactions(user, user)
+    assert {:ok, 3} = Finance.count_transactions(user, user, limit: 1, offset: 5)
+
+    # an unrelated sort option value falls back to the default order safely
+    {:ok, _} = Finance.list_transactions(user, user, sort: {:description, :asc})
+  end
+
+  describe "create_account_transfer/3" do
+    setup do
+      user = user_fixture()
+
+      {:ok, from_account} =
+        Finance.create_account(user, %{
+          "name" => "Checking",
+          "kind" => "checking",
+          "currency" => "DOP",
+          "current_balance" => "1000.00"
+        })
+
+      {:ok, to_account} =
+        Finance.create_account(user, %{
+          "name" => "Savings",
+          "kind" => "savings",
+          "currency" => "DOP",
+          "current_balance" => "200.00"
+        })
+
+      %{user: user, from_account: from_account, to_account: to_account}
+    end
+
+    test "creates linked legs and moves both balances", ctx do
+      assert {:ok, {out_leg, in_leg}} =
+               Finance.create_account_transfer(ctx.user, ctx.user, %{
+                 "from_account_id" => ctx.from_account.id,
+                 "to_account_id" => ctx.to_account.id,
+                 "amount" => "150.00"
+               })
+
+      assert out_leg.type == "expense"
+      assert in_leg.type == "income"
+      assert out_leg.counterpart_transaction_id == in_leg.id
+      assert in_leg.counterpart_transaction_id == out_leg.id
+      assert out_leg.description == "Transfer to Savings"
+      assert in_leg.description == "Transfer from Checking"
+
+      from_account = Finance.get_account!(ctx.user, ctx.user, ctx.from_account.id)
+      to_account = Finance.get_account!(ctx.user, ctx.user, ctx.to_account.id)
+      assert Decimal.equal?(from_account.current_balance, Decimal.new("850.00"))
+      assert Decimal.equal?(to_account.current_balance, Decimal.new("350.00"))
+    end
+
+    test "transfer legs are excluded from income/expense aggregates", ctx do
+      today = Date.utc_today()
+
+      {:ok, _} =
+        Finance.create_transaction(ctx.user, ctx.user, %{
+          "amount" => "500.00",
+          "type" => "income",
+          "description" => "Salary",
+          "transaction_date" => Date.to_iso8601(today)
+        })
+
+      {:ok, _legs} =
+        Finance.create_account_transfer(ctx.user, ctx.user, %{
+          "from_account_id" => ctx.from_account.id,
+          "to_account_id" => ctx.to_account.id,
+          "amount" => "150.00"
+        })
+
+      start_date = Date.beginning_of_month(today)
+      end_date = Date.end_of_month(today)
+
+      assert Decimal.equal?(
+               Finance.calculate_total_income(ctx.user, start_date, end_date),
+               Decimal.new("500.00")
+             )
+
+      assert Decimal.equal?(
+               Finance.calculate_total_expenses(ctx.user, start_date, end_date),
+               Decimal.new("0")
+             )
+
+      summary = Finance.get_currency_summary(ctx.user, start_date, end_date)
+      assert [%{amount: income}] = summary.income
+      assert Decimal.equal?(income, Decimal.new("500.00"))
+      assert summary.expenses == []
+
+      # both legs still appear in the ledger listing
+      {:ok, listed} = Finance.list_transactions(ctx.user, ctx.user)
+      assert Enum.count(listed, & &1.counterpart_transaction_id) == 2
+    end
+
+    test "deleting one leg removes both and reverses balances", ctx do
+      {:ok, {out_leg, _in_leg}} =
+        Finance.create_account_transfer(ctx.user, ctx.user, %{
+          "from_account_id" => ctx.from_account.id,
+          "to_account_id" => ctx.to_account.id,
+          "amount" => "150.00"
+        })
+
+      assert {:ok, _} = Finance.delete_transaction(ctx.user, out_leg)
+
+      {:ok, listed} = Finance.list_transactions(ctx.user, ctx.user)
+      assert listed == []
+
+      from_account = Finance.get_account!(ctx.user, ctx.user, ctx.from_account.id)
+      to_account = Finance.get_account!(ctx.user, ctx.user, ctx.to_account.id)
+      assert Decimal.equal?(from_account.current_balance, Decimal.new("1000.00"))
+      assert Decimal.equal?(to_account.current_balance, Decimal.new("200.00"))
+    end
+
+    test "rejects same account, cross-currency, bad amounts, and foreign scopes", ctx do
+      assert {:error, :same_account} =
+               Finance.create_account_transfer(ctx.user, ctx.user, %{
+                 "from_account_id" => ctx.from_account.id,
+                 "to_account_id" => ctx.from_account.id,
+                 "amount" => "10.00"
+               })
+
+      {:ok, usd_account} =
+        Finance.create_account(ctx.user, %{
+          "name" => "USD account",
+          "kind" => "checking",
+          "currency" => "USD",
+          "current_balance" => "100.00"
+        })
+
+      assert {:error, :currency_mismatch} =
+               Finance.create_account_transfer(ctx.user, ctx.user, %{
+                 "from_account_id" => ctx.from_account.id,
+                 "to_account_id" => usd_account.id,
+                 "amount" => "10.00"
+               })
+
+      assert {:error, :invalid_transfer_amount} =
+               Finance.create_account_transfer(ctx.user, ctx.user, %{
+                 "from_account_id" => ctx.from_account.id,
+                 "to_account_id" => ctx.to_account.id,
+                 "amount" => "-5.00"
+               })
+
+      other_user = user_fixture()
+
+      {:ok, foreign_account} =
+        Finance.create_account(other_user, %{
+          "name" => "Foreign",
+          "kind" => "checking",
+          "currency" => "DOP",
+          "current_balance" => "50.00"
+        })
+
+      assert {:error, :invalid_account_scope} =
+               Finance.create_account_transfer(ctx.user, ctx.user, %{
+                 "from_account_id" => ctx.from_account.id,
+                 "to_account_id" => foreign_account.id,
+                 "amount" => "10.00"
+               })
+    end
+  end
+
+  test "create_transaction rejects accounts from another scope" do
+    user = user_fixture()
+    {:ok, %Household{} = household} = Accounts.create_household(user, %{"name" => "Scope Home"})
+
+    {:ok, account} =
+      Finance.create_account(user, %{
+        "name" => "Personal checking",
+        "kind" => "checking",
+        "current_balance" => "1200.00"
+      })
+
+    assert {:error, :invalid_account_scope} =
+             Finance.create_transaction(user, household, %{
+               "amount" => "20.00",
+               "type" => "expense",
+               "transaction_date" => ~D[2026-04-10],
+               "account_id" => account.id
+             })
+  end
 
   test "create_budget stores the owning user and ignores user_id from attrs" do
     user = user_fixture()
@@ -405,17 +658,128 @@ defmodule Core.FinanceTest do
              })
   end
 
-  defp user_fixture do
-    unique = System.unique_integer([:positive])
+  test "get_financial_health/3 rejects access to another user's household" do
+    user = user_fixture()
+    other_user = user_fixture()
 
-    {:ok, user} =
-      Accounts.register_user(%{
-        email: "finance_user_#{unique}@example.com",
-        password: "Password123!",
-        username: "finance_user_#{unique}",
-        full_name: "Finance User"
+    {:ok, %Household{} = household} =
+      Accounts.create_household(other_user, %{"name" => "Private Home"})
+
+    assert {:error, :forbidden} =
+             Finance.get_financial_health(user, household, today: ~D[2026-04-15])
+  end
+
+  test "list_debt_payments_for_debt/2 returns household-scoped payments" do
+    user = user_fixture()
+    {:ok, %Household{} = household} = Accounts.create_household(user, %{"name" => "Shared Home"})
+
+    {:ok, debt} =
+      Finance.create_debt(user, household, %{
+        "name" => "Shared card",
+        "kind" => "credit_card",
+        "current_balance" => "600.00",
+        "minimum_payment" => "50.00"
       })
 
-    user
+    assert {:ok, payment} =
+             Finance.record_debt_payment(user, debt, %{
+               "amount" => "120.00",
+               "payment_date" => ~D[2026-04-12],
+               "kind" => "extra",
+               "create_expense_transaction" => "true"
+             })
+
+    assert [listed_payment] = Finance.list_debt_payments_for_debt(user, debt)
+    assert listed_payment.id == payment.id
+    assert listed_payment.household_id == household.id
+  end
+
+  test "list_account_summaries returns balances and period totals by scoped account" do
+    user = user_fixture()
+
+    {:ok, account} =
+      Finance.create_account(user, %{
+        "name" => "Main checking",
+        "kind" => "checking",
+        "current_balance" => "2400.00"
+      })
+
+    {:ok, _income} =
+      Finance.create_transaction(user, %{
+        "amount" => "500.00",
+        "type" => "income",
+        "transaction_date" => ~D[2026-04-05],
+        "account_id" => account.id
+      })
+
+    {:ok, _expense} =
+      Finance.create_transaction(user, %{
+        "amount" => "125.00",
+        "type" => "expense",
+        "transaction_date" => ~D[2026-04-06],
+        "account_id" => account.id
+      })
+
+    assert {:ok, [summary]} =
+             Finance.list_account_summaries(user, user, ~D[2026-04-01], ~D[2026-04-30])
+
+    assert summary.account.id == account.id
+    assert summary.income == Decimal.new("500.00")
+    assert summary.expenses == Decimal.new("125.00")
+    assert summary.net == Decimal.new("375.00")
+    assert summary.transaction_count == 2
+  end
+
+  test "household finance records stay isolated from personal records" do
+    user = user_fixture()
+    {:ok, %Household{} = household} = Accounts.create_household(user, %{"name" => "Shared Home"})
+
+    {:ok, personal_category} =
+      Finance.create_category(user, %{"name" => "Personal Food", "type" => "expense"})
+
+    {:ok, household_category} =
+      Finance.create_category(user, household, %{"name" => "Shared Food", "type" => "expense"})
+
+    {:ok, _personal_transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "25.00",
+        "type" => "expense",
+        "transaction_date" => ~D[2026-04-10],
+        "description" => "Personal lunch",
+        "category_id" => personal_category.id
+      })
+
+    assert {:ok, _household_transaction} =
+             Finance.create_transaction(user, household, %{
+               "amount" => "90.00",
+               "type" => "expense",
+               "transaction_date" => ~D[2026-04-10],
+               "description" => "Shared groceries",
+               "category_id" => household_category.id
+             })
+
+    {:ok, personal_transactions} = Finance.list_transactions(user, user)
+    {:ok, household_transactions} = Finance.list_transactions(user, household)
+
+    assert Enum.any?(personal_transactions, &(&1.description == "Personal lunch"))
+    refute Enum.any?(personal_transactions, &(&1.description == "Shared groceries"))
+    assert Enum.any?(household_transactions, &(&1.description == "Shared groceries"))
+    refute Enum.any?(household_transactions, &(&1.description == "Personal lunch"))
+  end
+
+  test "household finance rejects categories from another scope" do
+    user = user_fixture()
+    {:ok, %Household{} = household} = Accounts.create_household(user, %{"name" => "Scope Home"})
+
+    {:ok, personal_category} =
+      Finance.create_category(user, %{"name" => "Personal", "type" => "expense"})
+
+    assert {:error, :invalid_category_scope} =
+             Finance.create_transaction(user, household, %{
+               "amount" => "20.00",
+               "type" => "expense",
+               "transaction_date" => ~D[2026-04-10],
+               "category_id" => personal_category.id
+             })
   end
 end

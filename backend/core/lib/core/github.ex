@@ -1,11 +1,44 @@
 defmodule Core.GitHub do
   @moduledoc false
+  require Logger
 
   @base_api "https://api.github.com"
+  @graphql_url "https://api.github.com/graphql"
   @base_site "https://github.com"
   @cache_table Core.GitHub.Cache
   @cache_ttl_seconds 300
   @users ["Stinger14", "ghost1ndshell"]
+  @calendar_query """
+  query($login: String!) {
+   user(login: $login) {
+      contributionsCollection {
+        contributionCalendar {
+          totalContributions
+          weeks {
+            contributionDays { date contributionCount contributionLevel weekday }
+          }
+        }
+      }
+    }
+  }
+  """
+
+  @developer_stats_query """
+  query($login: String!) {
+    user(login: $login) {
+      login
+      repositories(privacy: PUBLIC, ownerAffiliations: OWNER) { totalCount }
+      contributionsCollection {
+        contributionCalendar {
+          totalContributions
+          weeks {
+            contributionDays { date contributionCount contributionLevel weekday }
+          }
+        }
+      }
+    }
+  }
+  """
 
   def fetch_accounts do
     Enum.map(@users, &fetch_account/1)
@@ -44,11 +77,42 @@ defmodule Core.GitHub do
     }
   end
 
+  @doc false
+  def parse_contribution_calendar(%{"errors" => errors}), do: {:error, {:graphql, errors}}
+
+  def parse_contribution_calendar(%{
+        "data" => %{"user" => %{"contributionsCollection" => %{"contributionCalendar" => cal}}}
+      }) do
+    weeks =
+      Enum.map(cal["weeks"], fn %{"contributionDays" => days} ->
+        Enum.map(days, fn day ->
+          %{
+            date: Date.from_iso8601!(day["date"]),
+            count: day["contributionCount"],
+            level: contribution_level(day["contributionLevel"]),
+            weekday: day["weekday"]
+          }
+        end)
+      end)
+
+    {:ok, %{total: cal["totalContributions"], weeks: weeks}}
+  end
+
+  def parse_contribution_calendar(%{"data" => %{"user" => nil}}), do: {:error, :user_not_found}
+  def parse_contribution_calendar(_other), do: {:error, :unexpected_shape}
+
+  defp contribution_level("NONE"), do: 0
+  defp contribution_level("FIRST_QUARTILE"), do: 1
+  defp contribution_level("SECOND_QUARTILE"), do: 2
+  defp contribution_level("THIRD_QUARTILE"), do: 3
+  defp contribution_level("FOURTH_QUARTILE"), do: 4
+  defp contribution_level(_), do: 0
+
   defp fetch_account(username) do
     %{
       username: username,
       repo_url: "#{@base_site}/#{username}",
-      contributions_svg: fetch_contributions_svg(username),
+      contributions: fetch_contribution_calendar(username),
       events: fetch_events(username)
     }
   end
@@ -69,15 +133,98 @@ defmodule Core.GitHub do
     end)
   end
 
-  defp fetch_contributions_svg(username) do
-    fetch_cache({:contribs, username}, fn ->
-      url = "#{@base_site}/users/#{username}/contributions"
-
-      case request_raw(url, [{"accept", "image/svg+xml"}]) do
-        {:ok, svg} -> sanitize_svg(svg)
-        _ -> nil
+  defp fetch_contribution_calendar(username) do
+    fetch_cache({:contributions, username}, fn ->
+      case graphql(
+             "contribution calendar",
+             username,
+             @calendar_query,
+             &parse_contribution_calendar/1
+           ) do
+        {:ok, calendar} -> calendar
+        {:error, _reason} -> nil
       end
     end)
+  end
+
+  @doc """
+  Public stats for the hub's Developer card: public repo count, contributions
+  in the last year and the last day with a contribution. Returns
+  `{:error, :not_found}` for an unknown login, so the card can say so, and
+  `{:error, :unavailable}` for anything else (already logged).
+  """
+  def developer_stats(login) when is_binary(login) do
+    fetch_cache({:developer_stats, String.downcase(login)}, fn ->
+      case graphql("developer stats", login, @developer_stats_query, &parse_developer_stats/1) do
+        {:ok, stats} -> {:ok, stats}
+        {:error, :user_not_found} -> {:error, :not_found}
+        {:error, _reason} -> {:error, :unavailable}
+      end
+    end)
+  end
+
+  @doc false
+  def parse_developer_stats(%{"data" => %{"user" => %{} = user}} = body) do
+    with {:ok, calendar} <- parse_contribution_calendar(body) do
+      last_active_on =
+        calendar.weeks
+        |> List.flatten()
+        |> Enum.filter(&(&1.count > 0))
+        |> Enum.map(& &1.date)
+        |> Enum.max(Date, fn -> nil end)
+
+      {:ok,
+       %{
+         login: user["login"],
+         public_repos: get_in(user, ["repositories", "totalCount"]) || 0,
+         contributions_last_year: calendar.total,
+         last_active_on: last_active_on
+       }}
+    end
+  end
+
+  def parse_developer_stats(%{"errors" => errors} = body) do
+    if Enum.any?(errors, &(&1["type"] == "NOT_FOUND")),
+      do: {:error, :user_not_found},
+      else: parse_contribution_calendar(body)
+  end
+
+  def parse_developer_stats(body), do: parse_contribution_calendar(body)
+
+  # Shared GraphQL POST: returns {:ok, parsed} or {:error, reason}, logging
+  # every failure (missing token, HTTP status with GitHub's message, GraphQL
+  # errors) so a broken token never fails silently.
+  defp graphql(label, login, query, parser) do
+    case github_token() do
+      "" ->
+        Logger.warning("GitHub #{label} skipped: no GITHUB_TOKEN configured")
+        {:error, :no_token}
+
+      _token ->
+        @graphql_url
+        |> Req.post(headers: github_headers(), json: %{query: query, variables: %{login: login}})
+        |> case do
+          {:ok, %{status: 200, body: body}} ->
+            with {:error, reason} = error <- parser.(body) do
+              Logger.warning("GitHub #{label} for #{login} failed: #{inspect(reason)}")
+              error
+            end
+
+          {:ok, %{status: status, body: body}} ->
+            message = if is_map(body), do: body["message"]
+
+            Logger.warning(
+              "GitHub #{label} for #{login} returned HTTP #{status}" <>
+                if(message, do: ": #{message}", else: "")
+            )
+
+            {:error, {:http_error, status}}
+
+          {:error, reason} ->
+            Logger.warning("GitHub #{label} for #{login} errored: #{inspect(reason)}")
+            {:error, reason}
+        end
+    end
   end
 
   defp format_event(event) do
@@ -225,17 +372,6 @@ defmodule Core.GitHub do
     end
   end
 
-  defp request_raw(url, extra_headers) do
-    url
-    |> Req.get(headers: github_headers() ++ extra_headers)
-    |> case do
-      {:ok, %{status: 200, body: body}} when is_binary(body) -> {:ok, body}
-      {:ok, %{status: 200, body: body}} -> {:ok, to_string(body)}
-      {:ok, %{status: status}} -> {:error, {:http_error, status}}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
   defp github_headers do
     headers = [{"user-agent", "izi-hub"}]
 
@@ -254,86 +390,6 @@ defmodule Core.GitHub do
       _ -> ""
     end
   end
-
-  defp sanitize_svg(svg) when is_binary(svg) do
-    with {:ok, document} <- Floki.parse_document(svg),
-         [svg_node | _] <- Floki.find(document, "svg") do
-      [svg_node]
-      |> Floki.filter_out("script, foreignObject")
-      |> Floki.traverse_and_update(&sanitize_node/1)
-      |> Floki.raw_html()
-    else
-      _ -> nil
-    end
-  end
-
-  defp sanitize_node({tag, attrs, children}) do
-    if allowed_tag?(tag) do
-      {tag, sanitize_attrs(attrs), children}
-    else
-      ""
-    end
-  end
-
-  defp sanitize_node(other), do: other
-
-  defp allowed_tag?(tag) do
-    tag in [
-      "svg",
-      "g",
-      "rect",
-      "path",
-      "text",
-      "title",
-      "desc",
-      "defs",
-      "style",
-      "clipPath",
-      "linearGradient",
-      "stop"
-    ]
-  end
-
-  defp sanitize_attrs(attrs) do
-    Enum.filter(attrs, fn {name, value} ->
-      allowed_attr?(name) and safe_value?(value)
-    end)
-  end
-
-  defp allowed_attr?(name) do
-    name in [
-      "class",
-      "id",
-      "width",
-      "height",
-      "x",
-      "y",
-      "rx",
-      "ry",
-      "d",
-      "fill",
-      "stroke",
-      "stroke-width",
-      "stroke-linecap",
-      "stroke-linejoin",
-      "transform",
-      "viewBox",
-      "xmlns",
-      "xmlns:xlink",
-      "xlink:href",
-      "aria-label",
-      "role",
-      "font-size",
-      "text-anchor"
-    ] or String.starts_with?(name, "data-") or String.starts_with?(name, "aria-")
-  end
-
-  defp safe_value?(value) when is_binary(value) do
-    value_downcase = String.downcase(value)
-    not String.contains?(value_downcase, "javascript:")
-  end
-
-  defp safe_value?(_), do: true
 
   defp fetch_cache(key, fun) do
     now = System.system_time(:second)

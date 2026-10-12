@@ -10,14 +10,14 @@ defmodule CoreWeb.PasswordSetupController do
       _ ->
         conn
         |> put_flash(:error, "Password setup link is invalid or expired")
-        |> redirect(to: ~p"/hub?auth=signup")
+        |> redirect(to: ~p"/signup")
     end
   end
 
   def new(conn, _params) do
     conn
     |> put_flash(:error, "Missing password setup token")
-    |> redirect(to: ~p"/hub?auth=signup")
+    |> redirect(to: ~p"/signup")
   end
 
   def create(conn, %{"user" => %{"token" => token, "password" => password}}) do
@@ -26,15 +26,14 @@ defmodule CoreWeb.PasswordSetupController do
         _ = Accounts.update_last_login(user)
 
         conn
-        |> configure_session(renew: true)
-        |> put_session(:user_id, user.id)
+        |> CoreWeb.UserAuth.log_in_user(user)
         |> put_flash(:info, "Password set successfully. Welcome.")
         |> redirect(to: after_setup_path(user))
 
       {:error, :invalid_or_expired_token} ->
         conn
         |> put_flash(:error, "Password setup link is invalid or expired")
-        |> redirect(to: ~p"/hub?auth=signup")
+        |> redirect(to: ~p"/signup")
 
       {:error, %Ecto.Changeset{} = changeset} ->
         render_with_changeset_errors(conn, token, changeset)
@@ -48,7 +47,7 @@ defmodule CoreWeb.PasswordSetupController do
   def create(conn, _params) do
     conn
     |> put_flash(:error, "Invalid password setup payload")
-    |> redirect(to: ~p"/hub?auth=signup")
+    |> redirect(to: ~p"/signup")
   end
 
   defp render_with_changeset_errors(conn, token, changeset) do
@@ -76,7 +75,7 @@ defmodule CoreWeb.PasswordSetupController do
       _ ->
         conn
         |> put_flash(:error, "Password setup link is invalid or expired")
-        |> redirect(to: ~p"/hub?auth=signup")
+        |> redirect(to: ~p"/signup")
     end
   end
 

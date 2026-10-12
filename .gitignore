@@ -56,6 +56,7 @@ next-env.d.ts
 __pycache__/
 *.py[cod]
 *$py.class
+__pycache__
 
 # C extensions
 *.so
@@ -196,6 +197,7 @@ venv.bak/
 uv.lock
 
 PORTFOLIO_REPO_PLAN.md
+FINANCE_INGESTION_INTEGRATION.md
 
 # mypy
 .mypy_cache/
@@ -244,3 +246,6 @@ thumb
 sketch
 
 # End of https://www.toptal.com/developers/gitignore/api/elixir,python,nextjs,react
+
+### Claude Code ###
+.claude/settings.local.json

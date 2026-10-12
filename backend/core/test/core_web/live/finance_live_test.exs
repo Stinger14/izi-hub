@@ -4,34 +4,42 @@ defmodule CoreWeb.FinanceLiveTest do
   import Phoenix.LiveViewTest
 
   alias Core.Accounts
+  alias Core.Accounts.Household
   alias Core.Finance
 
   test "redirects unauthenticated users to login", %{conn: conn} do
-    assert {:error, {:redirect, %{to: "/hub?auth=login"}}} = live(conn, ~p"/finance")
+    assert {:error, {:redirect, %{to: "/login?error=auth"}}} = live(conn, ~p"/finance")
   end
 
   test "renders the finance dashboard for authenticated users", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
 
     assert {:ok, _view, html} = live(conn, ~p"/finance")
 
-    assert html =~ "IziFinance"
-    assert html =~ "Money cockpit"
-    assert html =~ "Add transaction"
-    assert html =~ "Budget remaining"
-    assert html =~ "Transactions"
+    assert html =~ "IziHub Finance"
+    assert html =~ "Total Balance"
+    assert html =~ "+ Household"
   end
 
   test "creates a manual transaction from the dashboard", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
+    today = Date.utc_today()
 
     {:ok, category} = Finance.create_category(user, %{"name" => "Salary", "type" => "income"})
+
+    {:ok, account} =
+      Finance.create_account(user, %{
+        "name" => "Main checking",
+        "kind" => "checking",
+        "current_balance" => "2000.00"
+      })
+
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button[phx-value-section=\"transactions\"]", "Transactions")
+    |> element("button[aria-label=\"Add transaction\"]")
     |> render_click()
 
     html =
@@ -41,15 +49,17 @@ defmodule CoreWeb.FinanceLiveTest do
           "amount" => "3200.00",
           "type" => "income",
           "description" => "April salary",
-          "transaction_date" => "2026-04-10",
+          "transaction_date" => Date.to_iso8601(today),
           "payment_method" => "bank_transfer",
-          "category_id" => category.id
+          "category_id" => category.id,
+          "account_id" => account.id
         }
       )
       |> render_submit()
 
     assert html =~ "April salary"
-    assert html =~ "+$3200.00"
+    assert html =~ "+DOP$ 3,200.00"
+    assert html =~ "Main checking"
 
     [transaction] = Finance.list_transactions_for_user(user)
     assert transaction.description == "April salary"
@@ -57,7 +67,9 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "creates a budget and shows active budget status", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
+    today = Date.utc_today()
+    month_start = Date.beginning_of_month(today)
 
     {:ok, category} = Finance.create_category(user, %{"name" => "Groceries", "type" => "expense"})
 
@@ -66,14 +78,14 @@ defmodule CoreWeb.FinanceLiveTest do
         "amount" => "75.00",
         "type" => "expense",
         "description" => "Market",
-        "transaction_date" => "2026-04-10",
+        "transaction_date" => Date.to_iso8601(today),
         "category_id" => category.id
       })
 
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button[phx-value-section=\"budgets\"]", "Budgets")
+    |> element("button[aria-label=\"Create budget\"]")
     |> render_click()
 
     html =
@@ -83,20 +95,21 @@ defmodule CoreWeb.FinanceLiveTest do
           "name" => "Groceries",
           "amount" => "300.00",
           "period" => "monthly",
-          "start_date" => "2026-04-01",
+          "start_date" => Date.to_iso8601(month_start),
           "alert_threshold" => "80",
           "category_id" => category.id
         }
       )
       |> render_submit()
 
-    assert html =~ "$75.00"
-    assert html =~ "$225.00"
+    assert html =~ "DOP$ 75.00"
+    assert html =~ "DOP$ 225.00"
   end
 
   test "review queue confirms a pending transaction", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
+    today = Date.utc_today()
 
     {:ok, transaction} =
       Finance.create_transaction(user, %{
@@ -104,7 +117,7 @@ defmodule CoreWeb.FinanceLiveTest do
         "type" => "expense",
         "description" => "Card alert",
         "merchant" => "Cafe Central",
-        "transaction_date" => "2026-04-11",
+        "transaction_date" => Date.to_iso8601(today),
         "status" => "pending_review",
         "source" => "email",
         "review_reason" => "Matched subject"
@@ -113,7 +126,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button[phx-value-section=\"review\"]", "Review (1)")
+    |> element("button", "Open review queue")
     |> render_click()
 
     html =
@@ -127,14 +140,15 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "editing a pending transaction confirms it", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
+    today = Date.utc_today()
 
     {:ok, transaction} =
       Finance.create_transaction(user, %{
         "amount" => "18.50",
         "type" => "expense",
         "description" => "Raw import",
-        "transaction_date" => "2026-04-11",
+        "transaction_date" => Date.to_iso8601(today),
         "status" => "pending_review",
         "source" => "email"
       })
@@ -142,7 +156,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button[phx-value-section=\"review\"]", "Review (1)")
+    |> element("button", "Open review queue")
     |> render_click()
 
     html =
@@ -161,7 +175,7 @@ defmodule CoreWeb.FinanceLiveTest do
           "amount" => "18.50",
           "type" => "expense",
           "description" => "Taxi",
-          "transaction_date" => "2026-04-11",
+          "transaction_date" => Date.to_iso8601(today),
           "payment_method" => "card",
           "category_id" => ""
         }
@@ -177,14 +191,15 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "review queue can ignore a pending transaction", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
+    today = Date.utc_today()
 
     {:ok, transaction} =
       Finance.create_transaction(user, %{
         "amount" => "11.00",
         "type" => "expense",
         "description" => "Noise",
-        "transaction_date" => "2026-04-11",
+        "transaction_date" => Date.to_iso8601(today),
         "status" => "pending_review",
         "source" => "email"
       })
@@ -192,7 +207,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button[phx-value-section=\"review\"]", "Review (1)")
+    |> element("button", "Open review queue")
     |> render_click()
 
     html =
@@ -206,7 +221,8 @@ defmodule CoreWeb.FinanceLiveTest do
 
   test "records a debt payment from the finance dashboard", %{conn: conn} do
     user = user_fixture()
-    conn = init_test_session(conn, user_id: user.id)
+    conn = log_in_user(conn, user)
+    today = Date.utc_today()
 
     {:ok, debt} =
       Finance.create_debt(user, %{
@@ -219,7 +235,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button[phx-value-section=\"debts\"]", "Debts")
+    |> element("button[aria-label=\"Add debt\"]")
     |> render_click()
 
     html =
@@ -235,7 +251,7 @@ defmodule CoreWeb.FinanceLiveTest do
         debt_id: debt.id,
         payment: %{
           "amount" => "75.00",
-          "payment_date" => "2026-04-12",
+          "payment_date" => Date.to_iso8601(today),
           "kind" => "extra",
           "notes" => "LiveView payment",
           "create_expense_transaction" => "true"
@@ -243,24 +259,620 @@ defmodule CoreWeb.FinanceLiveTest do
       )
       |> render_submit()
 
-    assert html =~ "$225.00"
+    assert html =~ "DOP$ 225.00"
     assert html =~ "Recent payments"
 
     updated_debt = Finance.get_debt_for_user!(user, debt.id)
     assert updated_debt.current_balance == Decimal.new("225.00")
   end
 
-  defp user_fixture do
-    unique = System.unique_integer([:positive])
+  test "switches to a household workspace without showing personal finance data", %{conn: conn} do
+    user = user_fixture()
+    conn = log_in_user(conn, user)
+    today = Date.utc_today()
 
-    {:ok, user} =
-      Accounts.register_user(%{
-        email: "finance_live_user_#{unique}@example.com",
-        password: "Password123!",
-        username: "finance_live_user_#{unique}",
-        full_name: "Finance Live User"
+    {:ok, %Household{} = household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
+
+    {:ok, household_category} =
+      Finance.create_category(user, household, %{
+        "name" => "Shared Groceries",
+        "type" => "expense"
       })
 
-    user
+    {:ok, _transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "48.00",
+        "type" => "expense",
+        "description" => "Private groceries",
+        "transaction_date" => Date.to_iso8601(today)
+      })
+
+    {:ok, _shared_transaction} =
+      Finance.create_transaction(user, household, %{
+        "amount" => "112.00",
+        "type" => "expense",
+        "description" => "House groceries",
+        "transaction_date" => Date.to_iso8601(today),
+        "category_id" => household_category.id
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    html =
+      view
+      |> element("button[aria-label=\"Household finance scope\"]")
+      |> render_click()
+
+    assert html =~ household.name
+    assert html =~ "House groceries"
+    refute html =~ "Private groceries"
+  end
+
+  test "opens the household panel from the header cta", %{conn: conn} do
+    user = user_fixture()
+    conn = log_in_user(conn, user)
+
+    {:ok, _household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    refute has_element?(view, "form[phx-submit=\"create_household\"]")
+
+    html =
+      view
+      |> element("button[aria-label=\"Add household\"]")
+      |> render_click()
+
+    assert html =~ "Create or switch scope"
+    assert html =~ "aria-label=\"Create household\""
+  end
+
+  test "creates an account from the account panel", %{conn: conn} do
+    user = user_fixture()
+    conn = log_in_user(conn, user)
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    html =
+      view
+      |> element("button[aria-label=\"Add account\"]")
+      |> render_click()
+
+    # Opens the quick-add focus panel inline (same pattern as "+ Budget"/"+
+    # Debt"), rather than navigating away to the Accounts section.
+    assert html =~ "Add account"
+    assert html =~ ~s(value="DOP")
+
+    html =
+      view
+      |> form("form[phx-submit=\"create_account\"]",
+        account: %{
+          "name" => "Emergency savings",
+          "institution" => "Popular Bank",
+          "kind" => "savings",
+          "currency" => "DOP",
+          "current_balance" => "1800.00",
+          "available_balance" => "1800.00",
+          "notes" => "Rainy day"
+        }
+      )
+      |> render_submit()
+
+    assert html =~ "Emergency savings"
+    assert html =~ "DOP$ 1,800.00"
+
+    [account] = Finance.list_accounts_for_user(user)
+    assert account.name == "Emergency savings"
+    assert account.currency == "DOP"
+  end
+
+  test "creates an account transfer between two accounts", %{conn: conn} do
+    user = user_fixture()
+    conn = log_in_user(conn, user)
+
+    {:ok, from_account} =
+      Finance.create_account(user, %{
+        "name" => "Checking",
+        "kind" => "checking",
+        "currency" => "DOP",
+        "current_balance" => "1000.00"
+      })
+
+    {:ok, to_account} =
+      Finance.create_account(user, %{
+        "name" => "Savings",
+        "kind" => "savings",
+        "currency" => "DOP",
+        "current_balance" => "200.00"
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    html =
+      view
+      |> form("form[phx-submit=\"create_transfer\"]",
+        transfer: %{
+          "from_account_id" => from_account.id,
+          "to_account_id" => to_account.id,
+          "amount" => "150.00"
+        }
+      )
+      |> render_submit()
+
+    assert html =~ "Transfer"
+
+    updated_from = Finance.get_account!(user, user, from_account.id)
+    updated_to = Finance.get_account!(user, user, to_account.id)
+    assert Decimal.equal?(updated_from.current_balance, Decimal.new("850.00"))
+    assert Decimal.equal?(updated_to.current_balance, Decimal.new("350.00"))
+  end
+
+  test "hero currency selector switches the displayed balance", %{conn: conn} do
+    user = user_fixture()
+    conn = log_in_user(conn, user)
+
+    {:ok, _dop} =
+      Finance.create_account(user, %{
+        "name" => "DOP checking",
+        "kind" => "checking",
+        "currency" => "DOP",
+        "current_balance" => "1000.00"
+      })
+
+    {:ok, _usd} =
+      Finance.create_account(user, %{
+        "name" => "USD checking",
+        "kind" => "checking",
+        "currency" => "USD",
+        "current_balance" => "500.00"
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    assert has_element?(view, "select[name=\"currency\"] option[value=\"DOP\"][selected]")
+
+    html =
+      view
+      |> form("form[phx-change=\"select_hero_currency\"]", %{"currency" => "USD"})
+      |> render_change()
+
+    assert html =~ "US$"
+    assert has_element?(view, "select[name=\"currency\"] option[value=\"USD\"][selected]")
+  end
+
+  test "hero month selector updates income for the selected month", %{conn: conn} do
+    user = user_fixture()
+    conn = log_in_user(conn, user)
+    today = Date.utc_today()
+    current_month_value = Calendar.strftime(today, "%Y-%m")
+
+    last_month_start =
+      today |> Date.beginning_of_month() |> Date.add(-1) |> Date.beginning_of_month()
+
+    last_month_value = Calendar.strftime(last_month_start, "%Y-%m")
+
+    {:ok, _transaction} =
+      Finance.create_transaction(user, %{
+        "amount" => "500.00",
+        "type" => "income",
+        "description" => "Old salary",
+        "transaction_date" => Date.to_iso8601(last_month_start)
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    assert has_element?(
+             view,
+             "select[name=\"month\"] option[value=\"#{current_month_value}\"][selected]"
+           )
+
+    view
+    |> form("form[phx-change=\"select_hero_month\"]", %{"month" => last_month_value})
+    |> render_change()
+
+    assert has_element?(
+             view,
+             "select[name=\"month\"] option[value=\"#{last_month_value}\"][selected]"
+           )
+  end
+
+  test "cashflow year and window selectors update the active selection", %{conn: conn} do
+    user = user_fixture()
+    conn = log_in_user(conn, user)
+    last_year = Date.utc_today().year - 1
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    assert has_element?(view, "select[name=\"window\"] option[value=\"6\"][selected]")
+
+    view
+    |> form("form[phx-change=\"select_cashflow_year\"]", %{"year" => Integer.to_string(last_year)})
+    |> render_change()
+
+    assert has_element?(view, "select[name=\"year\"] option[value=\"#{last_year}\"][selected]")
+
+    view
+    |> form("form[phx-change=\"select_cashflow_window\"]", %{"window" => "3"})
+    |> render_change()
+
+    assert has_element?(view, "select[name=\"window\"] option[value=\"3\"][selected]")
+  end
+
+  test "filters the transactions table by type", %{conn: conn} do
+    user = user_fixture()
+    conn = log_in_user(conn, user)
+    today = Date.utc_today()
+
+    {:ok, _income} =
+      Finance.create_transaction(user, %{
+        "amount" => "500.00",
+        "type" => "income",
+        "description" => "Paycheck",
+        "transaction_date" => Date.to_iso8601(today)
+      })
+
+    {:ok, _expense} =
+      Finance.create_transaction(user, %{
+        "amount" => "40.00",
+        "type" => "expense",
+        "description" => "Groceries run",
+        "transaction_date" => Date.to_iso8601(today)
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    view
+    |> element("aside button[phx-value-section=\"transactions\"]")
+    |> render_click()
+
+    html =
+      view
+      |> form("form[phx-change=\"filter_transactions\"]", %{"filters" => %{"type" => "income"}})
+      |> render_change()
+
+    assert html =~ "Paycheck"
+    refute html =~ "Groceries run"
+  end
+
+  test "sorts the transactions table by amount", %{conn: conn} do
+    user = user_fixture()
+    conn = log_in_user(conn, user)
+    today = Date.utc_today()
+
+    {:ok, _small} =
+      Finance.create_transaction(user, %{
+        "amount" => "10.00",
+        "type" => "expense",
+        "description" => "Small purchase",
+        "transaction_date" => Date.to_iso8601(today)
+      })
+
+    {:ok, _large} =
+      Finance.create_transaction(user, %{
+        "amount" => "90.00",
+        "type" => "expense",
+        "description" => "Large purchase",
+        "transaction_date" => Date.to_iso8601(today)
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    view
+    |> element("aside button[phx-value-section=\"transactions\"]")
+    |> render_click()
+
+    html =
+      view
+      |> element("button[phx-click=\"sort_transactions\"][phx-value-field=\"amount\"]")
+      |> render_click()
+
+    {small_pos, _} = :binary.match(html, "Small purchase")
+    {large_pos, _} = :binary.match(html, "Large purchase")
+
+    # First click defaults to descending, so the larger amount appears first.
+    assert large_pos < small_pos
+  end
+
+  test "paginates the transactions table", %{conn: conn} do
+    user = user_fixture()
+    conn = log_in_user(conn, user)
+    today = Date.utc_today()
+
+    for n <- 1..26 do
+      {:ok, _} =
+        Finance.create_transaction(user, %{
+          "amount" => "#{n}.00",
+          "type" => "expense",
+          "description" => "TxnItem-#{String.pad_leading(Integer.to_string(n), 2, "0")}",
+          "transaction_date" => Date.to_iso8601(today)
+        })
+    end
+
+    {:ok, view, _html} = live(conn, ~p"/finance")
+
+    view
+    |> element("aside button[phx-value-section=\"transactions\"]")
+    |> render_click()
+
+    html =
+      view
+      |> element("button[phx-click=\"sort_transactions\"][phx-value-field=\"amount\"]")
+      |> render_click()
+
+    # First click defaults to descending, so amounts 26.00..2.00 fill page 1 and 1.00 lands on page 2.
+    assert html =~ "26 transactions"
+    assert html =~ "page 1 of 2"
+    assert html =~ "TxnItem-02"
+    refute html =~ "TxnItem-01"
+
+    html =
+      view
+      |> element("button[phx-click=\"paginate_transactions\"][phx-value-page=\"2\"]")
+      |> render_click()
+
+    assert html =~ "page 2 of 2"
+    assert html =~ "TxnItem-01"
+  end
+
+  describe "header + Account button" do
+    test "adds the account to the personal scope when Personal is selected", %{conn: conn} do
+      user = user_fixture()
+      {:ok, household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
+
+      view |> element("button[aria-label=\"New account in current scope\"]") |> render_click()
+      submit_account(view, "Personal wallet")
+
+      assert {:ok, [account]} = Finance.list_accounts(user, user)
+      assert account.name == "Personal wallet"
+      assert {:ok, []} = Finance.list_accounts(user, household)
+    end
+
+    test "adds the account to the household when Household is selected", %{conn: conn} do
+      user = user_fixture()
+      {:ok, household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
+
+      render_click(view, "set_ownership_scope", %{"scope" => "household"})
+      view |> element("button[aria-label=\"New account in current scope\"]") |> render_click()
+      submit_account(view, "Shared groceries")
+
+      assert {:ok, [account]} = Finance.list_accounts(user, household)
+      assert account.name == "Shared groceries"
+      assert {:ok, []} = Finance.list_accounts(user, user)
+    end
+
+    test "is labelled as an account action, not a household one", %{conn: conn} do
+      user = user_fixture()
+      {:ok, _view, html} = live(log_in_user(conn, user), ~p"/finance")
+
+      assert html =~ "New account in current scope"
+      # with no household yet, household creation lives on the "+ Household" toggle only
+      refute html =~ ~s(aria-label="Add household")
+    end
+  end
+
+  describe "live updates" do
+    test "shows a transaction added elsewhere without reloading", %{conn: conn} do
+      user = user_fixture()
+      {:ok, view, html} = live(log_in_user(conn, user), ~p"/finance")
+      refute html =~ "Live coffee"
+
+      {:ok, _} =
+        Finance.create_transaction(user, %{
+          "amount" => "4.50",
+          "type" => "expense",
+          "description" => "Live coffee",
+          "transaction_date" => Date.to_iso8601(Date.utc_today())
+        })
+
+      assert render(view) =~ "Live coffee"
+    end
+
+    test "picks up a household created in this session right away", %{conn: conn} do
+      user = user_fixture()
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
+
+      render_click(view, "open_household_panel", %{})
+
+      view
+      |> form("form[phx-submit=\"create_household\"]", household: %{"name" => "Garcia Home"})
+      |> render_submit()
+
+      [household] = Accounts.list_households_for_user(user)
+
+      {:ok, _} =
+        Finance.create_account(user, household, %{
+          "name" => "Shared pantry fund",
+          "kind" => "checking",
+          "current_balance" => "300.00"
+        })
+
+      assert render(view) =~ "Shared pantry fund"
+    end
+  end
+
+  describe "account forms" do
+    test "a second account with a new name is added and listed", %{conn: conn} do
+      user = user_fixture()
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
+      render_click(view, "show_section", %{"section" => "accounts"})
+
+      submit_section_account(view, "Checking A")
+      html = submit_section_account(view, "Savings B")
+
+      assert html =~ "Checking A"
+      assert html =~ "Savings B"
+      assert {:ok, accounts} = Finance.list_accounts(user, user)
+      assert length(accounts) == 2
+    end
+
+    test "a duplicate name shows the error in the section form, without opening the panel", %{
+      conn: conn
+    } do
+      user = user_fixture()
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
+      render_click(view, "show_section", %{"section" => "accounts"})
+
+      submit_section_account(view, "Main")
+      html = submit_section_account(view, "Main")
+
+      assert html =~ "is already used by another of your accounts"
+      refute html =~ ~s(id="quick_account_name")
+      assert {:ok, [_only_one]} = Finance.list_accounts(user, user)
+    end
+
+    test "a failed save from the quick-add panel keeps the error in the panel", %{conn: conn} do
+      user = user_fixture()
+
+      {:ok, _} =
+        Finance.create_account(user, %{
+          "name" => "Main",
+          "kind" => "checking",
+          "current_balance" => "1"
+        })
+
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
+
+      view |> element("button[aria-label=\"New account in current scope\"]") |> render_click()
+
+      html =
+        view
+        |> form("#quick_account",
+          account: %{
+            "name" => "Main",
+            "kind" => "savings",
+            "currency" => "DOP",
+            "current_balance" => "1"
+          }
+        )
+        |> render_submit()
+
+      assert html =~ ~s(id="quick_account_name")
+      assert html =~ "is already used by another of your accounts"
+    end
+
+    test "the Accounts section never renders two account forms", %{conn: conn} do
+      user = user_fixture()
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
+      render_click(view, "show_section", %{"section" => "accounts"})
+
+      html = render(view)
+      assert length(Regex.scan(~r/phx-submit="create_account"/, html)) == 1
+
+      # Here the header button only focuses the section form (client-side JS);
+      # it no longer pushes open_focus_panel, so no second form can open.
+      [button] =
+        html
+        |> LazyHTML.from_fragment()
+        |> LazyHTML.query(~s(button[aria-label="New account in current scope"]))
+        |> Enum.to_list()
+
+      click = button |> LazyHTML.attribute("phx-click") |> List.first()
+      assert click =~ "focus"
+      refute click =~ "open_focus_panel"
+    end
+  end
+
+  describe "transfers across scopes" do
+    setup %{conn: conn} do
+      user = user_fixture()
+      {:ok, household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
+
+      {:ok, personal} =
+        Finance.create_account(user, %{
+          "name" => "My savings",
+          "kind" => "savings",
+          "current_balance" => "1000.00"
+        })
+
+      {:ok, shared} =
+        Finance.create_account(user, household, %{
+          "name" => "Household checking",
+          "kind" => "checking",
+          "current_balance" => "200.00"
+        })
+
+      %{
+        conn: log_in_user(conn, user),
+        user: user,
+        household: household,
+        personal: personal,
+        shared: shared
+      }
+    end
+
+    test "one personal and one household account are enough to transfer", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/finance")
+
+      assert html =~ ~s(id="quick-send-form")
+      assert html =~ ~s(<optgroup label="Personal">)
+      assert html =~ ~s(<optgroup label="Garcia Home">)
+    end
+
+    test "moves money from personal into the household", ctx do
+      {:ok, view, _html} = live(ctx.conn, ~p"/finance")
+
+      view
+      |> form("#quick-send-form",
+        transfer: %{
+          "from_account_id" => ctx.personal.id,
+          "to_account_id" => ctx.shared.id,
+          "amount" => "250.00"
+        }
+      )
+      |> render_submit()
+
+      assert Decimal.equal?(
+               Core.Repo.get!(Core.Finance.Account, ctx.personal.id).current_balance,
+               "750.00"
+             )
+
+      assert Decimal.equal?(
+               Core.Repo.get!(Core.Finance.Account, ctx.shared.id).current_balance,
+               "450.00"
+             )
+    end
+
+    test "with a single account the form explains what's needed", %{conn: conn} do
+      lonely = user_fixture()
+
+      {:ok, _} =
+        Finance.create_account(lonely, %{
+          "name" => "Only one",
+          "kind" => "checking",
+          "current_balance" => "5"
+        })
+
+      {:ok, _view, html} = live(log_in_user(conn, lonely), ~p"/finance")
+
+      refute html =~ ~s(id="quick-send-form")
+      assert html =~ "second account" or html =~ "at least two accounts"
+    end
+  end
+
+  defp submit_section_account(view, name) do
+    view
+    |> form("#account-section-form",
+      account: %{
+        "name" => name,
+        "kind" => "checking",
+        "currency" => "DOP",
+        "current_balance" => "10.00"
+      }
+    )
+    |> render_submit()
+  end
+
+  defp submit_account(view, name) do
+    view
+    |> form("form[phx-submit=\"create_account\"]",
+      account: %{
+        "name" => name,
+        "kind" => "checking",
+        "currency" => "DOP",
+        "current_balance" => "100.00"
+      }
+    )
+    |> render_submit()
   end
 end

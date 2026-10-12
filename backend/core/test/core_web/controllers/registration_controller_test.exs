@@ -4,10 +4,11 @@ defmodule CoreWeb.RegistrationControllerTest do
   alias Core.Accounts
 
   describe "GET /signup" do
-    test "redirects to hub signup inline panel", %{conn: conn} do
+    test "renders the create account form", %{conn: conn} do
       conn = get(conn, ~p"/signup")
 
-      assert redirected_to(conn) == "/hub?auth=signup"
+      html = html_response(conn, 200)
+      assert html =~ "Create account"
     end
   end
 
@@ -36,7 +37,7 @@ defmodule CoreWeb.RegistrationControllerTest do
           "user" => %{"email" => ""}
         })
 
-      assert redirected_to(conn) == "/hub?auth=signup"
+      assert html_response(conn, 422) =~ "Email"
     end
   end
 end

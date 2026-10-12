@@ -6,7 +6,14 @@ defmodule Core.Accounts.UserToken do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @token_types ["access", "refresh", "reset_password", "verify_email", "setup_password"]
+  @token_types [
+    "access",
+    "refresh",
+    "reset_password",
+    "verify_email",
+    "setup_password",
+    "session"
+  ]
 
   @hash_algorithm :sha256
   @rand_size 32
@@ -64,6 +71,14 @@ defmodule Core.Accounts.UserToken do
 
     from __MODULE__,
       where: [token: ^hashed_token, token_type: ^token_type]
+  end
+
+  @doc "Hashes a raw (url-encoded) token the way it is stored."
+  def hash_token(token) when is_binary(token) do
+    case Base.url_decode64(token, padding: false) do
+      {:ok, decoded} -> {:ok, :crypto.hash(@hash_algorithm, decoded) |> Base.encode64()}
+      :error -> :error
+    end
   end
 
   @doc """

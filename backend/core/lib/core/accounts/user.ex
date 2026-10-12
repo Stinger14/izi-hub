@@ -13,12 +13,15 @@ defmodule Core.Accounts.User do
     field :full_name, :string
     field :avatar_url, :string
     field :role, :string, default: "user"
-    field :is_active, :boolean, default: false
+    field :is_active, :boolean, default: true
     field :email_verified, :boolean, default: false
     field :email_verified_at, :naive_datetime
     field :last_login_at, :naive_datetime
+    field :github_username, :string
 
     has_many :user_tokens, Core.Accounts.UserToken
+    has_many :household_memberships, Core.Accounts.HouseholdMember
+    many_to_many :households, Core.Accounts.Household, join_through: Core.Accounts.HouseholdMember
     has_many :projects, Core.Portfolio.Project
     has_many :posts, Core.Blog.Post
     has_many :transactions, Core.Finance.Transaction
@@ -60,6 +63,31 @@ defmodule Core.Accounts.User do
   end
 
   @doc """
+  Changeset for linking (or clearing, with a blank value) the GitHub login
+  shown on the hub's Developer card. Only public data is read for it.
+  """
+  def github_username_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:github_username], empty_values: [nil, ""])
+    |> update_change(:github_username, &normalize_github_username/1)
+    |> then(fn changeset ->
+      if get_change(changeset, :github_username) == "",
+        do: put_change(changeset, :github_username, nil),
+        else: changeset
+    end)
+    |> validate_format(
+      :github_username,
+      ~r/\A[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}\z/,
+      message: "is not a valid GitHub username"
+    )
+  end
+
+  defp normalize_github_username(nil), do: nil
+
+  defp normalize_github_username(login),
+    do: login |> String.trim() |> String.trim_leading("@") |> String.trim()
+
+  @doc """
   Changeset for password updates
   """
   def password_changeset(user, attrs) do
@@ -68,6 +96,55 @@ defmodule Core.Accounts.User do
     |> validate_required([:password])
     |> validate_password()
     |> hash_password()
+  end
+
+  @doc """
+  Changeset for the account settings page: name and username only. Role,
+  status and verification flags are never castable here.
+  """
+  def account_profile_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:full_name, :username])
+    |> update_change(:full_name, &String.trim/1)
+    |> validate_required([:username])
+    |> validate_length(:full_name, max: 120)
+    |> validate_username()
+  end
+
+  @doc """
+  Changeset for a signed-in user changing their own password: needs the
+  current password and a matching confirmation. Both are checked before
+  hashing, because hashing drops the plain password from the changes.
+  """
+  def password_update_changeset(user, attrs, current_password) do
+    user
+    |> cast(attrs, [:password])
+    |> validate_required([:password])
+    |> validate_password()
+    |> validate_confirmation(:password, message: "does not match password", required: true)
+    |> validate_current_password(current_password)
+    |> hash_password()
+  end
+
+  @doc """
+  Changeset for a signed-in user changing their own email: needs the current
+  password, and marks the new address unverified.
+  """
+  def email_update_changeset(user, attrs, current_password) do
+    user
+    |> email_changeset(attrs)
+    |> then(fn changeset ->
+      if get_change(changeset, :email),
+        do: changeset,
+        else: add_error(changeset, :email, "did not change")
+    end)
+    |> validate_current_password(current_password)
+  end
+
+  defp validate_current_password(changeset, password) do
+    if valid_password?(changeset.data, password),
+      do: changeset,
+      else: add_error(changeset, :current_password, "is not valid")
   end
 
   @doc """

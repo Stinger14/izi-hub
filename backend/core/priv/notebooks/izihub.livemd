@@ -1,0 +1,19 @@
+<!-- livebook:{"file_entries":[{"name":"IMG_2531.png","type":"attachment"}]} -->
+
+# IziHub
+
+## Polo Studio
+
+### Feature Spec
+
+* Todo's app
+* Courses section
+* Books tracker
+* Google's calendar & Gmail integration
+* Music player
+* Translator
+* Content Creation automation
+
+### Planification
+
+App should live in `smart_services/`

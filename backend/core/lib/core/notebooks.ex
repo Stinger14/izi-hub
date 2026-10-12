@@ -16,6 +16,62 @@ defmodule Core.Notebooks do
   @preview_extension ".md"
   @app_extension ".livemd"
   @local_dir Path.join(to_string(:code.priv_dir(:core)), "notebooks")
+  @books_dir Path.join(to_string(:code.priv_dir(:core)), "books")
+
+  def list_books do
+    case File.ls(@books_dir) do
+      {:ok, entries} ->
+        books =
+          entries
+          |> Enum.filter(&(String.downcase(Path.extname(&1)) == ".pdf"))
+          |> Enum.map(fn filename ->
+            name = Path.rootname(filename)
+
+            %{
+              slug: book_slug(name),
+              title:
+                name
+                |> String.replace(~r/[-_]+/, " ")
+                |> String.split()
+                |> Enum.map_join(" ", &String.capitalize/1),
+              filename: filename
+            }
+          end)
+          |> Enum.sort_by(&String.downcase(&1.title))
+
+        {:ok, books}
+
+      {:error, :enoent} ->
+        {:ok, []}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def fetch_book(slug) when is_binary(slug) do
+    if Regex.match?(~r/\A[\p{L}\p{N}][\p{L}\p{N}-]*\z/u, slug) do
+      with {:ok, books} <- list_books(),
+           %{} = book <- Enum.find(books, &(&1.slug == slug)),
+           path = Path.join(@books_dir, book.filename),
+           {:ok, %File.Stat{type: :regular}} <- File.lstat(path) do
+        {:ok, path}
+      else
+        _ -> {:error, :not_found}
+      end
+    else
+      {:error, :not_found}
+    end
+  end
+
+  def fetch_book(_slug), do: {:error, :not_found}
+
+  defp book_slug(name) do
+    name
+    |> String.downcase()
+    |> String.replace(~r/[^\p{L}\p{N}]+/u, "-")
+    |> String.trim("-")
+  end
 
   def list_notebooks do
     case source_mode() do

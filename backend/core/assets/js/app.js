@@ -1,12 +1,102 @@
 import "phoenix_html";
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
+import ApexCharts from "apexcharts";
 
 let csrfToken = document
   .querySelector("meta[name='csrf-token']")
   ?.getAttribute("content");
 
 let Hooks = {};
+
+// Flash toasts on LiveView pages: info messages auto-dismiss (errors stay
+// until closed). Clearing goes through lv:clear-flash so the server-side
+// flash is cleared too and the next patch doesn't bring it back.
+Hooks.Flash = {
+  mounted() {
+    const delay = parseInt(this.el.dataset.flashAutodismiss || "", 10);
+    if (delay > 0) {
+      this.timer = setTimeout(() => {
+        this.pushEvent("lv:clear-flash", { key: this.el.dataset.flashKind });
+        this.el.hidden = true;
+      }, delay);
+    }
+  },
+  destroyed() {
+    clearTimeout(this.timer);
+  },
+};
+
+Hooks.AutoGrow = {
+  mounted() {
+    this.resize = () => {
+      this.el.style.height = "auto";
+      this.el.style.height = `${this.el.scrollHeight}px`;
+    };
+    this.el.addEventListener("input", this.resize);
+    this.resize();
+  },
+  updated() {
+    this.resize();
+  },
+  destroyed() {
+    this.el.removeEventListener("input", this.resize);
+  },
+};
+
+// Copies data-copy-value to the clipboard on click and briefly flags the
+// button as "Copied" via data-copied (styled/labeled from CSS/markup).
+Hooks.CopyToClipboard = {
+  mounted() {
+    this.onClick = () => {
+      const value = this.el.dataset.copyValue;
+      if (!value || !navigator.clipboard) return;
+      navigator.clipboard.writeText(value).then(() => {
+        this.el.dataset.copied = "true";
+        this.el.setAttribute("title", "Copied!");
+        clearTimeout(this.timer);
+        this.timer = setTimeout(() => {
+          delete this.el.dataset.copied;
+          this.el.setAttribute("title", this.el.dataset.copyTitle || "Copy");
+        }, 1500);
+      });
+    };
+    this.el.addEventListener("click", this.onClick);
+  },
+  destroyed() {
+    this.el.removeEventListener("click", this.onClick);
+    clearTimeout(this.timer);
+  },
+};
+
+// Generic ApexCharts hook. The hook element carries the full chart config as
+// JSON in data-chart; the chart mounts into the inner [data-chart-target]
+// node, which is phx-update="ignore" so LiveView patches never touch Apex's
+// DOM. On update we re-read data-chart and re-render.
+Hooks.ApexChart = {
+  mounted() {
+    this.render();
+  },
+  updated() {
+    this.render();
+  },
+  destroyed() {
+    if (this.chart) this.chart.destroy();
+  },
+  render() {
+    const target = this.el.querySelector("[data-chart-target]");
+    if (!target) return;
+    let options;
+    try {
+      options = JSON.parse(this.el.dataset.chart);
+    } catch {
+      return;
+    }
+    if (this.chart) this.chart.destroy();
+    this.chart = new ApexCharts(target, options);
+    this.chart.render();
+  },
+};
 
 Hooks.ScrollHint = {
   mounted() {
@@ -163,115 +253,46 @@ Hooks.StackPreview = {
   },
 };
 
-let inlineAuthBound = false;
-const AUTH_PANEL_SCROLL_CLOSE_Y = 220;
+// Controller-rendered pages (login, signup, set-password) have no LiveView,
+// so hooks and phx-click don't run there; handle their flashes directly.
+const setupStaticFlashes = () => {
+  document.querySelectorAll("[data-flash]").forEach((el) => {
+    if (el.closest("[data-phx-session]") || el.dataset.flashReady) return;
+    el.dataset.flashReady = "true";
 
-const hasOpenAuthPanel = () =>
-  document.querySelector("[data-auth-panel]:not(.hidden)") !== null;
+    const close = () => el.remove();
+    el.querySelector("[data-flash-dismiss]")?.addEventListener("click", close);
 
-const closeAllAuthPanels = () => {
-  document
-    .querySelectorAll("[data-auth-panel]")
-    .forEach((panel) => panel.classList.add("hidden"));
-
-  document
-    .querySelectorAll("[data-auth-backdrop]")
-    .forEach((backdrop) => backdrop.classList.add("hidden"));
-
-  document
-    .querySelectorAll("[data-auth-shell]")
-    .forEach((shell) => shell.classList.add("hidden"));
-};
-
-const openAuthPanel = (root, panelName) => {
-  let hasVisiblePanel = false;
-
-  root.querySelectorAll("[data-auth-panel]").forEach((panel) => {
-    const isVisible = panel.dataset.authPanel === panelName;
-    panel.classList.toggle("hidden", !isVisible);
-    hasVisiblePanel = hasVisiblePanel || isVisible;
-  });
-
-  document.querySelectorAll("[data-auth-backdrop]").forEach((backdrop) => {
-    backdrop.classList.toggle("hidden", !hasVisiblePanel);
-  });
-
-  root.querySelectorAll("[data-auth-shell]").forEach((shell) => {
-    shell.classList.toggle("hidden", !hasVisiblePanel);
+    const delay = parseInt(el.dataset.flashAutodismiss || "", 10);
+    if (delay > 0) setTimeout(close, delay);
   });
 };
 
-const setupInlineAuth = () => {
-  if (!inlineAuthBound) {
-    inlineAuthBound = true;
+window.addEventListener("DOMContentLoaded", setupStaticFlashes);
 
-    document.addEventListener("click", (event) => {
-      const toggle = event.target.closest("[data-auth-toggle]");
-      if (toggle) {
-        event.preventDefault();
-
-        const root = toggle.closest("[data-auth-inline]");
-        if (!root) return;
-
-        const panelName = toggle.dataset.authToggle;
-        const panel = root.querySelector(`[data-auth-panel="${panelName}"]`);
-        if (!panel) return;
-
-        if (panel.classList.contains("hidden")) {
-          closeAllAuthPanels();
-          openAuthPanel(root, panelName);
-        } else {
-          closeAllAuthPanels();
-        }
-
-        return;
-      }
-
-      const closeButton = event.target.closest("[data-auth-close]");
-      if (closeButton) {
-        event.preventDefault();
-        closeAllAuthPanels();
-        return;
-      }
-
-      if (!event.target.closest("[data-auth-inline]")) {
-        closeAllAuthPanels();
-      }
-    });
-
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        closeAllAuthPanels();
-      }
-    });
-
-    window.addEventListener(
-      "scroll",
-      () => {
-        if (window.scrollY > AUTH_PANEL_SCROLL_CLOSE_Y && hasOpenAuthPanel()) {
-          closeAllAuthPanels();
-        }
-      },
-      { passive: true },
-    );
-  }
-
-  const authParam = new URLSearchParams(window.location.search).get("auth");
-  if (authParam === "login" || authParam === "signup") {
-    document.querySelectorAll("[data-auth-inline]").forEach((root) => {
-      openAuthPanel(root, authParam);
-    });
-
-    const params = new URLSearchParams(window.location.search);
-    params.delete("auth");
-    const search = params.toString();
-    const nextUrl = `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`;
-    window.history.replaceState({}, "", nextUrl);
-  }
+// Keep flash toasts visible: record where the header ends so they sit just
+// below it on phones, and float at the top centre once it has scrolled away.
+const syncFlashPosition = () => {
+  const header = document.querySelector("header");
+  if (!header) return;
+  const bottom = header.getBoundingClientRect().bottom;
+  document.body.style.setProperty("--flash-top", `${Math.max(bottom, 0) + 8}px`);
+  document.body.classList.toggle("header-offscreen", bottom <= 0);
 };
 
-window.addEventListener("DOMContentLoaded", setupInlineAuth);
-window.addEventListener("phx:page-loading-stop", setupInlineAuth);
+let flashFrame = null;
+const scheduleFlashSync = () => {
+  if (flashFrame) return;
+  flashFrame = requestAnimationFrame(() => {
+    flashFrame = null;
+    syncFlashPosition();
+  });
+};
+
+window.addEventListener("scroll", scheduleFlashSync, { passive: true });
+window.addEventListener("resize", scheduleFlashSync);
+window.addEventListener("DOMContentLoaded", syncFlashPosition);
+window.addEventListener("phx:page-loading-stop", syncFlashPosition);
 
 let liveSocket = new LiveSocket("/live", Socket, {
   params: { _csrf_token: csrfToken },

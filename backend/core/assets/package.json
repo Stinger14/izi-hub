@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "apexcharts": "^5.16.0",
     "phoenix": "^1.8.2",
     "phoenix_html": "^4.3.0",
     "phoenix_live_view": "^1.1.18"

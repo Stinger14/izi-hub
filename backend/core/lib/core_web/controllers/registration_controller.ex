@@ -4,7 +4,7 @@ defmodule CoreWeb.RegistrationController do
   alias Core.Accounts
 
   def new(conn, _params) do
-    redirect(conn, to: ~p"/hub?auth=signup")
+    render(conn, :new, errors: [], form_data: %{})
   end
 
   def create(conn, %{"user" => user_params}) do
@@ -15,21 +15,23 @@ defmodule CoreWeb.RegistrationController do
         |> redirect(to: ~p"/set-password?token=#{setup_token}")
 
       {:error, :username_generation_failed} ->
-        conn
-        |> put_flash(:error, "Unable to generate a unique username. Please try again.")
-        |> redirect(to: ~p"/hub?auth=signup")
+        render_registration_error(conn, user_params, [
+          "Unable to generate a unique username. Please try again."
+        ])
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        conn
-        |> put_flash(:error, registration_errors(changeset) |> Enum.join(". "))
-        |> redirect(to: ~p"/hub?auth=signup")
+        render_registration_error(conn, user_params, registration_errors(changeset))
     end
   end
 
   def create(conn, _params) do
+    render_registration_error(conn, %{}, ["Invalid signup payload"])
+  end
+
+  defp render_registration_error(conn, form_data, errors) do
     conn
-    |> put_flash(:error, "Invalid signup payload")
-    |> redirect(to: ~p"/hub?auth=signup")
+    |> put_status(:unprocessable_entity)
+    |> render(:new, errors: errors, form_data: form_data)
   end
 
   defp registration_errors(changeset) do
