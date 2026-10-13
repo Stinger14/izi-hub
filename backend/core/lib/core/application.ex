@@ -17,6 +17,8 @@ defmodule Core.Application do
       {DNSCluster, query: Application.get_env(:core, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Core.PubSub, adapter: Phoenix.PubSub.PG2},
       CoreWeb.Presence,
+      # Fire-and-forget work such as sending emails off the request path.
+      {Task.Supervisor, name: Core.TaskSupervisor},
       # Start a worker by calling: Core.Worker.start_link(arg)
       # {Core.Worker, arg},
       # Start to serve requests, typically the last entry

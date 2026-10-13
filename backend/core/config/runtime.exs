@@ -59,4 +59,8 @@ if System.get_env("SMTP_HOST") do
     port: String.to_integer(System.get_env("SMTP_PORT") || "587"),
     tls: :always,
     auth: :always
+
+  if from = System.get_env("MAIL_FROM") do
+    config :core, :mail_from, {"IziHub", from}
+  end
 end

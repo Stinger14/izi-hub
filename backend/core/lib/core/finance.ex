@@ -195,6 +195,19 @@ defmodule Core.Finance do
     )
   end
 
+  @doc """
+  Tells a user's open pages to reload, for changes that aren't a finance
+  record (a household invitation sent to them, or one they answered).
+  """
+  def notify_user_change(user_id) do
+    Phoenix.PubSub.broadcast_from(
+      @pubsub,
+      self(),
+      owner_topic({:user, user_id}),
+      {:finance_changed, {:user, user_id}}
+    )
+  end
+
   defp owner_topic({:user, id}), do: "finance:user:#{id}"
   defp owner_topic({:household, id}), do: "finance:household:#{id}"
 
@@ -534,6 +547,9 @@ defmodule Core.Finance do
   defp presence(""), do: nil
   defp presence(value), do: value
 
+  defp trimmed_presence(value) when is_binary(value), do: value |> String.trim() |> presence()
+  defp trimmed_presence(value), do: presence(value)
+
   defp insert_transfer_leg!(attrs, owner) do
     %Transaction{}
     |> Transaction.changeset(scope_attrs(attrs, owner))
@@ -697,6 +713,64 @@ defmodule Core.Finance do
       |> Account.changeset(attrs)
       |> Repo.insert()
       |> broadcast_change()
+    end
+  end
+
+  @doc """
+  Creates a household owned by `user` and, when any starting-account field is
+  filled, its first account in the same transaction, so the household's
+  dashboard shows a balance right away. A blank account name defaults to
+  "Household account". An invalid account rolls the household back.
+
+  Returns `{:ok, household}`, `{:error, :household, changeset}` or
+  `{:error, :account, changeset}`.
+  """
+  def create_household_with_account(%User{} = user, household_attrs, account_attrs \\ %{}) do
+    account_attrs = starting_account_attrs(account_attrs)
+
+    Repo.transaction(fn ->
+      household =
+        case Accounts.create_household(user, household_attrs) do
+          {:ok, household} -> household
+          {:error, changeset} -> Repo.rollback({:household, changeset})
+        end
+
+      if account_attrs do
+        case create_account(user, household, account_attrs) do
+          {:ok, _account} -> :ok
+          {:error, changeset} -> Repo.rollback({:account, changeset})
+        end
+      end
+
+      household
+    end)
+    |> case do
+      {:ok, household} ->
+        # The creator's other tabs (and the hub) pick up the new household.
+        notify_user_change(user.id)
+
+        {:ok, household}
+
+      {:error, {step, changeset}} ->
+        {:error, step, changeset}
+    end
+  end
+
+  @starting_account_fields ["name", "kind", "currency", "current_balance"]
+
+  defp starting_account_attrs(attrs) do
+    attrs = attrs |> Map.new() |> Map.new(fn {key, value} -> {to_string(key), value} end)
+
+    name = trimmed_presence(attrs["name"])
+    balance = trimmed_presence(attrs["current_balance"])
+
+    if name || balance do
+      attrs
+      |> Map.take(@starting_account_fields)
+      |> Map.put("name", name || "Household account")
+      |> Map.put("current_balance", balance || "0")
+      |> Map.put_new("kind", "checking")
+      |> Map.put_new("currency", @default_currency)
     end
   end
 
