@@ -35,17 +35,31 @@ defmodule CoreWeb.UserAuth do
   @doc """
   Where to go right after signing in or setting a password: back to a
   household invitation opened while signed out (`remember_invitation/2`),
-  otherwise `default`. Clears the remembered invitation.
+  then to the page that asked for sign-in (`:user_return_to`), otherwise
+  `default`. Clears both.
   """
   def after_sign_in_path(conn, default) do
-    case get_session(conn, :pending_invite) do
-      token when is_binary(token) ->
-        {delete_session(conn, :pending_invite), ~p"/invites/#{token}"}
+    path =
+      case get_session(conn, :pending_invite) do
+        token when is_binary(token) -> ~p"/invites/#{token}"
+        _ -> local_path(get_session(conn, :user_return_to)) || default
+      end
 
-      _ ->
-        {conn, default}
-    end
+    conn =
+      conn
+      |> delete_session(:pending_invite)
+      |> delete_session(:user_return_to)
+
+    {conn, path}
   end
+
+  # Only same-site paths: "/x" but not "//host" or "/\host", which browsers
+  # treat as another site.
+  defp local_path("/" <> rest = path) do
+    if String.starts_with?(rest, ["/", "\\"]), do: nil, else: path
+  end
+
+  defp local_path(_path), do: nil
 
   @doc "Remembers an invitation link so sign-in or signup can return to it."
   def remember_invitation(conn, token), do: put_session(conn, :pending_invite, token)
@@ -89,10 +103,7 @@ defmodule CoreWeb.UserAuth do
         conn
 
       is_nil(conn.assigns.current_scope) ->
-        conn
-        |> put_flash(:error, "Please sign in to continue")
-        |> redirect(to: ~p"/login?error=auth")
-        |> halt()
+        redirect_signed_out(conn)
 
       true ->
         conn
@@ -103,15 +114,28 @@ defmodule CoreWeb.UserAuth do
   end
 
   def require_authenticated_user(conn, _opts) do
-    if is_nil(conn.assigns.current_scope) do
-      conn
-      |> put_flash(:error, "Please sign in to continue")
-      |> redirect(to: ~p"/login?error=auth")
-      |> halt()
-    else
-      conn
-    end
+    if is_nil(conn.assigns.current_scope), do: redirect_signed_out(conn), else: conn
   end
+
+  # The hub is the default destination, not a page someone deliberately
+  # opened, so signed-out visitors get the public landing page instead of an
+  # error. Any other page sends them to sign in and back here afterwards.
+  defp redirect_signed_out(%Plug.Conn{request_path: "/hub"} = conn) do
+    conn |> redirect(to: ~p"/welcome") |> halt()
+  end
+
+  defp redirect_signed_out(conn) do
+    conn
+    |> maybe_store_return_to()
+    |> put_flash(:error, "Please sign in to continue")
+    |> redirect(to: ~p"/login?error=auth")
+    |> halt()
+  end
+
+  defp maybe_store_return_to(%Plug.Conn{method: "GET"} = conn),
+    do: put_session(conn, :user_return_to, current_path(conn))
+
+  defp maybe_store_return_to(conn), do: conn
 
   def require_authenticated_api_user(conn, _opts) do
     if is_nil(conn.assigns.current_scope) do
@@ -150,13 +174,18 @@ defmodule CoreWeb.UserAuth do
   end
 
   def on_mount(:ensure_authenticated, _params, _session, socket) do
-    if is_nil(socket.assigns.current_scope) do
-      {:halt,
-       socket
-       |> Phoenix.LiveView.put_flash(:error, "Please sign in to continue")
-       |> Phoenix.LiveView.redirect(to: ~p"/login?error=auth")}
-    else
-      {:cont, socket}
+    cond do
+      socket.assigns.current_scope ->
+        {:cont, socket}
+
+      socket.view == CoreWeb.HubLive ->
+        {:halt, Phoenix.LiveView.redirect(socket, to: ~p"/welcome")}
+
+      true ->
+        {:halt,
+         socket
+         |> Phoenix.LiveView.put_flash(:error, "Please sign in to continue")
+         |> Phoenix.LiveView.redirect(to: ~p"/login?error=auth")}
     end
   end
 

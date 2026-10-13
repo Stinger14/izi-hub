@@ -70,19 +70,23 @@ defmodule CoreWeb.Router do
     post "/invites/:token/decline", InvitationController, :decline
 
     get "/cv", CVController, :download
-    get "/", RedirectController, :to_welcome
+    get "/", RedirectController, :root
 
     live_session :default,
       on_mount: [
         {CoreWeb.UserAuth, :mount_current_scope},
         {CoreWeb.UserAuth, :track_site_presence}
       ] do
+      # Public pages: everything else needs an account.
       live "/welcome", HubLandingLive, :index
-      live "/hub", HubLive, :index
-      live "/resources", ResourcesLive, :index
       live "/profile", ProfileLive, :index
-      live "/liveapps", LiveAppsLive, :index
     end
+  end
+
+  scope "/", CoreWeb do
+    # The plug runs on the first (HTTP) render, so it can remember the page
+    # for after sign-in; the on_mount hook guards live navigation.
+    pipe_through [:browser, :require_authenticated_user]
 
     live_session :authenticated,
       on_mount: [
@@ -90,6 +94,9 @@ defmodule CoreWeb.Router do
         {CoreWeb.UserAuth, :ensure_authenticated},
         {CoreWeb.UserAuth, :track_site_presence}
       ] do
+      live "/hub", HubLive, :index
+      live "/resources", ResourcesLive, :index
+      live "/liveapps", LiveAppsLive, :index
       live "/office", OfficeLive, :index
       live "/office/:slug", OfficeLive, :show
       live "/finance", FinanceLive, :index
@@ -98,10 +105,6 @@ defmodule CoreWeb.Router do
       live "/notebooks", NotebooksLive, :index
       live "/notebooks/:slug", NotebooksLive, :show
     end
-  end
-
-  scope "/", CoreWeb do
-    pipe_through [:browser, :require_authenticated_user]
 
     get "/books/:slug", BooksController, :download
   end

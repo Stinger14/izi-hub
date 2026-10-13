@@ -18,7 +18,7 @@ defmodule CoreWeb.ProfileLive do
             <div class="flex items-center justify-between">
               <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--hub-accent-2)]">Profile</p>
               <a
-                href={~p"/hub"}
+                href={if @current_scope, do: ~p"/hub", else: ~p"/welcome"}
                 class="btn btn-secondary btn-sm"
               >
                 Back home

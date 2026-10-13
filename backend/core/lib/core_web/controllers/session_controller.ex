@@ -39,7 +39,7 @@ defmodule CoreWeb.SessionController do
     conn
     |> UserAuth.log_out_user()
     |> put_flash(:info, "Logged out")
-    |> redirect(to: ~p"/hub")
+    |> redirect(to: ~p"/welcome")
   end
 
   defp after_login_path(%{role: "admin"}), do: ~p"/admin"
