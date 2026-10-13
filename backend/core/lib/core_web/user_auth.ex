@@ -32,6 +32,24 @@ defmodule CoreWeb.UserAuth do
     |> put_session(:live_socket_id, Accounts.session_socket_id(token_id))
   end
 
+  @doc """
+  Where to go right after signing in or setting a password: back to a
+  household invitation opened while signed out (`remember_invitation/2`),
+  otherwise `default`. Clears the remembered invitation.
+  """
+  def after_sign_in_path(conn, default) do
+    case get_session(conn, :pending_invite) do
+      token when is_binary(token) ->
+        {delete_session(conn, :pending_invite), ~p"/invites/#{token}"}
+
+      _ ->
+        {conn, default}
+    end
+  end
+
+  @doc "Remembers an invitation link so sign-in or signup can return to it."
+  def remember_invitation(conn, token), do: put_session(conn, :pending_invite, token)
+
   @doc "Signs out this browser: revokes its token and drops its open LiveViews."
   def log_out_user(conn) do
     conn |> get_session(:user_token) |> Accounts.delete_user_session_token()

@@ -76,6 +76,7 @@ defmodule CoreWeb.HubComponents do
   attr :finance, :map, default: nil
   attr :scope, :string, default: "personal"
   attr :household, :any, default: nil
+  attr :invitation_count, :integer, default: 0
 
   def finance_card(assigns) do
     ~H"""
@@ -105,6 +106,18 @@ defmodule CoreWeb.HubComponents do
           </button>
         </div>
       </div>
+
+      <a
+        :if={@invitation_count > 0}
+        id="hub-household-invitations"
+        href={~p"/finance#finance-invitations"}
+        class="mt-3 inline-flex items-center gap-1.5 self-start rounded-lg border border-[color:var(--hub-accent)]/40 px-2.5 py-1.5 text-xs font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)]"
+      >
+        <.icon name="hero-envelope" class="h-3.5 w-3.5" />
+        <%= if @invitation_count == 1,
+          do: "1 household invitation",
+          else: "#{@invitation_count} household invitations" %>
+      </a>
 
       <%= cond do %>
         <% is_nil(@current_scope) -> %>

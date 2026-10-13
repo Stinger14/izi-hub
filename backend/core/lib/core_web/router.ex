@@ -65,6 +65,10 @@ defmodule CoreWeb.Router do
     post "/login", SessionController, :create
     delete "/logout", SessionController, :delete
 
+    get "/invites/:token", InvitationController, :show
+    post "/invites/:token/accept", InvitationController, :accept
+    post "/invites/:token/decline", InvitationController, :decline
+
     get "/cv", CVController, :download
     get "/", RedirectController, :to_welcome
 

@@ -1,0 +1,49 @@
+<main class="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-md items-center px-4 py-12 sm:px-6">
+  <div id="household-invitation" class="hub-glass w-full rounded-2xl p-6">
+    <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--hub-accent-2)]">
+      Household invitation
+    </p>
+
+    <%= if @invitation do %>
+      <h1 class="font-display mt-2 text-2xl text-[var(--hub-text)]">
+        Join <%= @invitation.household.name %>
+      </h1>
+      <p class="mt-2 text-sm leading-6 text-[var(--hub-muted)]">
+        <%= inviter_name(@invitation.invited_by) %> invited <strong class="text-[var(--hub-text)]"><%= @invitation.email %></strong>
+        to share accounts, budgets and spending in IziHub Finance.
+      </p>
+
+      <%= if @current_scope do %>
+        <p class="mt-4 text-xs text-[var(--hub-muted)]">
+          You're signed in as <%= @current_scope.user.email %>.
+        </p>
+        <div class="mt-5 flex flex-wrap justify-end gap-2">
+          <.form for={%{}} as={:invitation} action={~p"/invites/#{@token}/decline"} method="post">
+            <button type="submit" id="decline-invitation" class="btn btn-ghost btn-sm">Decline</button>
+          </.form>
+          <.form for={%{}} as={:invitation} action={~p"/invites/#{@token}/accept"} method="post">
+            <button type="submit" id="accept-invitation" class="btn btn-primary btn-sm">
+              Join household
+            </button>
+          </.form>
+        </div>
+      <% else %>
+        <p class="mt-4 text-sm text-[var(--hub-muted)]">
+          Create an account or sign in to accept. You'll come back here afterwards.
+        </p>
+        <div class="mt-5 flex flex-wrap justify-end gap-2">
+          <a href={~p"/login"} id="invitation-sign-in" class="btn btn-secondary btn-sm">Sign in</a>
+          <a href={~p"/signup?email=#{@invitation.email}"} id="invitation-sign-up" class="btn btn-primary btn-sm">
+            Create account
+          </a>
+        </div>
+      <% end %>
+    <% else %>
+      <h1 class="font-display mt-2 text-2xl text-[var(--hub-text)]">Invitation unavailable</h1>
+      <p class="mt-2 text-sm text-[var(--hub-muted)]"><%= problem_message(@problem) %></p>
+      <div class="mt-5 flex justify-end">
+        <a href={~p"/hub"} class="btn btn-secondary btn-sm">Go to the hub</a>
+      </div>
+    <% end %>
+  </div>
+</main>

@@ -404,6 +404,7 @@ defmodule CoreWeb.HubLive do
               finance={@finance}
               scope={@finance_scope}
               household={@finance_household}
+              invitation_count={@finance_invitations}
             />
             <.role_stats_card
               variant={@stats_variant}
@@ -469,7 +470,12 @@ defmodule CoreWeb.HubLive do
   defp assign_finance_card(socket, scope) do
     case current_user(socket) do
       nil ->
-        assign(socket, finance: nil, finance_scope: "personal", finance_household: nil)
+        assign(socket,
+          finance: nil,
+          finance_scope: "personal",
+          finance_household: nil,
+          finance_invitations: 0
+        )
 
       user ->
         household = user |> Accounts.list_households_for_user() |> List.first()
@@ -479,7 +485,8 @@ defmodule CoreWeb.HubLive do
         assign(socket,
           finance: finance_snapshot(user, owner, Date.utc_today()),
           finance_scope: scope,
-          finance_household: household
+          finance_household: household,
+          finance_invitations: length(Accounts.list_pending_invitations_for_user(user))
         )
     end
   end
