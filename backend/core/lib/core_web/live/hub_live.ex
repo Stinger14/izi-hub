@@ -10,20 +10,16 @@ defmodule CoreWeb.HubLive do
   def mount(_params, _session, socket) do
     month = month_start(Date.utc_today())
 
-    case socket.assigns[:current_scope] do
-      %{user: user} ->
-        if connected?(socket) do
-          Office.subscribe(user)
-          Finance.subscribe(user)
-        end
+    # The hub is sign-in only (the router's :authenticated live_session).
+    user = current_user(socket)
 
-      _ ->
-        :ok
+    if connected?(socket) do
+      Office.subscribe(user)
+      Finance.subscribe(user)
     end
 
     {:ok,
      socket
-     |> assign_new(:current_scope, fn -> nil end)
      |> assign(
        calendar_month: month,
        calendar_days: [],
@@ -86,7 +82,7 @@ defmodule CoreWeb.HubLive do
   def handle_event("set_finance_scope", _params, socket), do: {:noreply, socket}
 
   def handle_event("edit_github", _params, socket) do
-    login = current_user(socket) && current_user(socket).github_username
+    login = current_user(socket).github_username
 
     {:noreply,
      assign(socket, github_editing: true, github_form: github_form(%{"github_username" => login}))}
@@ -97,29 +93,24 @@ defmodule CoreWeb.HubLive do
   end
 
   def handle_event("save_github", %{"github" => params}, socket) do
-    case current_user(socket) do
-      nil ->
-        {:noreply, socket}
+    case Accounts.update_github_username(current_user(socket), params) do
+      {:ok, user} ->
+        {:noreply,
+         socket
+         |> assign(:current_scope, %{socket.assigns.current_scope | user: user})
+         |> assign(github_editing: false, github_form: github_form(%{}))
+         |> assign_developer()}
 
-      user ->
-        case Accounts.update_github_username(user, params) do
-          {:ok, user} ->
-            {:noreply,
-             socket
-             |> assign(:current_scope, %{socket.assigns.current_scope | user: user})
-             |> assign(github_editing: false, github_form: github_form(%{}))
-             |> assign_developer()}
-
-          {:error, changeset} ->
-            {:noreply,
-             assign(socket, github_editing: true, github_form: to_form(changeset, as: :github))}
-        end
+      {:error, changeset} ->
+        {:noreply,
+         assign(socket, github_editing: true, github_form: to_form(changeset, as: :github))}
     end
   end
 
   def handle_event("quick_add_task", %{"task" => %{"title" => title}}, socket) do
-    with %{} = user <- current_user(socket),
-         title when title != "" <- String.trim(title) do
+    user = current_user(socket)
+
+    with title when title != "" <- String.trim(title) do
       date = socket.assigns.selected_date || Date.utc_today()
 
       case Office.create_work_item(user, Office.default_project_for_user(user), %{
@@ -140,8 +131,9 @@ defmodule CoreWeb.HubLive do
   # Quick edits from the hub: title and scheduled day. Everything else is
   # edited in IziOffice.
   def handle_event("edit_hub_task", %{"id" => id}, socket) do
-    with %{} = user <- current_user(socket),
-         %{} = task <- Office.get_user_work_item(user, id) do
+    user = current_user(socket)
+
+    with %{} = task <- Office.get_user_work_item(user, id) do
       form =
         to_form(
           %{
@@ -166,8 +158,9 @@ defmodule CoreWeb.HubLive do
     do: {:noreply, assign(socket, editing_hub_task_id: nil, hub_task_form: nil)}
 
   def handle_event("save_hub_task", %{"hub_task" => params}, socket) do
-    with %{} = user <- current_user(socket),
-         %{} = task <- Office.get_user_work_item(user, socket.assigns.editing_hub_task_id),
+    user = current_user(socket)
+
+    with %{} = task <- Office.get_user_work_item(user, socket.assigns.editing_hub_task_id),
          {:ok, _task} <-
            Office.update_work_item(task, Map.take(params, ["title", "scheduled_for"])) do
       {:noreply,
@@ -190,8 +183,9 @@ defmodule CoreWeb.HubLive do
     do: {:noreply, assign(socket, confirming_hub_task_delete_id: nil)}
 
   def handle_event("delete_hub_task", %{"id" => id}, socket) do
-    with %{} = user <- current_user(socket),
-         %{} = task <- Office.get_user_work_item(user, id) do
+    user = current_user(socket)
+
+    with %{} = task <- Office.get_user_work_item(user, id) do
       Office.delete_work_item(user, task)
     end
 
@@ -199,8 +193,9 @@ defmodule CoreWeb.HubLive do
   end
 
   def handle_event("advance_task", %{"id" => id}, socket) do
-    with %{} = user <- current_user(socket),
-         %{} = task <- Office.get_user_work_item(user, id),
+    user = current_user(socket)
+
+    with %{} = task <- Office.get_user_work_item(user, id),
          next when is_binary(next) <- Office.next_status(task.status) do
       Office.transition_work_item(task, next, user)
     end
@@ -314,8 +309,7 @@ defmodule CoreWeb.HubLive do
                 </summary>
                 <div class="hub-glass absolute right-0 top-full z-[60] mt-2 grid w-52 gap-1 rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-card)] p-2 shadow-[0_24px_40px_-20px_var(--hub-shadow)]">
                   <a
-                    :for={{label, path, auth?} <- page_links()}
-                    :if={!auth? or @current_scope}
+                    :for={{label, path} <- page_links()}
                     href={path}
                     class="rounded-lg px-3 py-2 text-sm font-medium text-[var(--hub-text)] transition hover:bg-[var(--hub-surface)] hover:text-[var(--hub-primary)]"
                   >
@@ -323,13 +317,6 @@ defmodule CoreWeb.HubLive do
                   </a>
                 </div>
               </details>
-              <a
-                :if={is_nil(@current_scope)}
-                href={~p"/login"}
-                class="btn btn-primary btn-xs shrink-0"
-              >
-                Sign in
-              </a>
             </div>
             <section
               :if={@translator_open}
@@ -400,7 +387,6 @@ defmodule CoreWeb.HubLive do
 
           <div class="grid gap-5 lg:grid-cols-2">
             <.finance_card
-              current_scope={@current_scope}
               finance={@finance}
               scope={@finance_scope}
               household={@finance_household}
@@ -408,7 +394,6 @@ defmodule CoreWeb.HubLive do
             />
             <.role_stats_card
               variant={@stats_variant}
-              current_scope={@current_scope}
               developer={@developer}
               github_form={@github_form}
               github_editing={@github_editing}
@@ -417,7 +402,6 @@ defmodule CoreWeb.HubLive do
 
           <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
             <.tasks_panel
-              current_scope={@current_scope}
               focus={@focus}
               form={@task_form}
               selected_date={@selected_date}
@@ -434,7 +418,7 @@ defmodule CoreWeb.HubLive do
                 agenda={@agenda}
               />
               <.music_card />
-              <.library_shortcuts current_scope={@current_scope} />
+              <.library_shortcuts />
               <.gmail_preview />
             </aside>
           </div>
@@ -444,8 +428,7 @@ defmodule CoreWeb.HubLive do
     """
   end
 
-  defp current_user(%{assigns: %{current_scope: %{user: user}}}), do: user
-  defp current_user(_socket), do: nil
+  defp current_user(socket), do: socket.assigns.current_scope.user
 
   defp github_form(params), do: to_form(params, as: :github)
 
@@ -459,36 +442,23 @@ defmodule CoreWeb.HubLive do
 
       %{} ->
         assign(socket, :developer, AsyncResult.ok(:not_linked))
-
-      nil ->
-        assign(socket, :developer, AsyncResult.ok(:signed_out))
     end
   end
 
   # Finance card: reuses Core.Finance so the hub shows the same numbers as the
   # Finance dashboard. Household scope is offered only to household members.
   defp assign_finance_card(socket, scope) do
-    case current_user(socket) do
-      nil ->
-        assign(socket,
-          finance: nil,
-          finance_scope: "personal",
-          finance_household: nil,
-          finance_invitations: 0
-        )
+    user = current_user(socket)
+    household = user |> Accounts.list_households_for_user() |> List.first()
+    scope = if scope == "household" and household, do: "household", else: "personal"
+    owner = if scope == "household", do: household, else: user
 
-      user ->
-        household = user |> Accounts.list_households_for_user() |> List.first()
-        scope = if scope == "household" and household, do: "household", else: "personal"
-        owner = if scope == "household", do: household, else: user
-
-        assign(socket,
-          finance: finance_snapshot(user, owner, Date.utc_today()),
-          finance_scope: scope,
-          finance_household: household,
-          finance_invitations: length(Accounts.list_pending_invitations_for_user(user))
-        )
-    end
+    assign(socket,
+      finance: finance_snapshot(user, owner, Date.utc_today()),
+      finance_scope: scope,
+      finance_household: household,
+      finance_invitations: length(Accounts.list_pending_invitations_for_user(user))
+    )
   end
 
   defp finance_snapshot(user, owner, today) do
@@ -531,32 +501,21 @@ defmodule CoreWeb.HubLive do
 
   defp task_form(params), do: to_form(params, as: :task)
 
-  # Tasks panel + calendar data from Core.Office (all active projects). Guests
-  # get a plain calendar and no tasks.
+  # Tasks panel + calendar data from Core.Office (all active projects).
   defp assign_office(socket) do
+    user = current_user(socket)
     month = socket.assigns.calendar_month
     selected = socket.assigns.selected_date
+    last_day = Date.add(month, Date.days_in_month(month) - 1)
+    grid_first = Date.add(month, -rem(Date.day_of_week(month), 7))
+    grid_last = Date.add(last_day, 6 - rem(Date.day_of_week(last_day), 7))
+    counts = Office.calendar_counts_for_user(user, grid_first, grid_last)
 
-    case current_user(socket) do
-      nil ->
-        assign(socket,
-          focus: nil,
-          agenda: nil,
-          calendar_days: calendar_days(month, selected, %{})
-        )
-
-      user ->
-        last_day = Date.add(month, Date.days_in_month(month) - 1)
-        grid_first = Date.add(month, -rem(Date.day_of_week(month), 7))
-        grid_last = Date.add(last_day, 6 - rem(Date.day_of_week(last_day), 7))
-        counts = Office.calendar_counts_for_user(user, grid_first, grid_last)
-
-        assign(socket,
-          focus: Office.focus_tasks(user, Date.utc_today()),
-          agenda: selected && Office.agenda_for_day(user, selected),
-          calendar_days: calendar_days(month, selected, counts)
-        )
-    end
+    assign(socket,
+      focus: Office.focus_tasks(user, Date.utc_today()),
+      agenda: selected && Office.agenda_for_day(user, selected),
+      calendar_days: calendar_days(month, selected, counts)
+    )
   end
 
   defp calendar_days(calendar_month, selected_date, counts) do
@@ -600,15 +559,15 @@ defmodule CoreWeb.HubLive do
 
   defp page_links do
     [
-      {"Dashboard", ~p"/hub", false},
-      {"Finance", ~p"/finance", true},
-      {"Books & notebooks", ~p"/notebooks", true},
-      {"Resources", ~p"/resources", false},
-      {"Live Apps", ~p"/liveapps", false},
-      {"Contributions", ~p"/contributions", true},
-      {"Profile", ~p"/profile", false},
-      {"Account settings", ~p"/settings", true},
-      {"Welcome", ~p"/welcome", false}
+      {"Dashboard", ~p"/hub"},
+      {"Finance", ~p"/finance"},
+      {"Books & notebooks", ~p"/notebooks"},
+      {"Resources", ~p"/resources"},
+      {"Live Apps", ~p"/liveapps"},
+      {"Contributions", ~p"/contributions"},
+      {"Profile", ~p"/profile"},
+      {"Account settings", ~p"/settings"},
+      {"Welcome", ~p"/welcome"}
     ]
   end
 

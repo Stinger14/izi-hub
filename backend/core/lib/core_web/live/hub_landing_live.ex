@@ -26,7 +26,14 @@ defmodule CoreWeb.HubLandingLive do
                 You’ll find the projects I’m shipping, the experiments I’m testing, and the ideas I’m refining. It’s a living desk.
               </p>
               <div class="mt-8 flex flex-wrap items-center gap-4">
-                <a href={~p"/hub"} class="btn btn-primary btn-glow">Enter Hub</a>
+                <%= if @current_scope do %>
+                  <a href={~p"/hub"} id="welcome-enter-hub" class="btn btn-primary btn-glow">Enter Hub</a>
+                <% else %>
+                  <a href={~p"/login"} id="welcome-sign-in" class="btn btn-primary btn-glow">Sign in</a>
+                  <a href={~p"/signup"} id="welcome-sign-up" class="btn btn-secondary btn-glow">
+                    Create account
+                  </a>
+                <% end %>
                 <a href={~p"/profile"} class="btn btn-secondary btn-glow">Profile &amp; CV</a>
               </div>
               <p class="mt-4 text-xs text-[var(--hub-muted)]">
