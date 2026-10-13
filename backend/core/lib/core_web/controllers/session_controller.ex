@@ -22,11 +22,12 @@ defmodule CoreWeb.SessionController do
 
       user ->
         _ = Accounts.update_last_login(user)
+        {conn, path} = UserAuth.after_sign_in_path(conn, after_login_path(user))
 
         conn
         |> UserAuth.log_in_user(user)
         |> put_flash(:info, "Welcome back")
-        |> redirect(to: after_login_path(user))
+        |> redirect(to: path)
     end
   end
 

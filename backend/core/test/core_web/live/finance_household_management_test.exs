@@ -15,8 +15,9 @@ defmodule CoreWeb.FinanceHouseholdManagementTest do
   end
 
   defp open_panel(conn, user) do
+    [household] = Accounts.list_households_for_user(user)
     {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
-    render_click(view, "set_ownership_scope", %{"scope" => "household"})
+    view |> element("#scope-option-#{household.id}") |> render_click()
     render_click(view, "open_household_panel", %{})
     view
   end

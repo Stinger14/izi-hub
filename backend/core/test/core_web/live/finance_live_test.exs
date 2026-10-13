@@ -19,7 +19,8 @@ defmodule CoreWeb.FinanceLiveTest do
 
     assert html =~ "IziHub Finance"
     assert html =~ "Total Balance"
-    assert html =~ "+ Household"
+    assert html =~ "Switch finance scope"
+    assert html =~ "New household"
   end
 
   test "creates a manual transaction from the dashboard", %{conn: conn} do
@@ -300,7 +301,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
     html =
       view
-      |> element("button[aria-label=\"Household finance scope\"]")
+      |> element("#scope-option-#{household.id}")
       |> render_click()
 
     assert html =~ household.name
@@ -308,7 +309,7 @@ defmodule CoreWeb.FinanceLiveTest do
     refute html =~ "Private groceries"
   end
 
-  test "opens the household panel from the header cta", %{conn: conn} do
+  test "opens the household panel from the scope switcher", %{conn: conn} do
     user = user_fixture()
     conn = log_in_user(conn, user)
 
@@ -319,7 +320,7 @@ defmodule CoreWeb.FinanceLiveTest do
 
     html =
       view
-      |> element("button[aria-label=\"Add household\"]")
+      |> element("#scope-new-household")
       |> render_click()
 
     assert html =~ "Create or switch scope"
@@ -632,7 +633,7 @@ defmodule CoreWeb.FinanceLiveTest do
       {:ok, household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
       {:ok, view, _html} = live(log_in_user(conn, user), ~p"/finance")
 
-      render_click(view, "set_ownership_scope", %{"scope" => "household"})
+      view |> element("#scope-option-#{household.id}") |> render_click()
       view |> element("button[aria-label=\"New account in current scope\"]") |> render_click()
       submit_account(view, "Shared groceries")
 
@@ -646,7 +647,7 @@ defmodule CoreWeb.FinanceLiveTest do
       {:ok, _view, html} = live(log_in_user(conn, user), ~p"/finance")
 
       assert html =~ "New account in current scope"
-      # with no household yet, household creation lives on the "+ Household" toggle only
+      # household creation lives in the scope switcher, not on this button
       refute html =~ ~s(aria-label="Add household")
     end
   end

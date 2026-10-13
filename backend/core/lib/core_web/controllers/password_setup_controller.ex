@@ -24,11 +24,12 @@ defmodule CoreWeb.PasswordSetupController do
     case Accounts.set_password_from_setup_token(token, password) do
       {:ok, user} ->
         _ = Accounts.update_last_login(user)
+        {conn, path} = CoreWeb.UserAuth.after_sign_in_path(conn, after_setup_path(user))
 
         conn
         |> CoreWeb.UserAuth.log_in_user(user)
         |> put_flash(:info, "Password set successfully. Welcome.")
-        |> redirect(to: after_setup_path(user))
+        |> redirect(to: path)
 
       {:error, :invalid_or_expired_token} ->
         conn
