@@ -3,8 +3,14 @@ defmodule CoreWeb.RegistrationController do
 
   alias Core.Accounts
 
-  def new(conn, _params) do
-    render(conn, :new, errors: [], form_data: %{})
+  def new(conn, params) do
+    form_data =
+      case params do
+        %{"email" => email} when is_binary(email) -> %{"email" => String.trim(email)}
+        _ -> %{}
+      end
+
+    render(conn, :new, errors: [], form_data: form_data)
   end
 
   def create(conn, %{"user" => user_params}) do

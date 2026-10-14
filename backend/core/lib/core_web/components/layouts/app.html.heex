@@ -3,7 +3,10 @@
   <div class="flex min-h-screen flex-col">
     <header class="relative z-40 border-b border-[color:var(--hub-border)] bg-transparent">
       <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <a href={~p"/hub"} class="font-display text-xl text-[var(--hub-secondary)]">
+        <a
+          href={if current_scope, do: ~p"/hub", else: ~p"/welcome"}
+          class="font-display text-xl text-[var(--hub-secondary)]"
+        >
           IziHub
         </a>
 
@@ -43,6 +46,8 @@
             <.form for={%{}} as={:logout} action={~p"/logout"} method="delete">
               <button type="submit" class="btn btn-secondary btn-xs">Logout</button>
             </.form>
+          <% else %>
+            <a href={~p"/login"} id="header-sign-in" class="btn btn-primary btn-xs">Sign in</a>
           <% end %>
         </div>
       </div>

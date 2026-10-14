@@ -18,7 +18,7 @@ defmodule CoreWeb.FinanceComponents do
 
   def finance_section_header(assigns) do
     ~H"""
-    <section>
+    <section class="relative z-30">
       <.fin_card padded={false} class="px-5 py-5 sm:px-6">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div class="space-y-2">
@@ -32,54 +32,12 @@ defmodule CoreWeb.FinanceComponents do
           </div>
 
           <div class="flex flex-wrap items-center justify-end gap-2.5">
-            <div class="inline-flex items-center gap-2 rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-1 py-1 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)]">
-              <button
-                type="button"
-                phx-click="set_ownership_scope"
-                phx-value-scope="personal"
-                aria-label="Personal finance scope"
-                title="Personal finance scope"
-                class={[
-                  "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition",
-                  @ownership_scope == "personal" && "bg-[var(--fin-primary)] text-[var(--fin-on-primary)] shadow-sm",
-                  @ownership_scope != "personal" && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
-                ]}
-              >
-                <.icon name="hero-user" class="h-4 w-4" />
-                Personal
-              </button>
-              <button
-                type="button"
-                phx-click={household_toggle_event(@households)}
-                phx-value-scope="household"
-                phx-value-panel="household"
-                aria-label={household_scope_aria_label(@households)}
-                title={household_scope_title(@households)}
-                class={[
-                  "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition",
-                  @ownership_scope == "household" && "bg-[var(--fin-primary)] text-[var(--fin-on-primary)] shadow-sm",
-                  @ownership_scope != "household" && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
-                ]}
-              >
-                <.icon :if={household_scope_available?(@households)} name="hero-home" class="h-4 w-4" />
-                <%= if household_scope_available?(@households), do: "Household", else: "+ Household" %>
-              </button>
-            </div>
-
-            <.household_picker :if={@households != []} households={@households} selected_household_id={@selected_household_id} />
-
-            <%!-- Households: with none yet, the "+ Household" toggle above opens
-                 the create panel; once you have one, this labelled button does. --%>
-            <button
-              :if={@households != []}
-              type="button"
-              phx-click="open_household_panel"
-              aria-label="Add household"
-              title="Create another household"
-              class="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 text-xs font-semibold text-[color:var(--fin-muted)] transition hover:bg-[color:var(--fin-card)] hover:text-[color:var(--fin-text)]"
-            >
-              <.icon name="hero-home" class="h-4 w-4" /> New household
-            </button>
+            <.scope_switcher
+              id="scope-switcher"
+              scope_summaries={@scope_summaries}
+              selected_household={@selected_household}
+              pending_invitations={@pending_invitations}
+            />
 
             <%!-- Adds an account to whichever scope is active (personal or the
                  selected household), via the same quick-add panel as My Cards. --%>
@@ -105,7 +63,7 @@ defmodule CoreWeb.FinanceComponents do
 
   def finance_dashboard_header(assigns) do
     ~H"""
-    <section>
+    <section class="relative z-30">
       <.fin_card padded={false} class="px-6 py-6 sm:px-8">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -114,54 +72,12 @@ defmodule CoreWeb.FinanceComponents do
           </div>
 
           <div class="flex flex-wrap items-center gap-2.5">
-            <div class="inline-flex items-center gap-1 rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-1 py-1 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)]">
-              <button
-                type="button"
-                phx-click="set_ownership_scope"
-                phx-value-scope="personal"
-                aria-label="Personal finance scope"
-                title="Personal finance scope"
-                class={[
-                  "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition",
-                  @ownership_scope == "personal" && "bg-[var(--fin-primary)] text-[var(--fin-on-primary)] shadow-sm",
-                  @ownership_scope != "personal" && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
-                ]}
-              >
-                <.icon name="hero-user" class="h-4 w-4" />
-                Personal
-              </button>
-              <button
-                type="button"
-                phx-click={household_toggle_event(@households)}
-                phx-value-scope="household"
-                phx-value-panel="household"
-                aria-label={household_scope_aria_label(@households)}
-                title={household_scope_title(@households)}
-                class={[
-                  "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition",
-                  @ownership_scope == "household" && "bg-[var(--fin-primary)] text-[var(--fin-on-primary)] shadow-sm",
-                  @ownership_scope != "household" && "text-[color:var(--fin-muted)] hover:bg-[color:var(--fin-surface)] hover:text-[color:var(--fin-text)]"
-                ]}
-              >
-                <.icon :if={household_scope_available?(@households)} name="hero-home" class="h-4 w-4" />
-                <%= if household_scope_available?(@households), do: "Household", else: "+ Household" %>
-              </button>
-            </div>
-
-            <.household_picker :if={@households != []} households={@households} selected_household_id={@selected_household_id} />
-
-            <%!-- Households: with none yet, the "+ Household" toggle above opens
-                 the create panel; once you have one, this labelled button does. --%>
-            <button
-              :if={@households != []}
-              type="button"
-              phx-click="open_household_panel"
-              aria-label="Add household"
-              title="Create another household"
-              class="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 text-xs font-semibold text-[color:var(--fin-muted)] transition hover:bg-[color:var(--fin-card)] hover:text-[color:var(--fin-text)]"
-            >
-              <.icon name="hero-home" class="h-4 w-4" /> New household
-            </button>
+            <.scope_switcher
+              id="scope-switcher"
+              scope_summaries={@scope_summaries}
+              selected_household={@selected_household}
+              pending_invitations={@pending_invitations}
+            />
 
             <%!-- Adds an account to whichever scope is active (personal or the
                  selected household), via the same quick-add panel as My Cards. --%>
@@ -523,25 +439,180 @@ defmodule CoreWeb.FinanceComponents do
     """
   end
 
-  attr :households, :list, required: true
-  attr :selected_household_id, :string, default: nil
+  @doc """
+  Household invitations waiting for the signed-in user, with Accept and
+  Decline. Only invitations they may accept in the app are listed (see
+  `Core.Accounts.list_pending_invitations_for_user/1`).
+  """
+  attr :invitations, :list, required: true
 
-  def household_picker(assigns) do
+  def pending_invitations_card(assigns) do
     ~H"""
-    <form phx-change="select_household">
-      <label class="sr-only" for="household_id">Household</label>
-      <select
-        id="household_id"
-        name="household_id"
-        class="rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3.5 py-2 text-sm font-semibold text-[color:var(--fin-text)] shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)]"
-      >
-        <option :for={household <- @households} value={household.id} selected={household.id == @selected_household_id}>
-          <%= household.name %>
-        </option>
-      </select>
-    </form>
+    <section id="finance-invitations">
+      <.fin_card>
+        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--hub-accent-2)]">
+          Household invitations
+        </p>
+        <ul class="mt-3 space-y-2">
+          <li
+            :for={invitation <- @invitations}
+            id={"invitation-#{invitation.id}"}
+            class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-3"
+          >
+            <p class="min-w-0 text-sm text-[color:var(--fin-text)]">
+              <strong><%= invitation_inviter(invitation) %></strong>
+              invited you to <strong><%= invitation.household.name %></strong>
+            </p>
+            <div class="flex items-center gap-2">
+              <button type="button" phx-click="decline_invitation" phx-value-id={invitation.id} class="btn btn-ghost btn-xs">
+                Decline
+              </button>
+              <button type="button" phx-click="accept_invitation" phx-value-id={invitation.id} class="btn btn-primary btn-xs">
+                Join
+              </button>
+            </div>
+          </li>
+        </ul>
+      </.fin_card>
+    </section>
     """
   end
+
+  defp invitation_inviter(%{invited_by: %{full_name: name}}) when is_binary(name) and name != "",
+    do: name
+
+  defp invitation_inviter(%{invited_by: %{username: name}}) when is_binary(name), do: name
+  defp invitation_inviter(_invitation), do: "Someone"
+
+  @doc """
+  The finance context switcher: a pill naming the active scope that opens a
+  menu of every scope (Personal and each household) with its balance, plus
+  household shortcuts. Open/close is client-side (`JS.toggle`); picking a
+  scope pushes `switch_scope`.
+  """
+  attr :id, :string, required: true
+  attr :scope_summaries, :list, required: true, doc: "from FinanceLive's scope_summaries/4"
+  attr :selected_household, :any, default: nil
+  attr :pending_invitations, :list, default: []
+
+  def scope_switcher(assigns) do
+    assigns =
+      assign(assigns,
+        current: Enum.find(assigns.scope_summaries, & &1.active?),
+        menu_id: "#{assigns.id}-menu"
+      )
+
+    ~H"""
+    <div id={@id} class="relative">
+      <button
+        type="button"
+        id={"#{@id}-trigger"}
+        phx-click={JS.toggle(to: "##{@menu_id}")}
+        aria-haspopup="menu"
+        aria-controls={@menu_id}
+        aria-label="Switch finance scope"
+        title="Switch between personal and household finances"
+        class="inline-flex h-10 max-w-[16rem] items-center gap-2 rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] py-1 pl-1 pr-3 text-sm font-semibold text-[color:var(--fin-text)] shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] transition hover:border-[color:var(--hub-accent)]"
+      >
+        <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--fin-primary)] text-[var(--fin-on-primary)]">
+          <.icon name={scope_icon(@current)} class="h-4 w-4" />
+        </span>
+        <span class="min-w-0 truncate"><%= (@current && @current.name) || "Personal" %></span>
+        <span
+          :if={@pending_invitations != []}
+          class="inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--hub-accent)]"
+          aria-label="Pending household invitations"
+        ></span>
+        <.icon name="hero-chevron-down" class="h-4 w-4 shrink-0 text-[color:var(--fin-muted)]" />
+      </button>
+
+      <div
+        id={@menu_id}
+        role="menu"
+        phx-click-away={JS.hide(to: "##{@menu_id}")}
+        phx-window-keydown={JS.hide(to: "##{@menu_id}")}
+        phx-key="Escape"
+        class="hub-glass absolute left-0 top-full z-50 mt-2 hidden w-[min(25rem,calc(100vw-4rem))] rounded-2xl p-2 sm:left-auto sm:right-0"
+        style="background-color: color-mix(in srgb, var(--hub-card) 97%, transparent);"
+      >
+        <%!-- Nearly opaque: the header card already has a backdrop blur, and a
+             nested backdrop-filter can't blur what's behind the header, so a
+             translucent menu would show the cards underneath. --%>
+        <p class="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--hub-accent-2)]">
+          Your finances
+        </p>
+
+        <button
+          :for={scope <- @scope_summaries}
+          type="button"
+          role="menuitemradio"
+          aria-checked={to_string(scope.active?)}
+          id={"scope-option-#{scope.key}"}
+          phx-click={JS.hide(to: "##{@menu_id}") |> JS.push("switch_scope", value: %{scope: scope.key})}
+          class={[
+            "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-[color:var(--fin-surface)]",
+            scope.active? && "bg-[color:var(--fin-surface)]"
+          ]}
+        >
+          <span class={[
+            "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[color:var(--fin-border)]",
+            scope.active? && "bg-[var(--fin-primary)] text-[var(--fin-on-primary)]",
+            !scope.active? && "text-[var(--hub-secondary)]"
+          ]}>
+            <.icon name={scope_icon(scope)} class="h-4 w-4" />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm font-semibold text-[color:var(--fin-text)]"><%= scope.name %></span>
+            <span class="block truncate text-xs text-[color:var(--fin-muted)]"><%= scope.detail %></span>
+          </span>
+          <span class="shrink-0 text-right">
+            <span class="block text-xs font-semibold text-[color:var(--fin-text)]">
+              <%= if scope.totals == [], do: "No accounts", else: money_totals(scope.totals) %>
+            </span>
+            <.icon :if={scope.active?} name="hero-check" class="ml-auto mt-0.5 h-3.5 w-3.5 text-[var(--hub-secondary)]" />
+          </span>
+        </button>
+
+        <div class="mt-1 space-y-0.5 border-t border-[color:var(--fin-border)] pt-1">
+          <a
+            :if={@pending_invitations != []}
+            href="#finance-invitations"
+            phx-click={JS.hide(to: "##{@menu_id}")}
+            class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-[var(--hub-secondary)] transition hover:bg-[color:var(--fin-surface)]"
+          >
+            <.icon name="hero-envelope" class="h-4 w-4" />
+            Invitations (<%= length(@pending_invitations) %>)
+          </a>
+          <button
+            :if={@selected_household}
+            type="button"
+            phx-click={
+              JS.hide(to: "##{@menu_id}")
+              |> JS.push("switch_scope", value: %{scope: @selected_household.id})
+              |> JS.push("open_household_panel")
+            }
+            class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-[color:var(--fin-text)] transition hover:bg-[color:var(--fin-surface)]"
+          >
+            <.icon name="hero-users" class="h-4 w-4 text-[color:var(--fin-muted)]" />
+            Members &amp; invites · <%= @selected_household.name %>
+          </button>
+          <button
+            type="button"
+            id="scope-new-household"
+            phx-click={JS.hide(to: "##{@menu_id}") |> JS.push("open_focus_panel", value: %{panel: "household"})}
+            class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-[color:var(--fin-text)] transition hover:bg-[color:var(--fin-surface)]"
+          >
+            <.icon name="hero-plus" class="h-4 w-4 text-[color:var(--fin-muted)]" />
+            New household
+          </button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  defp scope_icon(%{kind: :household}), do: "hero-home"
+  defp scope_icon(_scope), do: "hero-user"
 
   def household_panel(assigns) do
     ~H"""
@@ -554,11 +625,27 @@ defmodule CoreWeb.FinanceComponents do
           </div>
         </div>
 
-        <.form for={@household_form} phx-submit="create_household" class="mt-5 space-y-4">
+        <.form for={@household_form} id="create-household-form" phx-submit="create_household" class="mt-5 space-y-4">
           <div class="grid gap-3 sm:grid-cols-2">
             <.finance_input form={@household_form} field={:name} label="Household name" placeholder="Garcia Home" />
             <.finance_input form={@household_form} field={:slug} label="Slug optional" placeholder="garcia-home" />
           </div>
+
+          <fieldset id="household-starting-account" class="rounded-xl border border-[color:var(--fin-border)] p-4">
+            <legend class="px-1 text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">
+              Starting account · optional
+            </legend>
+            <p class="mb-3 text-xs leading-5 text-[color:var(--fin-muted)]">
+              Add the household's first account and its current balance, so the dashboard shows a total right away. Leave it blank to add accounts later.
+            </p>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <.finance_input form={@starting_account_form} field={:name} label="Account name" placeholder="Household account" />
+              <.finance_input form={@starting_account_form} field={:current_balance} label="Starting balance" type="number" step="0.01" placeholder="0.00" />
+              <.finance_select form={@starting_account_form} field={:kind} label="Kind" options={account_kind_options()} />
+              <.finance_select form={@starting_account_form} field={:currency} label="Currency" options={currency_options()} />
+            </div>
+          </fieldset>
+
           <div class="flex justify-end">
             <button
               type="submit"
@@ -643,24 +730,75 @@ defmodule CoreWeb.FinanceComponents do
           </div>
         </div>
 
-        <.form
-          :if={household_owner?(@current_scope.user, @selected_household)}
-          for={@member_form}
-          phx-submit="add_household_member"
-          class="mt-5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4"
-        >
-          <div class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-            <.finance_input form={@member_form} field={:email} label="Add member by email" placeholder="teammate@example.com" />
-            <button
-              type="submit"
-              class="btn btn-secondary btn-sm inline-flex items-center gap-1"
-              aria-label="Add member"
-              title="Add member"
-            >
-              <.icon name="hero-user-plus" class="h-4 w-4" />
-            </button>
+        <div :if={@selected_household} id="household-invitations" class="mt-5 rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
+          <.form for={@invite_form} id="household-invite-form" phx-submit="invite_member">
+            <div class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <.finance_input form={@invite_form} field={:email} label="Invite by email" type="email" placeholder="partner@example.com" />
+              <button
+                type="submit"
+                class="btn btn-secondary btn-sm inline-flex items-center gap-1"
+                aria-label="Send invitation"
+                title="Send invitation"
+              >
+                <.icon name="hero-user-plus" class="h-4 w-4" /> Invite
+              </button>
+            </div>
+            <p class="mt-2 text-xs leading-5 text-[color:var(--fin-muted)]">
+              They'll get a link to join, with or without an IziHub account. The link expires in 14 days.
+            </p>
+          </.form>
+
+          <div
+            :if={@last_invite_link}
+            id="last-invite-link"
+            class="mt-3 rounded-lg border border-[color:var(--hub-accent)]/40 p-3"
+          >
+            <p class="text-xs text-[color:var(--fin-muted)]">
+              Invitation link for <strong class="text-[color:var(--fin-text)]"><%= @last_invite_link.email %></strong> — share it if the email doesn't arrive:
+            </p>
+            <div class="mt-2 flex items-center gap-2">
+              <input
+                type="text"
+                readonly
+                value={@last_invite_link.url}
+                aria-label="Invitation link"
+                class="min-w-0 flex-1 rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-2.5 py-1.5 text-xs text-[color:var(--fin-text)]"
+              />
+              <button
+                type="button"
+                id="copy-invite-link"
+                phx-hook="CopyToClipboard"
+                data-copy-value={@last_invite_link.url}
+                data-copy-title="Copy link"
+                title="Copy link"
+                class="btn btn-secondary btn-xs data-[copied]:border-[var(--fin-accent)] data-[copied]:text-[var(--fin-accent)]"
+              >
+                Copy
+              </button>
+            </div>
           </div>
-        </.form>
+
+          <ul :if={@household_invitations != []} class="mt-4 space-y-2">
+            <li
+              :for={invitation <- @household_invitations}
+              id={"household-invitation-#{invitation.id}"}
+              class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--fin-border)] px-3 py-2"
+            >
+              <div class="min-w-0">
+                <p class="truncate text-sm font-semibold text-[color:var(--fin-text)]"><%= invitation.email %></p>
+                <p class="text-xs text-[color:var(--fin-muted)]">Pending · expires <%= Calendar.strftime(invitation.expires_at, "%b %-d") %></p>
+              </div>
+              <div class="flex items-center gap-1">
+                <button type="button" phx-click="resend_invitation" phx-value-email={invitation.email} class="btn btn-ghost btn-xs">
+                  New link
+                </button>
+                <button type="button" phx-click="revoke_invitation" phx-value-id={invitation.id} class="btn btn-ghost btn-xs text-[var(--tone-expense)]">
+                  Cancel
+                </button>
+              </div>
+            </li>
+          </ul>
+        </div>
 
         <div
           :if={@selected_household && !household_owner?(@current_scope.user, @selected_household)}
@@ -970,6 +1108,16 @@ defmodule CoreWeb.FinanceComponents do
     <section class="mx-auto max-w-xl">
       <div :if={transfer_account_count(@transfer_account_groups) < 2} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 text-sm text-[color:var(--fin-muted)]">
         You need at least two accounts — personal or household — to move money between them.
+        Add one to <%= if @ownership_scope == "household" and @selected_household, do: @selected_household.name, else: "your personal finances" %>
+        or switch scope to add it there.
+        <button
+          type="button"
+          phx-click="open_focus_panel"
+          phx-value-panel="account"
+          class="btn btn-secondary btn-xs mt-3 inline-flex items-center gap-1"
+        >
+          <.icon name="hero-plus" class="h-3.5 w-3.5" /> Add account
+        </button>
       </div>
 
       <form :if={transfer_account_count(@transfer_account_groups) >= 2} id="transfer-panel-form" phx-submit="create_transfer" class="space-y-4">
@@ -1440,6 +1588,26 @@ defmodule CoreWeb.FinanceComponents do
   def overview_section(assigns) do
     ~H"""
     <section class="space-y-5">
+      <div
+        :if={@accounts == []}
+        id="no-accounts-notice"
+        class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-5 py-4"
+      >
+        <p class="text-sm text-[color:var(--fin-muted)]">
+          <%= if @ownership_scope == "household" and @selected_household,
+            do: "#{@selected_household.name} has no accounts yet. Add one with its current balance to see the household's total here.",
+            else: "You have no personal accounts yet. Add one with its current balance to see your total here." %>
+        </p>
+        <button
+          type="button"
+          phx-click="open_focus_panel"
+          phx-value-panel="account"
+          class="btn btn-primary btn-sm inline-flex items-center gap-1"
+        >
+          <.icon name="hero-plus" class="h-4 w-4" /> Add account
+        </button>
+      </div>
+
       <div class="relative overflow-hidden rounded-[2rem] border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-3 shadow-[0_24px_48px_-32px_var(--fin-glass-shadow)] sm:p-4">
         <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_15%_0%,color-mix(in_srgb,var(--fin-accent)_10%,transparent),transparent)]"></div>
         <div class="relative grid gap-5 xl:grid-cols-12">
@@ -1691,7 +1859,9 @@ defmodule CoreWeb.FinanceComponents do
       </div>
 
       <div class="grid gap-5">
-        <.fin_card>
+        <%!-- min-w-0: as a grid item the card would otherwise widen to fit a
+             long description instead of truncating it (overflowing phones). --%>
+        <.fin_card class="min-w-0">
           <div class="flex items-center justify-between gap-4">
             <div>
               <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Activity</p>
@@ -3369,14 +3539,6 @@ defmodule CoreWeb.FinanceComponents do
   def savings_goal_state_label(%{status: "achieved"}), do: "Achieved"
   def savings_goal_state_label(_goal), do: "In progress"
 
-  def household_scope_available?(households), do: households != []
-
-  def household_scope_aria_label([]), do: "Create a household"
-  def household_scope_aria_label(_households), do: "Household finance scope"
-
-  def household_scope_title([]), do: "Create a household"
-  def household_scope_title(_households), do: "Household"
-
   def time_scope_title("day"), do: "Day"
   def time_scope_title("week"), do: "Week"
   def time_scope_title("month"), do: "Month"
@@ -3398,10 +3560,6 @@ defmodule CoreWeb.FinanceComponents do
       DateTime.utc_now().hour < 18 -> "Good afternoon"
       true -> "Good evening"
     end
-  end
-
-  def household_toggle_event(households) do
-    if household_scope_available?(households), do: "set_ownership_scope", else: "open_focus_panel"
   end
 
   def current_month_range_label do

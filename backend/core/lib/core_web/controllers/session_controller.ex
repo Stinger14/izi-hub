@@ -22,11 +22,12 @@ defmodule CoreWeb.SessionController do
 
       user ->
         _ = Accounts.update_last_login(user)
+        {conn, path} = UserAuth.after_sign_in_path(conn, after_login_path(user))
 
         conn
         |> UserAuth.log_in_user(user)
         |> put_flash(:info, "Welcome back")
-        |> redirect(to: after_login_path(user))
+        |> redirect(to: path)
     end
   end
 
@@ -38,7 +39,7 @@ defmodule CoreWeb.SessionController do
     conn
     |> UserAuth.log_out_user()
     |> put_flash(:info, "Logged out")
-    |> redirect(to: ~p"/hub")
+    |> redirect(to: ~p"/welcome")
   end
 
   defp after_login_path(%{role: "admin"}), do: ~p"/admin"

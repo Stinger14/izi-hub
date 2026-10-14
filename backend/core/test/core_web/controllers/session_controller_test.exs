@@ -102,7 +102,7 @@ defmodule CoreWeb.SessionControllerTest do
       token = get_session(conn, :user_token)
       logout_conn = delete(conn, ~p"/logout")
 
-      assert redirected_to(logout_conn) == ~p"/hub"
+      assert redirected_to(logout_conn) == ~p"/welcome"
       assert Accounts.get_user_by_session_token(token) == nil
     end
   end

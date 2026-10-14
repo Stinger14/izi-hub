@@ -72,10 +72,10 @@ defmodule CoreWeb.HubComponents do
     """
   end
 
-  attr :current_scope, :any, default: nil
   attr :finance, :map, default: nil
   attr :scope, :string, default: "personal"
   attr :household, :any, default: nil
+  attr :invitation_count, :integer, default: 0
 
   def finance_card(assigns) do
     ~H"""
@@ -106,13 +106,19 @@ defmodule CoreWeb.HubComponents do
         </div>
       </div>
 
+      <a
+        :if={@invitation_count > 0}
+        id="hub-household-invitations"
+        href={~p"/finance#finance-invitations"}
+        class="mt-3 inline-flex items-center gap-1.5 self-start rounded-lg border border-[color:var(--hub-accent)]/40 px-2.5 py-1.5 text-xs font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)]"
+      >
+        <.icon name="hero-envelope" class="h-3.5 w-3.5" />
+        <%= if @invitation_count == 1,
+          do: "1 household invitation",
+          else: "#{@invitation_count} household invitations" %>
+      </a>
+
       <%= cond do %>
-        <% is_nil(@current_scope) -> %>
-          <.card_empty_state
-            message="Sign in to see your balances and this month's spending."
-            href={~p"/login"}
-            action="Sign in"
-          />
         <% is_nil(@finance) or @finance.accounts_count == 0 -> %>
           <.card_empty_state
             message="No accounts yet. Add one to see your balance and spending here."
@@ -149,7 +155,7 @@ defmodule CoreWeb.HubComponents do
 
       <div class="mt-auto pt-5">
         <a
-          href={if @current_scope, do: ~p"/finance", else: ~p"/login"}
+          href={~p"/finance"}
           class="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-semibold text-[var(--fin-accent)] transition hover:bg-[var(--fin-surface)] hover:text-[var(--hub-accent-2)]"
         >
           Open Finance <.icon name="hero-arrow-right" class="h-4 w-4" />
@@ -183,7 +189,6 @@ defmodule CoreWeb.HubComponents do
   end
 
   attr :variant, :string, required: true, values: ~w(creator developer)
-  attr :current_scope, :any, default: nil
   attr :developer, :any, required: true
   attr :github_form, :any, required: true
   attr :github_editing, :boolean, default: false
@@ -243,12 +248,6 @@ defmodule CoreWeb.HubComponents do
             <.card_empty_state message="GitHub stats are unavailable right now." />
           </:failed>
           <%= case {developer, @github_editing} do %>
-            <% {:signed_out, _} -> %>
-              <.card_empty_state
-                message="Sign in to link your GitHub account."
-                href={~p"/login"}
-                action="Sign in"
-              />
             <% {:not_linked, _} -> %>
               <.github_link_form form={@github_form} linked={false} />
             <% {_linked, true} -> %>
@@ -351,7 +350,6 @@ defmodule CoreWeb.HubComponents do
     end
   end
 
-  attr :current_scope, :any, default: nil
   attr :focus, :map, default: nil
   attr :form, :any, default: nil
   attr :selected_date, :any, default: nil
@@ -371,67 +369,63 @@ defmodule CoreWeb.HubComponents do
         </span>
       </:actions>
 
-      <%= if is_nil(@current_scope) do %>
-        <.card_empty_state message="Sign in to see your IziOffice tasks." href={~p"/login"} action="Sign in" />
+      <.form for={@form} id="quick-add-task" phx-submit="quick_add_task" class="flex gap-2">
+        <input
+          type="text"
+          name={@form[:title].name}
+          value={@form[:title].value}
+          placeholder={"Add a task for #{task_day_label(@selected_date)}…"}
+          aria-label="New task title"
+          autocomplete="off"
+          maxlength="140"
+          class="min-w-0 flex-1 rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] placeholder:text-[var(--hub-muted)] focus:border-[color:var(--hub-accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
+        />
+        <button type="submit" class="btn btn-primary btn-sm">Add</button>
+      </.form>
+      <p :for={{msg, _} <- @form[:title].errors} class={["mt-2 text-xs", tone_class("expense", :text)]}>
+        Title <%= msg %>
+      </p>
+
+      <%= if @focus.open_count == 0 do %>
+        <.card_empty_state message="Nothing open. Add a task above or plan your week in IziOffice." />
       <% else %>
-        <.form for={@form} id="quick-add-task" phx-submit="quick_add_task" class="flex gap-2">
-          <input
-            type="text"
-            name={@form[:title].name}
-            value={@form[:title].value}
-            placeholder={"Add a task for #{task_day_label(@selected_date)}…"}
-            aria-label="New task title"
-            autocomplete="off"
-            maxlength="140"
-            class="min-w-0 flex-1 rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] placeholder:text-[var(--hub-muted)] focus:border-[color:var(--hub-accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
+        <div class="mt-4 space-y-4">
+          <.task_group
+            :if={@focus.overdue != []}
+            label="Overdue"
+            tone="expense"
+            tasks={@focus.overdue}
+            editing_task_id={@editing_task_id}
+            edit_form={@edit_form}
+            confirming_delete_id={@confirming_delete_id}
           />
-          <button type="submit" class="btn btn-primary btn-sm">Add</button>
-        </.form>
-        <p :for={{msg, _} <- @form[:title].errors} class={["mt-2 text-xs", tone_class("expense", :text)]}>
-          Title <%= msg %>
-        </p>
-
-        <%= if @focus.open_count == 0 do %>
-          <.card_empty_state message="Nothing open. Add a task above or plan your week in IziOffice." />
-        <% else %>
-          <div class="mt-4 space-y-4">
-            <.task_group
-              :if={@focus.overdue != []}
-              label="Overdue"
-              tone="expense"
-              tasks={@focus.overdue}
-              editing_task_id={@editing_task_id}
-              edit_form={@edit_form}
-              confirming_delete_id={@confirming_delete_id}
-            />
-            <.task_group
-              :if={@focus.today != []}
-              label="Today"
-              tone="income"
-              tasks={@focus.today}
-              editing_task_id={@editing_task_id}
-              edit_form={@edit_form}
-              confirming_delete_id={@confirming_delete_id}
-            />
-            <.task_group
-              :if={@focus.up_next != []}
-              label="Up next"
-              tone="muted"
-              tasks={@focus.up_next}
-              editing_task_id={@editing_task_id}
-              edit_form={@edit_form}
-              confirming_delete_id={@confirming_delete_id}
-            />
-          </div>
-        <% end %>
-
-        <a
-          href={~p"/office"}
-          class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)]"
-        >
-          Open IziOffice <.icon name="hero-arrow-right" class="h-4 w-4" />
-        </a>
+          <.task_group
+            :if={@focus.today != []}
+            label="Today"
+            tone="income"
+            tasks={@focus.today}
+            editing_task_id={@editing_task_id}
+            edit_form={@edit_form}
+            confirming_delete_id={@confirming_delete_id}
+          />
+          <.task_group
+            :if={@focus.up_next != []}
+            label="Up next"
+            tone="muted"
+            tasks={@focus.up_next}
+            editing_task_id={@editing_task_id}
+            edit_form={@edit_form}
+            confirming_delete_id={@confirming_delete_id}
+          />
+        </div>
       <% end %>
+
+      <a
+        href={~p"/office"}
+        class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)]"
+      >
+        Open IziOffice <.icon name="hero-arrow-right" class="h-4 w-4" />
+      </a>
     </.hub_card>
     """
   end
@@ -658,14 +652,12 @@ defmodule CoreWeb.HubComponents do
     """
   end
 
-  attr :current_scope, :any, default: nil
-
   def library_shortcuts(assigns) do
     ~H"""
     <.hub_card id="library" kicker="Library" title="Books & courses" icon="hero-book-open">
       <div class="grid gap-2">
         <a
-          href={if @current_scope, do: ~p"/notebooks", else: ~p"/login"}
+          href={~p"/notebooks"}
           class="group flex items-center gap-3 rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2.5 transition hover:border-[color:var(--hub-accent)]"
         >
           <.icon name="hero-book-open" class="h-4 w-4 shrink-0 text-[var(--hub-secondary)]" />

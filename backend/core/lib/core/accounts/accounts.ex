@@ -6,9 +6,18 @@ defmodule Core.Accounts do
   import Ecto.Query, warn: false
   alias Core.Repo
 
-  alias Core.Accounts.{Household, HouseholdMember, User, UserToken, UsernameGenerator}
+  alias Core.Accounts.{
+    Household,
+    HouseholdInvitation,
+    HouseholdMember,
+    HouseholdNotifier,
+    User,
+    UserToken,
+    UsernameGenerator
+  }
 
   @setup_password_token_ttl_seconds 86_400
+  @invitation_validity_days 14
   @username_generation_attempts 20
 
   @doc """
@@ -325,6 +334,250 @@ defmodule Core.Accounts do
   def change_household(%Household{} = household \\ %Household{}) do
     Household.changeset(household, %{})
   end
+
+  # ------ Household invitations ------
+  #
+  # Any active member can invite an email. The link carries a random token;
+  # only its hash is stored. Signup doesn't verify email ownership, so the
+  # in-app Accept (no token) is only offered to an account that already
+  # existed when the invitation was sent; anyone else joins through the link.
+
+  @doc """
+  Invites `email` to `household`, or refreshes the pending invitation for it
+  with a new link and expiry (the old link stops working). `url_fun` turns the
+  raw token into the invitation link. The email is sent when a mailer is
+  configured; the link is returned either way so it can be shared by hand.
+
+  Returns `{:ok, invitation, url}` or `{:error, reason}`.
+  """
+  def invite_to_household(%User{} = actor, %Household{} = household, email, url_fun)
+      when is_function(url_fun, 1) do
+    email = HouseholdInvitation.normalize_email(email || "")
+
+    with true <- user_household?(actor, household.id) || {:error, :forbidden},
+         :ok <- ensure_not_member_email(household, email) do
+      {raw_token, token_hash} = build_invitation_token()
+
+      attrs = %{
+        token_hash: token_hash,
+        status: "pending",
+        expires_at: invitation_expiry(),
+        invited_by_id: actor.id
+      }
+
+      result =
+        case pending_invitation(household.id, email) do
+          nil ->
+            %HouseholdInvitation{household_id: household.id}
+            |> HouseholdInvitation.changeset(%{email: email})
+            |> Ecto.Changeset.change(attrs)
+            |> Repo.insert()
+
+          invitation ->
+            invitation |> Ecto.Changeset.change(attrs) |> Repo.update()
+        end
+
+      with {:ok, invitation} <- result do
+        invitation = Repo.preload(invitation, [:household, :invited_by], force: true)
+        url = url_fun.(raw_token)
+        HouseholdNotifier.deliver_invitation(invitation, url)
+        notify_invitee(invitation)
+        notify_household_change({:ok, invitation}, household.id)
+        {:ok, invitation, url}
+      end
+    end
+  end
+
+  def change_invitation(attrs \\ %{}) do
+    HouseholdInvitation.changeset(%HouseholdInvitation{}, attrs)
+  end
+
+  @doc "Pending, unexpired invitations to a household (members only)."
+  def list_household_invitations(%User{} = actor, %Household{} = household) do
+    if user_household?(actor, household.id) do
+      HouseholdInvitation
+      |> where([invitation], invitation.household_id == ^household.id)
+      |> open_invitations()
+      |> order_by([invitation], asc: invitation.email)
+      |> Repo.all()
+    else
+      []
+    end
+  end
+
+  @doc """
+  Pending invitations addressed to the user's email that they can accept in
+  the app: sent after their account existed, to a household they aren't in.
+  """
+  def list_pending_invitations_for_user(%User{} = user) do
+    HouseholdInvitation
+    |> where([invitation], invitation.email == ^HouseholdInvitation.normalize_email(user.email))
+    |> where([invitation], invitation.inserted_at >= ^user.inserted_at)
+    |> open_invitations()
+    |> join(:inner, [invitation], household in assoc(invitation, :household))
+    |> where([_invitation, household], household.status == "active")
+    |> order_by([invitation], desc: invitation.inserted_at)
+    |> preload([_invitation, household], household: household, invited_by: [])
+    |> Repo.all()
+    |> Enum.reject(&user_household?(user, &1.household_id))
+  end
+
+  @doc "A pending, unexpired invitation by its link token, with household and inviter."
+  def get_invitation_by_token(token) when is_binary(token) do
+    with {:ok, token_hash} <- UserToken.hash_token(token),
+         %HouseholdInvitation{} = invitation <-
+           Repo.get_by(HouseholdInvitation, token_hash: token_hash) do
+      invitation = Repo.preload(invitation, [:household, :invited_by])
+
+      cond do
+        invitation.status != "pending" -> {:error, :used}
+        HouseholdInvitation.expired?(invitation) -> {:error, :expired}
+        invitation.household.status != "active" -> {:error, :not_found}
+        true -> {:ok, invitation}
+      end
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
+  def get_invitation_by_token(_token), do: {:error, :not_found}
+
+  @doc """
+  Accepts an invitation: `{:token, token}` from the link (anyone holding it),
+  or an invitation id from the in-app list (only the addressed account).
+  """
+  def accept_invitation(%User{} = user, {:token, token}) do
+    with {:ok, invitation} <- get_invitation_by_token(token) do
+      do_accept_invitation(user, invitation)
+    end
+  end
+
+  def accept_invitation(%User{} = user, invitation_id) when is_binary(invitation_id) do
+    with {:ok, invitation} <- fetch_invitation_for_user(user, invitation_id) do
+      do_accept_invitation(user, invitation)
+    end
+  end
+
+  @doc "Declines an invitation (same two forms as `accept_invitation/2`)."
+  def decline_invitation(%User{} = user, {:token, token}) do
+    with {:ok, invitation} <- get_invitation_by_token(token) do
+      close_invitation(invitation, "declined", user)
+    end
+  end
+
+  def decline_invitation(%User{} = user, invitation_id) when is_binary(invitation_id) do
+    with {:ok, invitation} <- fetch_invitation_for_user(user, invitation_id) do
+      close_invitation(invitation, "declined", user)
+    end
+  end
+
+  @doc "Cancels a pending invitation (any household member)."
+  def revoke_invitation(%User{} = actor, invitation_id) when is_binary(invitation_id) do
+    with %HouseholdInvitation{status: "pending"} = invitation <-
+           Repo.get(HouseholdInvitation, invitation_id),
+         true <- user_household?(actor, invitation.household_id) || {:error, :forbidden} do
+      close_invitation(invitation, "revoked", actor)
+    else
+      {:error, _} = error -> error
+      _ -> {:error, :not_found}
+    end
+  end
+
+  defp do_accept_invitation(%User{} = user, %HouseholdInvitation{} = invitation) do
+    if user_household?(user, invitation.household_id) do
+      # Already in (e.g. added another way): just close the invitation.
+      with {:ok, _} <- close_invitation(invitation, "accepted", user),
+           do: {:ok, invitation.household}
+    else
+      Repo.transaction(fn ->
+        membership_attrs = %{
+          "household_id" => invitation.household_id,
+          "user_id" => user.id,
+          "role" => "member",
+          "status" => "active"
+        }
+
+        with {:ok, _membership} <-
+               %HouseholdMember{}
+               |> HouseholdMember.changeset(membership_attrs)
+               |> Repo.insert(),
+             {:ok, _invitation} <-
+               invitation |> Ecto.Changeset.change(status: "accepted") |> Repo.update() do
+          invitation.household
+        else
+          {:error, reason} -> Repo.rollback(reason)
+        end
+      end)
+      |> notify_household_change(invitation.household_id)
+      |> tap(fn _ -> notify_user(user.id) end)
+    end
+  end
+
+  defp close_invitation(invitation, status, %User{} = user) do
+    invitation
+    |> Ecto.Changeset.change(status: status)
+    |> Repo.update()
+    |> notify_household_change(invitation.household_id)
+    |> tap(fn _ -> notify_user(user.id) end)
+  end
+
+  defp fetch_invitation_for_user(%User{} = user, invitation_id) do
+    case Enum.find(list_pending_invitations_for_user(user), &(&1.id == invitation_id)) do
+      nil -> {:error, :not_found}
+      invitation -> {:ok, invitation}
+    end
+  end
+
+  defp open_invitations(query) do
+    now = DateTime.utc_now()
+
+    where(
+      query,
+      [invitation],
+      invitation.status == "pending" and invitation.expires_at > ^now
+    )
+  end
+
+  defp pending_invitation(household_id, email) do
+    Repo.get_by(HouseholdInvitation, household_id: household_id, email: email, status: "pending")
+  end
+
+  defp ensure_not_member_email(_household, ""), do: :ok
+
+  defp ensure_not_member_email(%Household{} = household, email) do
+    member? =
+      HouseholdMember
+      |> join(:inner, [membership], user in assoc(membership, :user))
+      |> where(
+        [membership, user],
+        membership.household_id == ^household.id and fragment("lower(?)", user.email) == ^email
+      )
+      |> Repo.exists?()
+
+    if member?, do: {:error, :already_member}, else: :ok
+  end
+
+  defp build_invitation_token do
+    raw = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
+    {:ok, hash} = UserToken.hash_token(raw)
+    {raw, hash}
+  end
+
+  defp invitation_expiry do
+    DateTime.utc_now()
+    |> DateTime.add(@invitation_validity_days * 86_400, :second)
+    |> DateTime.truncate(:second)
+  end
+
+  # An existing account's open pages (finance, hub) show the new invitation.
+  defp notify_invitee(%HouseholdInvitation{email: email}) do
+    case Repo.one(from user in User, where: fragment("lower(?)", user.email) == ^email) do
+      %User{id: id} -> notify_user(id)
+      nil -> :ok
+    end
+  end
+
+  defp notify_user(user_id), do: Core.Finance.notify_user_change(user_id)
 
   @doc """
   Updates user profile

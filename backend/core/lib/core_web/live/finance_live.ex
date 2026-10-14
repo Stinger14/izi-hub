@@ -32,8 +32,12 @@ defmodule CoreWeb.FinanceLive do
   ]
   @saving_rate_goal 30.0
 
-  def mount(_params, _session, socket) do
+  def mount(params, _session, socket) do
     if connected?(socket), do: Finance.subscribe(socket.assigns.current_scope.user)
+
+    # `?household=<id>` opens that household (e.g. right after joining one);
+    # an id the user can't see falls back like any other selection.
+    requested_household = params["household"]
 
     {:ok,
      socket
@@ -41,13 +45,14 @@ defmodule CoreWeb.FinanceLive do
      |> assign(
        page_title: "Finance",
        active_section: "overview",
-       ownership_scope: "personal",
+       ownership_scope: if(requested_household, do: "household", else: "personal"),
        time_scope: "month",
        net_worth_filter: "all",
        households: [],
-       selected_household_id: nil,
+       selected_household_id: requested_household,
        selected_household: nil,
        household_panel_open: false,
+       last_invite_link: nil,
        focus_panel: nil,
        editing_transaction_id: nil,
        editing: nil,
@@ -79,6 +84,9 @@ defmodule CoreWeb.FinanceLive do
     CoreWeb.LiveReload.drain(:finance_changed)
     {:noreply, assign_finance_data(socket)}
   end
+
+  # Anything else (e.g. a background task's reply) is not for this page.
+  def handle_info(_message, socket), do: {:noreply, socket}
 
   def handle_event("show_section", %{"section" => section}, socket) when section in @sections do
     {:noreply, assign(socket, active_section: section)}
@@ -203,34 +211,34 @@ defmodule CoreWeb.FinanceLive do
 
   def handle_event("set_time_scope", _params, socket), do: {:noreply, socket}
 
-  def handle_event("set_ownership_scope", %{"scope" => "personal"}, socket) do
+  # The scope switcher: "personal" or a household id.
+  def handle_event("switch_scope", %{"scope" => "personal"}, socket) do
     {:noreply,
      socket
      |> close_action_surface()
-     |> assign(ownership_scope: "personal")
+     |> assign(ownership_scope: "personal", hero_currency: nil, last_invite_link: nil)
      |> assign_finance_data()}
   end
 
-  def handle_event("set_ownership_scope", %{"scope" => "household"}, socket) do
-    households = socket.assigns.households
-    selected_household = select_household(households, socket.assigns.selected_household_id)
+  def handle_event("switch_scope", %{"scope" => household_id}, socket) do
+    case Enum.find(socket.assigns.households, &(&1.id == household_id)) do
+      nil ->
+        {:noreply, socket}
 
-    if selected_household do
-      {:noreply,
-       socket
-       |> close_action_surface()
-       |> assign(
-         ownership_scope: "household",
-         selected_household_id: selected_household.id,
-         selected_household: selected_household
-       )
-       |> assign_finance_data()}
-    else
-      {:noreply, socket}
+      household ->
+        {:noreply,
+         socket
+         |> close_action_surface()
+         |> assign(
+           ownership_scope: "household",
+           selected_household_id: household.id,
+           selected_household: household,
+           hero_currency: nil,
+           last_invite_link: nil
+         )
+         |> assign_finance_data()}
     end
   end
-
-  def handle_event("set_ownership_scope", _params, socket), do: {:noreply, socket}
 
   def handle_event("open_focus_panel", %{"panel" => panel}, socket)
       when panel in @focus_panels do
@@ -257,24 +265,11 @@ defmodule CoreWeb.FinanceLive do
     {:noreply, close_action_surface(socket)}
   end
 
-  def handle_event("select_household", %{"household_id" => household_id}, socket) do
-    selected_household = select_household(socket.assigns.households, household_id)
-
-    {:noreply,
-     socket
-     |> assign(
-       ownership_scope:
-         resolved_ownership_scope(socket.assigns.ownership_scope, selected_household),
-       selected_household_id: selected_household && selected_household.id,
-       selected_household: selected_household
-     )
-     |> assign_finance_data()}
-  end
-
-  def handle_event("create_household", %{"household" => params}, socket) do
+  def handle_event("create_household", %{"household" => params} = all_params, socket) do
     user = current_actor(socket)
+    account_params = Map.get(all_params, "starting_account", %{})
 
-    case Accounts.create_household(user, params) do
+    case Finance.create_household_with_account(user, params, account_params) do
       {:ok, household} ->
         # Start hearing about this household's changes right away.
         if connected?(socket), do: Finance.subscribe_household(household)
@@ -282,16 +277,32 @@ defmodule CoreWeb.FinanceLive do
         {:noreply,
          socket
          |> put_flash(:info, "Household created")
-         |> assign(ownership_scope: "household", selected_household_id: household.id)
+         |> assign(
+           ownership_scope: "household",
+           selected_household_id: household.id,
+           hero_currency: nil
+         )
          |> close_action_surface()
          |> assign_household_form()
          |> assign_finance_data()}
 
-      {:error, %Ecto.Changeset{} = changeset} ->
+      {:error, :household, changeset} ->
         {:noreply,
          socket
          |> open_action_surface("household")
-         |> assign(household_form: to_form(changeset, as: :household))}
+         |> assign(
+           household_form: to_form(changeset, as: :household),
+           starting_account_form: to_form(account_params, as: :starting_account)
+         )}
+
+      {:error, :account, changeset} ->
+        {:noreply,
+         socket
+         |> open_action_surface("household")
+         |> assign(
+           household_form: to_form(params, as: :household),
+           starting_account_form: to_form(changeset, as: :starting_account)
+         )}
     end
   end
 
@@ -374,33 +385,59 @@ defmodule CoreWeb.FinanceLive do
     end
   end
 
-  def handle_event("add_household_member", %{"member_invite" => %{"email" => email}}, socket) do
-    user = current_actor(socket)
-    household = socket.assigns.selected_household
+  # ------ Household invitations ------
 
-    case Accounts.add_household_member_by_email(user, household, email) do
-      {:ok, _membership} ->
+  def handle_event("invite_member", %{"invitation" => %{"email" => email}}, socket),
+    do: {:noreply, invite(socket, email)}
+
+  def handle_event("resend_invitation", %{"email" => email}, socket),
+    do: {:noreply, invite(socket, email)}
+
+  def handle_event("revoke_invitation", %{"id" => id}, socket) do
+    case Accounts.revoke_invitation(current_actor(socket), id) do
+      {:ok, _} ->
         {:noreply,
          socket
-         |> put_flash(:info, "Member added")
-         |> open_action_surface("household")
-         |> assign_member_form()
+         |> put_flash(:info, "Invitation cancelled")
+         |> assign(last_invite_link: nil)
          |> assign_finance_data()}
 
-      {:error, :user_not_found} ->
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not cancel the invitation")}
+    end
+  end
+
+  def handle_event("accept_invitation", %{"id" => id}, socket) do
+    case Accounts.accept_invitation(current_actor(socket), id) do
+      {:ok, household} ->
+        if connected?(socket), do: Finance.subscribe_household(household)
+
         {:noreply,
          socket
-         |> put_flash(:error, "User not found")
-         |> open_action_surface("household")}
+         |> put_flash(:info, "You joined #{household.name}")
+         |> assign(
+           ownership_scope: "household",
+           selected_household_id: household.id,
+           hero_currency: nil
+         )
+         |> close_action_surface()
+         |> assign_finance_data()}
 
-      {:error, :forbidden} ->
-        {:noreply, put_flash(socket, :error, "Only household owners can add members")}
-
-      {:error, %Ecto.Changeset{} = changeset} ->
+      {:error, _} ->
         {:noreply,
          socket
-         |> open_action_surface("household")
-         |> assign(member_form: to_form(changeset, as: :member_invite))}
+         |> put_flash(:error, "This invitation is no longer valid")
+         |> assign_finance_data()}
+    end
+  end
+
+  def handle_event("decline_invitation", %{"id" => id}, socket) do
+    case Accounts.decline_invitation(current_actor(socket), id) do
+      {:ok, _} ->
+        {:noreply, socket |> put_flash(:info, "Invitation declined") |> assign_finance_data()}
+
+      {:error, _} ->
+        {:noreply, assign_finance_data(socket)}
     end
   end
 
@@ -930,6 +967,7 @@ defmodule CoreWeb.FinanceLive do
           <div class="min-w-0 space-y-6 lg:max-w-[92rem]">
             <.finance_dashboard_header :if={@active_section == "overview"} {assigns} />
             <.finance_section_header :if={@active_section != "overview"} {assigns} />
+            <.pending_invitations_card :if={@pending_invitations != []} invitations={@pending_invitations} />
 
             <nav class="flex gap-2 overflow-x-auto pb-1 xl:hidden">
               <.section_button active_section={@active_section} section="overview" label="Overview" />
@@ -1067,8 +1105,17 @@ defmodule CoreWeb.FinanceLive do
           [sort: txn_sort, limit: @txn_page_size, offset: (txn_page - 1) * @txn_page_size]
       )
 
+    scope_accounts = scope_account_lists(user, households, owner, accounts)
+
     base_assigns = %{
       households: households,
+      scope_summaries: scope_summaries(scope_accounts, households, user),
+      pending_invitations: Accounts.list_pending_invitations_for_user(user),
+      household_invitations:
+        if(selected_household,
+          do: Accounts.list_household_invitations(user, selected_household),
+          else: []
+        ),
       ownership_scope: ownership_scope,
       selected_household_id: selected_household && selected_household.id,
       selected_household: selected_household,
@@ -1083,7 +1130,7 @@ defmodule CoreWeb.FinanceLive do
         archived_accounts: archived_accounts,
         account_ids_with_history:
           Finance.account_ids_with_transactions(Enum.map(accounts ++ archived_accounts, & &1.id)),
-        transfer_account_groups: transfer_account_groups(user, households, owner, accounts),
+        transfer_account_groups: transfer_account_groups(scope_accounts),
         account_summaries: account_summaries,
         account_total_balance: account_total_balance(accounts),
         account_total_balance_totals: account_total_balance_totals,
@@ -1142,7 +1189,7 @@ defmodule CoreWeb.FinanceLive do
     |> assign_account_form()
     |> assign_goal_form()
     |> assign_household_form()
-    |> assign_member_form()
+    |> assign_invite_form()
   end
 
   defp assign_transaction_form(
@@ -1321,11 +1368,56 @@ defmodule CoreWeb.FinanceLive do
   end
 
   defp assign_household_form(socket) do
-    assign(socket, household_form: to_form(Accounts.change_household(), as: :household))
+    assign(socket,
+      household_form: to_form(Accounts.change_household(), as: :household),
+      starting_account_form:
+        to_form(
+          %{
+            "name" => "",
+            "current_balance" => "",
+            "kind" => "checking",
+            "currency" => @default_currency
+          },
+          as: :starting_account
+        )
+    )
   end
 
-  defp assign_member_form(socket) do
-    assign(socket, member_form: to_form(%{"email" => ""}, as: :member_invite))
+  defp assign_invite_form(socket) do
+    assign(socket, invite_form: to_form(Accounts.change_invitation(), as: :invitation))
+  end
+
+  defp invite(socket, email) do
+    case socket.assigns.selected_household do
+      nil ->
+        socket
+
+      household ->
+        url_fun = &url(~p"/invites/#{&1}")
+
+        case Accounts.invite_to_household(current_actor(socket), household, email, url_fun) do
+          {:ok, invitation, url} ->
+            socket
+            |> put_flash(:info, "Invitation ready for #{invitation.email}")
+            |> open_action_surface("household")
+            |> assign(last_invite_link: %{email: invitation.email, url: url})
+            |> assign_invite_form()
+            |> assign_finance_data()
+
+          {:error, :already_member} ->
+            socket
+            |> open_action_surface("household")
+            |> put_flash(:error, "#{String.trim(email)} is already a member")
+
+          {:error, :forbidden} ->
+            put_flash(socket, :error, "Only household members can invite people")
+
+          {:error, %Ecto.Changeset{} = changeset} ->
+            socket
+            |> open_action_surface("household")
+            |> assign(invite_form: to_form(changeset, as: :invitation))
+        end
+    end
   end
 
   defp prepare_focus_panel(socket, "transaction") do
@@ -1350,7 +1442,7 @@ defmodule CoreWeb.FinanceLive do
   defp prepare_focus_panel(socket, "household") do
     socket
     |> assign_household_form()
-    |> assign_member_form()
+    |> assign_invite_form()
     |> open_action_surface("household")
   end
 
@@ -1655,22 +1747,66 @@ defmodule CoreWeb.FinanceLive do
   # Every account the user can move money between — personal plus each
   # household they belong to — grouped for the transfer form's <optgroup>s,
   # with the active scope first. Empty groups are left out.
-  defp transfer_account_groups(user, households, owner, owner_accounts) do
-    others =
-      [{"Personal", user} | Enum.map(households, &{&1.name, &1})]
-      |> Enum.reject(fn {_label, scope} -> same_owner?(scope, owner) end)
-      |> Enum.map(fn {label, scope} ->
-        {:ok, scope_accounts} = Finance.list_accounts(user, scope)
-        {label, scope_accounts}
-      end)
+  # Every scope the user can use (Personal, then each household) with its
+  # active accounts, loaded once and shared by the scope switcher and the
+  # transfer form. The current scope reuses the accounts already loaded.
+  defp scope_account_lists(user, households, owner, owner_accounts) do
+    [{"personal", "Personal", user} | Enum.map(households, &{&1.id, &1.name, &1})]
+    |> Enum.map(fn {key, label, scope} ->
+      current? = same_owner?(scope, owner)
 
-    current_label =
-      case owner do
-        %Core.Accounts.Household{name: name} -> name
-        _ -> "Personal"
+      accounts =
+        if current? do
+          owner_accounts
+        else
+          {:ok, scope_accounts} = Finance.list_accounts(user, scope)
+          scope_accounts
+        end
+
+      %{key: key, label: label, owner: scope, accounts: accounts, current?: current?}
+    end)
+  end
+
+  defp scope_summaries(scope_accounts, households, user) do
+    households_by_id = Map.new(households, &{&1.id, &1})
+
+    Enum.map(scope_accounts, fn scope ->
+      %{
+        key: scope.key,
+        name: scope.label,
+        kind: if(scope.key == "personal", do: :personal, else: :household),
+        detail: scope_detail(Map.get(households_by_id, scope.key), user, scope.accounts),
+        totals: currency_totals(scope.accounts, & &1.current_balance, & &1.currency),
+        active?: scope.current?
+      }
+    end)
+  end
+
+  defp scope_detail(nil, _user, accounts), do: "Just you · #{account_count_label(accounts)}"
+
+  defp scope_detail(household, user, accounts) do
+    members = household.memberships || []
+
+    role =
+      case Enum.find(members, &(&1.user_id == user.id)) do
+        %{role: "owner"} -> "Owner"
+        _ -> "Member"
       end
 
-    [{current_label, owner_accounts} | others]
+    member_label = if length(members) == 1, do: "1 member", else: "#{length(members)} members"
+    "#{role} · #{member_label} · #{account_count_label(accounts)}"
+  end
+
+  defp account_count_label([_]), do: "1 account"
+  defp account_count_label(accounts), do: "#{length(accounts)} accounts"
+
+  # Transfer "From"/"To" groups: the current scope first, then the others,
+  # skipping scopes without accounts.
+  defp transfer_account_groups(scope_accounts) do
+    {current, others} = Enum.split_with(scope_accounts, & &1.current?)
+
+    (current ++ others)
+    |> Enum.map(&{&1.label, &1.accounts})
     |> Enum.reject(fn {_label, accounts} -> accounts == [] end)
   end
 
@@ -1682,7 +1818,8 @@ defmodule CoreWeb.FinanceLive do
   defp transfer_error_message(:same_account), do: "Pick two different accounts"
 
   defp transfer_error_message(:currency_mismatch),
-    do: "Transfers between different currencies aren't supported yet"
+    do:
+      "Both accounts must use the same currency; transfers between currencies aren't supported yet"
 
   defp transfer_error_message(:invalid_transfer_amount), do: "Enter an amount above zero"
   defp transfer_error_message(:invalid_transfer_date), do: "Enter a valid date"

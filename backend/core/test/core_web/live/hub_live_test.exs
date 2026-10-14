@@ -6,6 +6,10 @@ defmodule CoreWeb.HubLiveTest do
   alias Core.{Accounts, Finance, Office}
 
   describe "/hub" do
+    setup %{conn: conn} do
+      %{conn: log_in_user(conn, user_fixture())}
+    end
+
     test "renders the dashboard widgets inside the hub theme", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/hub")
 
@@ -74,11 +78,6 @@ defmodule CoreWeb.HubLiveTest do
   end
 
   describe "/hub tasks and calendar" do
-    test "asks guests to sign in", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/hub")
-      assert html =~ "Sign in to see your IziOffice tasks."
-    end
-
     test "groups open tasks from IziOffice", %{conn: conn} do
       user = user_fixture()
       project = Office.default_project_for_user(user)
@@ -171,11 +170,6 @@ defmodule CoreWeb.HubLiveTest do
   end
 
   describe "/hub finance card" do
-    test "asks guests to sign in", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/hub")
-      assert html =~ "Sign in to see your balances"
-    end
-
     test "points users without accounts to Finance", %{conn: conn} do
       conn = log_in_user(conn, user_fixture())
       {:ok, _view, html} = live(conn, ~p"/hub")
@@ -261,11 +255,6 @@ defmodule CoreWeb.HubLiveTest do
   end
 
   describe "/hub developer card" do
-    test "asks guests to sign in", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/hub")
-      assert html =~ "Sign in to link your GitHub account."
-    end
-
     test "links a GitHub username and shows its stats", %{conn: conn} do
       user = user_fixture()
       conn = log_in_user(conn, user)
@@ -332,12 +321,21 @@ defmodule CoreWeb.HubLiveTest do
   end
 
   describe "/welcome" do
-    test "renders in the hub theme with the Profile & CV action", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/welcome")
+    test "offers sign in and sign up to visitors, in the hub theme", %{conn: conn} do
+      {:ok, view, html} = live(conn, ~p"/welcome")
 
       assert html =~ "hub-shell"
-      assert html =~ "Enter Hub"
       assert html =~ "Profile &amp; CV"
+      assert has_element?(view, "#welcome-sign-in[href='/login']")
+      assert has_element?(view, "#welcome-sign-up[href='/signup']")
+      refute has_element?(view, "#welcome-enter-hub")
+    end
+
+    test "offers the hub to signed-in users", %{conn: conn} do
+      {:ok, view, _html} = live(log_in_user(conn, user_fixture()), ~p"/welcome")
+
+      assert has_element?(view, "#welcome-enter-hub[href='/hub']")
+      refute has_element?(view, "#welcome-sign-in")
     end
 
     test "shows the app version from mix.exs in the footer", %{conn: conn} do
