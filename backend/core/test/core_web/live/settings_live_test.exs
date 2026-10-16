@@ -16,13 +16,11 @@ defmodule CoreWeb.SettingsLiveTest do
     assert to =~ "/login"
   end
 
-  test "the header's username chip links to settings", %{conn: conn} do
-    {:ok, _view, html} = live(conn, ~p"/hub")
+  test "the header's account menu links to settings and signs out", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/hub")
 
-    assert html
-           |> LazyHTML.from_document()
-           |> LazyHTML.query(~s(a#header-account-link[href="/settings"]))
-           |> Enum.count() == 1
+    assert has_element?(view, ~s(#account-menu a#account-menu-settings[href="/settings"]))
+    assert has_element?(view, "#account-menu button#account-menu-sign-out", "Sign out")
   end
 
   test "updates the profile and the header right away", %{conn: conn, user: user} do
@@ -36,6 +34,62 @@ defmodule CoreWeb.SettingsLiveTest do
     assert html =~ "Profile updated"
     assert html =~ "ana_settings"
     assert %User{full_name: "Ana Pérez", username: "ana_settings"} = Repo.get!(User, user.id)
+  end
+
+  describe "profile photo" do
+    @png <<0x89, "PNG", 0x0D, 0x0A, 0x1A, 0x0A, "rest-of-png">>
+
+    test "uploads a photo and shows it in the header", %{conn: conn, user: user} do
+      {:ok, view, _html} = live(conn, ~p"/settings")
+      refute has_element?(view, "#account-menu-trigger img")
+
+      avatar =
+        file_input(view, "#avatar-form", :avatar, [
+          %{name: "me.png", content: @png, type: "image/png"}
+        ])
+
+      render_upload(avatar, "me.png")
+
+      assert render(view) =~ "Photo updated"
+      assert has_element?(view, "#account-menu-trigger img[src^='/avatars/#{user.id}?v=']")
+      assert has_element?(view, "#avatar-remove")
+      assert Core.Accounts.get_user_avatar(user.id).content_type == "image/png"
+    end
+
+    test "rejects a file that only claims to be an image", %{conn: conn, user: user} do
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      avatar =
+        file_input(view, "#avatar-form", :avatar, [
+          %{name: "fake.png", content: "not really a png", type: "image/png"}
+        ])
+
+      render_upload(avatar, "fake.png")
+
+      assert view |> element("#avatar-error") |> render() =~ "a JPEG, PNG, GIF or WebP image"
+      assert Core.Accounts.get_user_avatar(user.id) == nil
+    end
+
+    test "rejects other file types before uploading", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      avatar =
+        file_input(view, "#avatar-form", :avatar, [
+          %{name: "logo.svg", content: "<svg/>", type: "image/svg+xml"}
+        ])
+
+      assert {:error, [[_ref, :not_accepted]]} = render_upload(avatar, "logo.svg")
+    end
+
+    test "removes the photo", %{conn: conn, user: user} do
+      {:ok, _} = Core.Accounts.put_user_avatar(user, @png)
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      view |> element("#avatar-remove") |> render_click()
+
+      refute has_element?(view, "#account-menu-trigger img")
+      assert Core.Accounts.get_user_avatar(user.id) == nil
+    end
   end
 
   test "shows a taken username inline", %{conn: conn} do

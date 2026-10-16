@@ -1609,27 +1609,9 @@
     color: #ffffff;
 }
 
-/* Flash toasts (CoreWeb.Layouts.flash_group). Default: centred in the
-   header's middle slot. On phones the header has no free space, so they sit
-   just below it; once the header scrolls away they float at the top centre.
-   --flash-top and .header-offscreen are kept on <body> by syncFlashPosition
-   in app.js (outside the LiveView container, so patches never reset them). */
-@media (max-width: 639px) {
-    #flash-group {
-        position: fixed;
-        top: var(--flash-top, 4rem);
-        bottom: auto;
-        left: 1rem;
-        right: 1rem;
-    }
+/* In-page links (e.g. the hub's #tasks chip) land below the sticky
+   header instead of under it. */
+html {
+    scroll-padding-top: 5.5rem;
 }
 
-.header-offscreen #flash-group {
-    position: fixed;
-    top: 0.75rem;
-    bottom: auto;
-    left: 50%;
-    right: auto;
-    width: min(28rem, calc(100vw - 2rem));
-    transform: translateX(-50%);
-}

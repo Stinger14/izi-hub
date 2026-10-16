@@ -28,8 +28,8 @@ defmodule CoreWeb.SignInRequiredTest do
     test "the header offers sign in and the logo points to the welcome page", %{conn: conn} do
       html = conn |> get(~p"/welcome") |> html_response(200)
       assert html =~ ~s(id="header-sign-in")
-      refute html =~ ~s(id="header-account-link")
-      assert html =~ ~s(href="/welcome" class="font-display)
+      refute html =~ ~s(id="account-menu")
+      assert html =~ ~s(href="/welcome" id="header-logo")
     end
 
     test "the site root goes to the welcome page", %{conn: conn} do
@@ -84,9 +84,10 @@ defmodule CoreWeb.SignInRequiredTest do
       assert conn |> get(~p"/") |> redirected_to() == ~p"/hub"
     end
 
-    test "the header logo points to the hub", %{conn: conn} do
+    test "the header leads to the hub instead of offering sign in", %{conn: conn} do
       html = conn |> log_in_user(user_fixture()) |> get(~p"/welcome") |> html_response(200)
-      assert html =~ ~s(href="/hub" class="font-display)
+      assert html =~ ~s(id="workspace-nav-hub" href="/hub")
+      assert html =~ ~s(href="/hub" id="header-logo")
       refute html =~ ~s(id="header-sign-in")
     end
   end

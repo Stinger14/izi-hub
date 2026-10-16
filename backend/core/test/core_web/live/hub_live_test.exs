@@ -11,12 +11,13 @@ defmodule CoreWeb.HubLiveTest do
     end
 
     test "renders the dashboard widgets inside the hub theme", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/hub")
+      {:ok, view, html} = live(conn, ~p"/hub")
 
       assert html =~ "hub-shell"
       assert html =~ "Dashboard"
-      assert html =~ "Your money, at a glance"
-      assert html =~ "Developer stats"
+      refute html =~ "Your workspace"
+      assert has_element?(view, "a[aria-label='Open Finance'][href='/finance']")
+      assert html =~ "GitHub"
       assert html =~ ~s(id="tasks")
       assert html =~ ~s(id="calendar")
       assert html =~ ~s(id="music")
@@ -37,23 +38,23 @@ defmodule CoreWeb.HubLiveTest do
     end
 
     test "switches the stats card between developer and creator", %{conn: conn} do
-      {:ok, view, html} = live(conn, ~p"/hub")
-      assert html =~ "Developer stats"
+      {:ok, view, _html} = live(conn, ~p"/hub")
+      assert has_element?(view, "h2", "GitHub")
 
       html = render_click(view, "set_stats_variant", %{"variant" => "creator"})
-      assert html =~ "Creator stats"
       assert html =~ "Facebook stats are coming soon"
-      refute html =~ "Developer stats"
+      assert has_element?(view, "h2", "Facebook")
+      refute has_element?(view, "#github-link-form")
 
-      html = render_click(view, "set_stats_variant", %{"variant" => "developer"})
-      assert html =~ "Developer stats"
+      render_click(view, "set_stats_variant", %{"variant" => "developer"})
+      assert has_element?(view, "h2", "GitHub")
     end
 
     test "ignores unknown stats variants", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/hub")
 
-      html = render_click(view, "set_stats_variant", %{"variant" => "admin"})
-      assert html =~ "Developer stats"
+      render_click(view, "set_stats_variant", %{"variant" => "admin"})
+      assert has_element?(view, "h2", "GitHub")
     end
 
     test "navigates calendar months", %{conn: conn} do
@@ -74,6 +75,17 @@ defmodule CoreWeb.HubLiveTest do
 
       assert view |> element("button", "Translate") |> render_click() =~
                ~s(id="translator-popover")
+
+      refute render_click(view, "close_translator") =~ ~s(id="translator-popover")
+    end
+
+    test "puts the hub tools in the workspace bar with Hub highlighted", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/hub")
+
+      assert has_element?(view, "#workspace-nav-hub[aria-current=page]")
+      assert has_element?(view, "#workspace-bar a[href='#tasks']", "Tasks")
+      assert has_element?(view, "#workspace-bar button", "Translate")
+      refute has_element?(view, "#workspace-nav-admin")
     end
   end
 
@@ -249,8 +261,8 @@ defmodule CoreWeb.HubLiveTest do
       {:ok, view, html} = live(conn, ~p"/hub")
       assert html =~ ~s(aria-label="Finance scope")
 
-      html = render_click(view, "set_finance_scope", %{"scope" => "household"})
-      assert html =~ "Finance · Garcia Home"
+      render_click(view, "set_finance_scope", %{"scope" => "household"})
+      assert has_element?(view, "h2", "Garcia Home")
     end
   end
 

@@ -277,9 +277,9 @@ defmodule CoreWeb.OfficeLiveTest do
              })
 
     conn = log_in_user(conn, user)
-    {:ok, view, html} = live(conn, ~p"/office")
+    {:ok, view, _html} = live(conn, ~p"/office")
 
-    assert html =~ "Calendar"
+    assert has_element?(view, "button[aria-label='Next month']")
 
     assert has_element?(
              view,
@@ -295,7 +295,6 @@ defmodule CoreWeb.OfficeLiveTest do
 
     assert html =~ Calendar.strftime(selected_date, "%b %d, %Y")
     assert html =~ "Planning review"
-    assert html =~ "Tasks for the day"
     assert html =~ "Plan sprint board"
     assert has_element?(view, "[data-roadmap-date=\"#{Date.to_iso8601(selected_date)}\"]")
     refute has_element?(view, "[data-roadmap-date=\"#{Date.to_iso8601(other_date)}\"]")
@@ -335,7 +334,6 @@ defmodule CoreWeb.OfficeLiveTest do
       )
       |> render_click()
 
-    assert html =~ "Tasks for the day"
     refute html =~ "No tasks scheduled or due on this day."
 
     assert has_element?(view, "[data-selected-day-empty-state=\"tasks\"]")

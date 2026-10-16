@@ -1,57 +1,51 @@
 <% current_scope = Map.get(assigns, :current_scope) %>
+<%!-- Optional, so controller-rendered pages can skip them. The page's slots
+     are rendered here and handed to workspace_nav as its own slots: passing
+     the slot entries on as an attribute would stop them re-rendering when
+     the page's assigns change. --%>
+<% workspace = Map.get(assigns, :workspace) %>
+<% workspace_tools = Map.get(assigns, :workspace_tools, []) %>
+<% workspace_panel = Map.get(assigns, :workspace_panel, []) %>
 <section class="hub-shell min-h-screen">
   <div class="flex min-h-screen flex-col">
-    <header class="relative z-40 border-b border-[color:var(--hub-border)] bg-transparent">
-      <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+    <header id="site-header" class="sticky top-0 z-40 px-3 pt-2 sm:px-4">
+      <%!-- The wordmark sits outside the glass strip, on the page itself, so
+           it reads as the brand and the strip as navigation. Signed-in phones get
+           the short mark to leave the strip room for every app. --%>
+      <div class="mx-auto flex max-w-6xl items-center gap-2 sm:gap-4">
         <a
           href={if current_scope, do: ~p"/hub", else: ~p"/welcome"}
-          class="font-display text-xl text-[var(--hub-secondary)]"
+          id="header-logo"
+          aria-label="IziHub"
+          class="font-display shrink-0 text-lg text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)] sm:text-xl"
         >
-          IziHub
+          <%= if current_scope do %>
+            <span class="sm:hidden">Izi</span><span class="hidden sm:inline">IziHub</span>
+          <% else %>
+            IziHub
+          <% end %>
         </a>
-
-        <%!-- Toast slot: takes only the space between the logo and the buttons,
-             so a message can never cover them or change the header's height. --%>
-        <div class="relative min-w-0 flex-1 self-stretch">
-          <.flash_group flash={Map.get(assigns, :flash, %{})} />
-        </div>
-
-        <div class="flex min-w-0 flex-wrap items-center justify-end gap-2">
+        <div
+          id="workspace-bar"
+          class={[
+            "hub-glass flex min-w-0 items-center gap-1.5 rounded-2xl p-1.5 sm:gap-2 sm:p-2 shadow-[0_16px_32px_-20px_var(--hub-shadow)]",
+            if(current_scope, do: "flex-1", else: "ml-auto")
+          ]}
+        >
           <%= if current_scope do %>
-            <a href={~p"/office"} class="btn btn-secondary btn-xs">Office</a>
-            <a href={~p"/finance"} class="btn btn-secondary btn-xs">Finance</a>
-          <% end %>
-
-          <%= if current_scope && current_scope.user.role == "admin" do %>
-            <a href={~p"/admin"} class="btn btn-secondary btn-xs">Admin</a>
-          <% end %>
-
-          <%= if current_scope do %>
-            <a
-              href={~p"/settings"}
-              id="header-account-link"
-              title="Account settings"
-              aria-label="Account settings"
-              class="inline-flex items-center gap-1.5 rounded-[14px] border px-2.5 py-1.5 text-xs font-semibold leading-[1.2] text-[var(--hub-secondary)] transition hover:border-[color:var(--hub-accent)]"
-              style="border-color: var(--btn-secondary-border); background: var(--btn-secondary-bg);"
-            >
-              <span class="inline-block h-2 w-2 rounded-full bg-[var(--tone-income)]"></span>
-              <span class="hidden sm:inline">
-                <%= current_scope.user.username || current_scope.user.email %>
-              </span>
-              <span class="sm:hidden">
-                <%= (current_scope.user.username || current_scope.user.email) |> String.slice(0, 2) |> String.upcase() %>
-              </span>
-            </a>
-            <.form for={%{}} as={:logout} action={~p"/logout"} method="delete">
-              <button type="submit" class="btn btn-secondary btn-xs">Logout</button>
-            </.form>
+            <.workspace_nav current_scope={current_scope} active={workspace}>
+              <:tools :if={workspace_tools != []}><%= render_slot(workspace_tools) %></:tools>
+            </.workspace_nav>
+            <.account_menu user={current_scope.user} />
           <% else %>
             <a href={~p"/login"} id="header-sign-in" class="btn btn-primary btn-xs">Sign in</a>
           <% end %>
         </div>
       </div>
+      <div class="mx-auto max-w-6xl"><%= render_slot(workspace_panel) %></div>
     </header>
+
+    <.flash_group flash={Map.get(assigns, :flash, %{})} />
 
     <div class="flex-1">
       <%= if Map.has_key?(assigns, :inner_block) do %>

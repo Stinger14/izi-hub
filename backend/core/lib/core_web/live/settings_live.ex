@@ -1,12 +1,16 @@
 defmodule CoreWeb.SettingsLive do
   @moduledoc """
-  Account settings for the signed-in user: name and username, GitHub login,
-  email and password. Email and password changes need the current password.
+  Account settings for the signed-in user: profile photo, name and username,
+  GitHub login, email and password. Email and password changes need the
+  current password. The photo uploads as soon as it's picked; its bytes are
+  checked by `Accounts.put_user_avatar/2`, not just its extension.
   """
   use CoreWeb, :live_view
 
   alias Core.Accounts
   alias Core.Accounts.{Scope, User}
+
+  import CoreWeb.FinanceComponents, only: [tone_class: 2]
 
   @impl true
   def mount(_params, session, socket) do
@@ -17,10 +21,27 @@ defmodule CoreWeb.SettingsLive do
      # This browser's session token: kept when signing out other sessions.
      # Never rendered.
      |> assign(page_title: "Account settings", session_token: session["user_token"])
+     |> assign(avatar_error: nil)
+     |> allow_upload(:avatar,
+       accept: ~w(.jpg .jpeg .png .webp .gif),
+       max_entries: 1,
+       max_file_size: Accounts.avatar_max_bytes(),
+       auto_upload: true,
+       progress: &handle_progress/3
+     )
      |> assign_forms(user)}
   end
 
   @impl true
+  def handle_event("validate_avatar", _params, socket) do
+    {:noreply, assign(socket, avatar_error: nil)}
+  end
+
+  def handle_event("remove_avatar", _params, socket) do
+    {:ok, user} = Accounts.delete_user_avatar(current_user(socket))
+    {:noreply, socket |> refresh_user(user) |> put_flash(:info, "Photo removed")}
+  end
+
   def handle_event("save_profile", %{"profile" => params}, socket) do
     case Accounts.update_account_profile(current_user(socket), params) do
       {:ok, user} ->
@@ -87,6 +108,32 @@ defmodule CoreWeb.SettingsLive do
     {:noreply, put_flash(socket, :info, message)}
   end
 
+  # Saves the photo once the browser has finished sending it.
+  defp handle_progress(:avatar, %{done?: true} = entry, socket) do
+    user = current_user(socket)
+
+    result =
+      consume_uploaded_entry(socket, entry, fn %{path: path} ->
+        {:ok, Accounts.put_user_avatar(user, File.read!(path))}
+      end)
+
+    case result do
+      {:ok, user} ->
+        {:noreply, socket |> refresh_user(user) |> put_flash(:info, "Photo updated")}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, avatar_error: avatar_error_message(reason))}
+    end
+  end
+
+  defp handle_progress(:avatar, _entry, socket), do: {:noreply, socket}
+
+  defp avatar_error_message(:too_large), do: "That image is over 2 MB."
+  defp avatar_error_message(:not_accepted), do: "Use a JPEG, PNG, GIF or WebP image."
+  defp avatar_error_message(:invalid_image), do: "That file isn't a JPEG, PNG, GIF or WebP image."
+  defp avatar_error_message(:too_many_files), do: "Pick one image."
+  defp avatar_error_message(_reason), do: "That image couldn't be uploaded."
+
   defp current_user(socket), do: socket.assigns.current_scope.user
 
   # Saving one card resets every form from the saved user, so the header
@@ -107,37 +154,47 @@ defmodule CoreWeb.SettingsLive do
     )
   end
 
-  defp initials(user) do
-    (user.full_name || user.username || user.email)
-    |> String.split(~r/[\s_.@-]+/, trim: true)
-    |> Enum.take(2)
-    |> Enum.map_join("", &String.first/1)
-    |> String.upcase()
-  end
-
   @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <main class="mx-auto max-w-4xl px-4 pb-16 pt-10 sm:px-6">
         <div class="flex items-center gap-4">
-          <span
-            aria-hidden="true"
-            class="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--hub-primary)] text-lg font-semibold text-white"
-          >
-            <%= initials(@user) %>
-          </span>
+          <form id="avatar-form" phx-change="validate_avatar" phx-submit="validate_avatar" class="relative shrink-0">
+            <Layouts.user_avatar user={@user} class="h-20 w-20 text-2xl" />
+            <label
+              for={@uploads.avatar.ref}
+              id="avatar-upload"
+              title="Change photo"
+              class="absolute -bottom-1 -right-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-[color:var(--hub-border)] bg-[var(--hub-card)] text-[var(--hub-secondary)] shadow transition hover:border-[color:var(--hub-accent)] focus-within:ring-2 focus-within:ring-[color:var(--hub-accent)]/40"
+            >
+              <span class="sr-only">Change photo</span>
+              <.icon name="hero-camera" class="h-4 w-4" />
+              <.live_file_input upload={@uploads.avatar} class="sr-only" />
+            </label>
+          </form>
           <div class="min-w-0">
-            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--hub-accent-2)]">Account settings</p>
-            <h1 class="font-display mt-1 truncate text-3xl text-[var(--hub-text)]">
+            <h1 class="font-display truncate text-3xl text-[var(--hub-text)]">
               <%= @user.full_name || @user.username %>
             </h1>
             <p class="truncate text-sm text-[var(--hub-muted)]"><%= @user.email %></p>
+            <button
+              :if={@user.avatar_updated_at}
+              type="button"
+              id="avatar-remove"
+              phx-click="remove_avatar"
+              class="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-text)]"
+            >
+              <.icon name="hero-trash" class="h-3.5 w-3.5" />Remove photo
+            </button>
           </div>
+        </div>
+        <div :if={avatar_errors(@uploads.avatar, @avatar_error) != []} id="avatar-error" role="alert" class={["mt-3 text-sm", tone_class("expense", :text)]}>
+          <p :for={message <- avatar_errors(@uploads.avatar, @avatar_error)}><%= message %></p>
         </div>
 
         <div class="mt-8 grid gap-5 md:grid-cols-2">
-          <.settings_card title="Profile" description="How your name appears across IziHub.">
+          <.settings_card title="Profile">
             <.form for={@profile_form} id="profile-form" phx-submit="save_profile" class="space-y-3">
               <.field form={@profile_form} field={:full_name} label="Full name" autocomplete="name" />
               <.field form={@profile_form} field={:username} label="Username" autocomplete="username" />
@@ -145,17 +202,14 @@ defmodule CoreWeb.SettingsLive do
             </.form>
           </.settings_card>
 
-          <.settings_card
-            title="Connected accounts"
-            description="Your public GitHub username, for the hub's Developer card. Leave blank to unlink."
-          >
+          <.settings_card title="GitHub" description="Leave blank to unlink.">
             <.form for={@github_form} id="github-form" phx-submit="save_github" class="space-y-3">
               <.field form={@github_form} field={:github_username} label="GitHub username" placeholder="octocat" />
               <.save_button>Save GitHub</.save_button>
             </.form>
           </.settings_card>
 
-          <.settings_card title="Email" description="Used to sign in. A new address starts unverified.">
+          <.settings_card title="Email" description="A new address starts unverified.">
             <.form for={@email_form} id="email-form" phx-submit="save_email" class="space-y-3">
               <.field form={@email_form} field={:email} label="Email" type="email" autocomplete="email" />
               <.field
@@ -192,7 +246,7 @@ defmodule CoreWeb.SettingsLive do
 
           <.settings_card
             title="Signed-in devices"
-            description="Sign-ins last 60 days. Changing your password also signs out every other device."
+            description="Changing your password also signs out every other device."
           >
             <div class="flex justify-end">
               <button
@@ -213,17 +267,28 @@ defmodule CoreWeb.SettingsLive do
   end
 
   attr :title, :string, required: true
-  attr :description, :string, required: true
+  attr :description, :string, default: nil
   slot :inner_block, required: true
 
   defp settings_card(assigns) do
     ~H"""
     <section class="hub-glass rounded-2xl p-5">
       <h2 class="font-display text-lg text-[var(--hub-text)]"><%= @title %></h2>
-      <p class="mt-1 text-sm text-[var(--hub-muted)]"><%= @description %></p>
+      <p :if={@description} class="mt-1 text-sm text-[var(--hub-muted)]"><%= @description %></p>
       <div class="mt-4"><%= render_slot(@inner_block) %></div>
     </section>
     """
+  end
+
+  # Upload-level errors (wrong type, too large, too many) plus the server's
+  # verdict on the bytes, as one message list.
+  defp avatar_errors(upload, server_error) do
+    entry_errors = Enum.flat_map(upload.entries, &upload_errors(upload, &1))
+
+    (upload_errors(upload) ++ entry_errors)
+    |> Enum.map(&avatar_error_message/1)
+    |> Kernel.++(List.wrap(server_error))
+    |> Enum.uniq()
   end
 
   attr :form, :any, required: true

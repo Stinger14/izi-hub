@@ -12,6 +12,7 @@ defmodule Core.Accounts do
     HouseholdMember,
     HouseholdNotifier,
     User,
+    UserAvatar,
     UserToken,
     UsernameGenerator
   }
@@ -19,6 +20,7 @@ defmodule Core.Accounts do
   @setup_password_token_ttl_seconds 86_400
   @invitation_validity_days 14
   @username_generation_attempts 20
+  @avatar_max_bytes 2_000_000
 
   @doc """
   Register new user
@@ -605,6 +607,63 @@ defmodule Core.Accounts do
     |> User.account_profile_changeset(attrs)
     |> Repo.update()
   end
+
+  @doc "Largest profile photo accepted, in bytes."
+  def avatar_max_bytes, do: @avatar_max_bytes
+
+  @doc """
+  Saves `binary` as the user's profile photo. The type comes from the file's
+  own bytes, not its name: only JPEG, PNG, GIF and WebP are accepted (never
+  SVG, which can carry scripts). Returns `{:ok, user}` with
+  `avatar_updated_at` stamped, or `{:error, :invalid_image | :too_large}`.
+  """
+  def put_user_avatar(%User{} = user, binary) when is_binary(binary) do
+    with :ok <- check_avatar_size(binary),
+         {:ok, content_type} <- image_type(binary) do
+      now = DateTime.utc_now(:second)
+
+      Repo.transaction(fn ->
+        Repo.insert!(
+          %UserAvatar{
+            user_id: user.id,
+            content_type: content_type,
+            data: binary,
+            byte_size: byte_size(binary)
+          },
+          on_conflict: {:replace, [:content_type, :data, :byte_size, :updated_at]},
+          conflict_target: :user_id
+        )
+
+        user |> Ecto.Changeset.change(avatar_updated_at: now) |> Repo.update!()
+      end)
+    end
+  end
+
+  @doc "Removes the user's profile photo, if any."
+  def delete_user_avatar(%User{} = user) do
+    Repo.transaction(fn ->
+      Repo.delete_all(from(a in UserAvatar, where: a.user_id == ^user.id))
+      user |> Ecto.Changeset.change(avatar_updated_at: nil) |> Repo.update!()
+    end)
+  end
+
+  @doc "The stored profile photo for a user id, or nil."
+  def get_user_avatar(user_id) do
+    case Ecto.UUID.cast(user_id) do
+      {:ok, id} -> Repo.get(UserAvatar, id)
+      :error -> nil
+    end
+  end
+
+  defp check_avatar_size(binary) do
+    if byte_size(binary) in 1..@avatar_max_bytes, do: :ok, else: {:error, :too_large}
+  end
+
+  defp image_type(<<0xFF, 0xD8, 0xFF, _::binary>>), do: {:ok, "image/jpeg"}
+  defp image_type(<<0x89, "PNG", 0x0D, 0x0A, 0x1A, 0x0A, _::binary>>), do: {:ok, "image/png"}
+  defp image_type(<<"GIF8", v, "a", _::binary>>) when v in [?7, ?9], do: {:ok, "image/gif"}
+  defp image_type(<<"RIFF", _size::binary-size(4), "WEBP", _::binary>>), do: {:ok, "image/webp"}
+  defp image_type(_binary), do: {:error, :invalid_image}
 
   @doc """
   Changes the signed-in user's email. Requires their current password.

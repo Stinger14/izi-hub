@@ -21,15 +21,9 @@ defmodule CoreWeb.FinanceComponents do
     <section class="relative z-30">
       <.fin_card padded={false} class="px-5 py-5 sm:px-6">
         <div class="flex flex-wrap items-start justify-between gap-4">
-          <div class="space-y-2">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]"><%= greeting_date() %></p>
-            <h1 class="font-display text-[1.55rem] tracking-tight text-[color:var(--fin-text)]">
-              <%= active_section_title(@active_section, @pending_review_count) %>
-            </h1>
-            <p :if={active_section_subtitle(@active_section)} class="max-w-2xl text-sm leading-6 text-[color:var(--fin-muted)]">
-              <%= active_section_subtitle(@active_section) %>
-            </p>
-          </div>
+          <h1 class="font-display text-[1.55rem] tracking-tight text-[color:var(--fin-text)]">
+            <%= active_section_title(@active_section, @pending_review_count) %>
+          </h1>
 
           <div class="flex flex-wrap items-center justify-end gap-2.5">
             <.scope_switcher
@@ -67,7 +61,7 @@ defmodule CoreWeb.FinanceComponents do
       <.fin_card padded={false} class="px-6 py-6 sm:px-8">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p class="text-[12px] font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]"><%= greeting_date() %> · this month</p>
+            <p class="text-[12px] font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]"><%= greeting_date() %></p>
             <h1 class="mt-1 text-xl font-display text-[color:var(--fin-text)]"><%= greeting_headline(@current_scope.user) %></h1>
           </div>
 
@@ -127,8 +121,7 @@ defmodule CoreWeb.FinanceComponents do
     <.fin_card>
       <div class="flex items-center justify-between gap-3">
         <div>
-          <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Budget</p>
-          <h2 class="mt-2 text-lg font-semibold text-[color:var(--fin-text)]">This month</h2>
+          <h2 class="text-lg font-semibold text-[color:var(--fin-text)]">Budget</h2>
         </div>
         <button
           type="button"
@@ -202,8 +195,7 @@ defmodule CoreWeb.FinanceComponents do
     <.fin_card class="flex h-full flex-col">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 class="text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">Total Balance</h2>
-          <p class="mt-1 text-sm text-[color:var(--fin-muted)]">Overview of your current funds</p>
+          <h2 class="text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">Total balance</h2>
         </div>
         <div class="flex items-center gap-1.5">
           <form phx-change="select_hero_currency">
@@ -265,14 +257,7 @@ defmodule CoreWeb.FinanceComponents do
               <path d="M5 15V5a2 2 0 0 1 2-2h8" />
             </svg>
           </button>
-          <button
-            type="button"
-            phx-click="show_section"
-            phx-value-section="accounts"
-            class="whitespace-nowrap rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-2.5 py-1 text-[11px] font-semibold text-[color:var(--fin-text)] transition hover:bg-[color:var(--fin-surface)]"
-          >
-            See Details
-          </button>
+          <.icon_button icon="hero-arrow-right" label="Open accounts" phx-click="show_section" phx-value-section="accounts" />
         </div>
       </div>
 
@@ -620,8 +605,7 @@ defmodule CoreWeb.FinanceComponents do
       <div class="rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5">
         <div>
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Households</p>
-            <h3 class="mt-2 text-xl font-semibold tracking-tight text-[color:var(--fin-text)]">Create or switch scope</h3>
+            <h3 class="text-xl font-semibold tracking-tight text-[color:var(--fin-text)]">Households</h3>
           </div>
         </div>
 
@@ -636,7 +620,7 @@ defmodule CoreWeb.FinanceComponents do
               Starting account · optional
             </legend>
             <p class="mb-3 text-xs leading-5 text-[color:var(--fin-muted)]">
-              Add the household's first account and its current balance, so the dashboard shows a total right away. Leave it blank to add accounts later.
+              Optional. Add accounts later.
             </p>
             <div class="grid gap-3 sm:grid-cols-2">
               <.finance_input form={@starting_account_form} field={:name} label="Account name" placeholder="Household account" />
@@ -663,18 +647,15 @@ defmodule CoreWeb.FinanceComponents do
       <div class="rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Active scope</p>
-            <h3 class="mt-2 text-xl font-semibold tracking-tight text-[color:var(--fin-text)]">
+            <h3 class="text-xl font-semibold tracking-tight text-[color:var(--fin-text)]">
               <%= selected_household_name(@selected_household) %>
             </h3>
-            <button
+            <.icon_button
               :if={household_owner?(@current_scope.user, @selected_household) and !@household_rename_open}
-              type="button"
+              icon="hero-pencil-square"
+              label="Rename household"
               phx-click="open_household_rename"
-              class="mt-1 text-xs font-semibold text-[color:var(--fin-accent)]"
-            >
-              Rename
-            </button>
+            />
           </div>
           <span class="rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1 text-xs font-semibold text-[var(--fin-accent)]">
             <%= household_role_label(@current_scope.user, @selected_household) %>
@@ -744,7 +725,7 @@ defmodule CoreWeb.FinanceComponents do
               </button>
             </div>
             <p class="mt-2 text-xs leading-5 text-[color:var(--fin-muted)]">
-              They'll get a link to join, with or without an IziHub account. The link expires in 14 days.
+              The link expires in 14 days.
             </p>
           </.form>
 
@@ -771,9 +752,10 @@ defmodule CoreWeb.FinanceComponents do
                 data-copy-value={@last_invite_link.url}
                 data-copy-title="Copy link"
                 title="Copy link"
-                class="btn btn-secondary btn-xs data-[copied]:border-[var(--fin-accent)] data-[copied]:text-[var(--fin-accent)]"
+                aria-label="Copy link"
+                class="inline-grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--fin-border)] text-[var(--hub-secondary)] transition hover:border-[color:var(--hub-accent)] data-[copied]:border-[var(--fin-accent)] data-[copied]:text-[var(--tone-income)]"
               >
-                Copy
+                <.icon name="hero-clipboard" class="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -875,8 +857,7 @@ defmodule CoreWeb.FinanceComponents do
       <div class="hub-glass relative z-10 w-full max-w-5xl overflow-hidden rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] shadow-2xl">
         <div class="flex items-center justify-between gap-4 border-b border-[color:var(--fin-border)] px-5 py-4 sm:px-6">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Detail panel</p>
-            <h3 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
+            <h3 class="text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
               <%= focus_panel_title(@panel) %>
             </h3>
           </div>
@@ -967,29 +948,24 @@ defmodule CoreWeb.FinanceComponents do
         </button>
         <button type="button" phx-click="cancel_delete" class="btn btn-ghost btn-xs">Cancel</button>
       <% else %>
-        <button
+        <.icon_button
           :if={@edit}
-          type="button"
+          icon="hero-pencil-square"
+          label={"Edit #{@label}"}
           phx-click="edit_record"
           phx-value-type={@type}
           phx-value-id={@id}
-          aria-label={"Edit #{@label}"}
-          class="btn btn-ghost btn-xs"
-        >
-          Edit
-        </button>
+        />
         <%= render_slot(@inner_block) %>
-        <button
+        <.icon_button
           :if={@delete}
-          type="button"
+          icon="hero-trash"
+          tone="danger"
+          label={"#{@delete_label} #{@label}"}
           phx-click="request_delete"
           phx-value-type={@type}
           phx-value-id={@id}
-          aria-label={"#{@delete_label} #{@label}"}
-          class="btn btn-ghost btn-xs text-[var(--tone-expense)]"
-        >
-          <%= @delete_label %>
-        </button>
+        />
       <% end %>
     </div>
     """
@@ -1004,9 +980,8 @@ defmodule CoreWeb.FinanceComponents do
 
       <div class="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
       <.fin_card>
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Account setup</p>
-        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
-          <%= if editing?(@editing, "account"), do: "Edit account", else: "Track balances by scope" %>
+        <h2 class="text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
+          <%= if editing?(@editing, "account"), do: "Edit account", else: "Add account" %>
         </h2>
 
         <.form for={@account_form} id="account-section-form" phx-submit={record_submit(@editing, "account", "create_account")} class="mt-5 space-y-4">
@@ -1025,8 +1000,7 @@ defmodule CoreWeb.FinanceComponents do
       <.fin_card>
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Tracked accounts</p>
-            <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Scope balances and activity</h2>
+            <h2 class="text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Active</h2>
           </div>
           <span class="whitespace-nowrap rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1 text-xs font-semibold text-[var(--fin-accent)]">
             <%= money_totals(@account_total_balance_totals) %>
@@ -1060,9 +1034,7 @@ defmodule CoreWeb.FinanceComponents do
                 confirming_delete={@confirming_delete}
                 delete={!MapSet.member?(@account_ids_with_history, summary.account.id)}
               >
-                <button type="button" phx-click="archive_account" phx-value-id={summary.account.id} aria-label={"Archive #{summary.account.name}"} class="btn btn-ghost btn-xs">
-                  Archive
-                </button>
+                <.icon_button icon="hero-archive-box" label={"Archive #{summary.account.name}"} phx-click="archive_account" phx-value-id={summary.account.id} />
               </.record_actions>
             </div>
           </div>
@@ -1090,9 +1062,7 @@ defmodule CoreWeb.FinanceComponents do
                 edit={false}
                 delete={!MapSet.member?(@account_ids_with_history, account.id)}
               >
-                <button type="button" phx-click="restore_account" phx-value-id={account.id} aria-label={"Restore #{account.name}"} class="btn btn-secondary btn-xs">
-                  Restore
-                </button>
+                <.icon_button icon="hero-arrow-uturn-left" label={"Restore #{account.name}"} phx-click="restore_account" phx-value-id={account.id} />
               </.record_actions>
             </div>
           </div>
@@ -1124,7 +1094,7 @@ defmodule CoreWeb.FinanceComponents do
         <.transfer_form_fields groups={@transfer_account_groups} />
 
         <p class="text-xs leading-5 text-[color:var(--fin-muted)]">
-          Both accounts must use the same currency. You can move money between your personal and household accounts; transfers move balances without counting as income or spending.
+          Both accounts must use the same currency.
         </p>
 
         <div class="flex justify-end">
@@ -1249,8 +1219,7 @@ defmodule CoreWeb.FinanceComponents do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[0.82fr_1.18fr]">
       <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Manual capture</p>
-        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]"><%= transaction_form_title(@editing_transaction_id) %></h2>
+        <h2 class="text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]"><%= transaction_form_title(@editing_transaction_id) %></h2>
 
         <.form for={@transaction_form} phx-submit={transaction_submit(@editing_transaction_id)} class="mt-5 space-y-4">
           <div class="grid gap-3 sm:grid-cols-2">
@@ -1277,8 +1246,7 @@ defmodule CoreWeb.FinanceComponents do
       <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Ledger</p>
-            <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Recent transactions</h2>
+            <h2 class="text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Recent transactions</h2>
           </div>
           <span class="text-xs font-semibold text-[color:var(--fin-muted)]"><%= length(@transactions) %> shown</span>
         </div>
@@ -1299,8 +1267,7 @@ defmodule CoreWeb.FinanceComponents do
     <section class="grid gap-5 xl:grid-cols-[0.82fr_1.18fr]">
       <div class="space-y-5">
         <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Spending plan</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
+          <h2 class="text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
             <%= if editing?(@editing, "budget"), do: "Edit budget", else: "Create budget" %>
           </h2>
 
@@ -1322,8 +1289,7 @@ defmodule CoreWeb.FinanceComponents do
         </div>
 
         <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Categories</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
+          <h2 class="text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
             <%= if editing?(@editing, "category"), do: "Edit category", else: "Add category" %>
           </h2>
 
@@ -1360,8 +1326,7 @@ defmodule CoreWeb.FinanceComponents do
       <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Active budgets</p>
-            <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Budget status</h2>
+            <h2 class="text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Budget status</h2>
           </div>
           <span class="text-xs font-semibold text-[color:var(--fin-muted)]"><%= money_totals(@budget_remaining_totals) %> remaining</span>
         </div>
@@ -1382,8 +1347,7 @@ defmodule CoreWeb.FinanceComponents do
     <section class="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
       <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Debt setup</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
+          <h2 class="text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
             <%= if editing?(@editing, "debt"), do: "Edit debt", else: "Add debt" %>
           </h2>
         </div>
@@ -1419,10 +1383,9 @@ defmodule CoreWeb.FinanceComponents do
       <div class="rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Payoff comparison</p>
-                <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Snowball vs avalanche</h2>
+                <h2 class="text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Snowball vs avalanche</h2>
               </div>
-          <button type="button" phx-click="generate_plans" class="btn btn-primary btn-xs">Refresh</button>
+          <.icon_button icon="hero-arrow-path" label="Refresh plans" phx-click="generate_plans" />
         </div>
 
         <div class="mt-5 grid gap-4 lg:grid-cols-2">
@@ -1440,8 +1403,7 @@ defmodule CoreWeb.FinanceComponents do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[0.82fr_1.18fr]">
       <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-sm">
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Savings goals</p>
-        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
+        <h2 class="text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
           <%= if editing?(@editing, "goal"), do: "Edit goal", else: "Create goal" %>
         </h2>
 
@@ -1463,8 +1425,7 @@ defmodule CoreWeb.FinanceComponents do
       <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Progress</p>
-            <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Active goals</h2>
+            <h2 class="text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Active goals</h2>
           </div>
           <span class="rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1 text-xs font-semibold text-[var(--fin-accent)]">
             <%= length(@savings_goals) %> tracked
@@ -1556,12 +1517,8 @@ defmodule CoreWeb.FinanceComponents do
         >
           Add money
         </button>
-        <button type="button" phx-click="edit_record" phx-value-type="goal" phx-value-id={@goal.id} aria-label={"Edit #{@goal.name}"} class="btn btn-ghost btn-xs">
-          Edit
-        </button>
-        <button type="button" phx-click="archive_goal" phx-value-id={@goal.id} class="btn btn-ghost btn-xs text-[var(--tone-expense)]">
-          Archive
-        </button>
+        <.icon_button icon="hero-pencil-square" label={"Edit #{@goal.name}"} phx-click="edit_record" phx-value-type="goal" phx-value-id={@goal.id} />
+        <.icon_button icon="hero-archive-box" tone="danger" label={"Archive #{@goal.name}"} phx-click="archive_goal" phx-value-id={@goal.id} />
       </div>
     </div>
     """
@@ -1661,12 +1618,9 @@ defmodule CoreWeb.FinanceComponents do
         <.fin_card>
           <div class="flex items-center justify-between gap-3">
             <div>
-              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Review</p>
-              <h2 class="mt-2 text-lg font-semibold text-[color:var(--fin-text)]">Pending queue</h2>
+              <h2 class="text-lg font-semibold text-[color:var(--fin-text)]">Review queue</h2>
             </div>
-            <button type="button" phx-click="show_section" phx-value-section="review" class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--fin-muted)] transition hover:text-[color:var(--fin-text)]">
-              Open review queue
-            </button>
+            <.icon_button icon="hero-arrow-right" label="Open review queue" phx-click="show_section" phx-value-section="review" />
           </div>
 
           <div class="mt-5 space-y-2.5">
@@ -1689,8 +1643,7 @@ defmodule CoreWeb.FinanceComponents do
         <.fin_card>
           <div class="flex items-center justify-between gap-3">
             <div>
-              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Obligations</p>
-              <h2 class="mt-2 text-lg font-semibold text-[color:var(--fin-text)]">Debts</h2>
+              <h2 class="text-lg font-semibold text-[color:var(--fin-text)]">Debts</h2>
             </div>
             <div class="flex items-center gap-3">
               <button
@@ -1703,9 +1656,7 @@ defmodule CoreWeb.FinanceComponents do
               >
                 + Debt
               </button>
-              <button type="button" phx-click="show_section" phx-value-section="debts" class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--fin-muted)] transition hover:text-[color:var(--fin-text)]">
-                Details
-              </button>
+              <.icon_button icon="hero-arrow-right" label="Open debts" phx-click="show_section" phx-value-section="debts" />
             </div>
           </div>
 
@@ -1822,12 +1773,9 @@ defmodule CoreWeb.FinanceComponents do
         <.fin_card class="xl:col-span-8">
           <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Spending</p>
-              <h2 class="mt-1 text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">By category · this month</h2>
+              <h2 class="text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">Spending this month</h2>
             </div>
-            <button type="button" phx-click="show_section" phx-value-section="budgets" class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--fin-muted)] transition hover:text-[color:var(--fin-text)]">
-              Open budgets
-            </button>
+            <.icon_button icon="hero-arrow-right" label="Open budgets" phx-click="show_section" phx-value-section="budgets" />
           </div>
 
           <.spending_donut :if={@spending_breakdown != []} id="overview-spending" breakdown={@spending_breakdown} class="mt-4" />
@@ -1838,8 +1786,7 @@ defmodule CoreWeb.FinanceComponents do
 
         <.fin_card class="xl:col-span-4">
           <div>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Payment & transfer</p>
-            <h2 class="mt-1 text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">Quick Send</h2>
+            <h2 class="text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">Transfer</h2>
           </div>
 
           <div :if={transfer_account_count(@transfer_account_groups) < 2} class="mt-4 rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-6 text-center text-sm text-[color:var(--fin-muted)]">
@@ -1864,12 +1811,9 @@ defmodule CoreWeb.FinanceComponents do
         <.fin_card class="min-w-0">
           <div class="flex items-center justify-between gap-4">
             <div>
-              <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--fin-muted)]">Activity</p>
-              <h2 class="mt-2 text-xl font-semibold tracking-tight text-[color:var(--fin-text)]">Recent transactions</h2>
+              <h2 class="text-xl font-semibold tracking-tight text-[color:var(--fin-text)]">Recent transactions</h2>
             </div>
-            <button type="button" phx-click="show_section" phx-value-section="transactions" class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--fin-muted)] transition hover:text-[color:var(--fin-text)]">
-              View all
-            </button>
+            <.icon_button icon="hero-arrow-right" label="All transactions" phx-click="show_section" phx-value-section="transactions" />
           </div>
 
           <div class="mt-5 space-y-2.5">
@@ -1918,11 +1862,7 @@ defmodule CoreWeb.FinanceComponents do
       <.fin_card padded={false} class="p-6 sm:p-7 xl:p-8">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Overview</p>
-            <h2 class="mt-2 text-[1.65rem] font-semibold tracking-tight text-[color:var(--fin-text)]">Net worth</h2>
-            <p class="mt-1 max-w-xl text-sm leading-6 text-[color:var(--fin-muted)]">
-              Everything you own minus everything you owe, pulled live from your tracked accounts and debts.
-            </p>
+            <h2 class="text-[1.65rem] font-semibold tracking-tight text-[color:var(--fin-text)]">Net worth</h2>
           </div>
           <span class="rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1.5 text-xs font-medium text-[color:var(--fin-muted)]">
             <%= length(@net_worth_items) %> tracked items
@@ -2089,12 +2029,10 @@ defmodule CoreWeb.FinanceComponents do
                   <%= signed_money(transaction) %>
                 </td>
                 <td class="whitespace-nowrap px-3 py-3.5 text-right">
-                  <button type="button" phx-click="open_edit_transaction" phx-value-id={transaction.id} class="btn btn-secondary btn-xs">
-                    Edit
-                  </button>
-                  <button type="button" phx-click="delete_transaction" phx-value-id={transaction.id} class="btn btn-ghost btn-xs text-[var(--tone-expense)]">
-                    Delete
-                  </button>
+                  <span class="inline-flex items-center gap-1">
+                    <.icon_button icon="hero-pencil-square" label={"Edit #{transaction.description}"} phx-click="open_edit_transaction" phx-value-id={transaction.id} />
+                    <.icon_button icon="hero-trash" tone="danger" label={"Delete #{transaction.description}"} phx-click="delete_transaction" phx-value-id={transaction.id} />
+                  </span>
                 </td>
               </tr>
             </tbody>
@@ -2110,24 +2048,20 @@ defmodule CoreWeb.FinanceComponents do
             <%= @txn_total %> transactions · page <%= @txn_page %> of <%= @txn_pages %>
           </p>
           <div class="flex items-center gap-2">
-            <button
-              type="button"
+            <.icon_button
+              icon="hero-chevron-left"
+              label="Previous page"
               phx-click="paginate_transactions"
               phx-value-page={@txn_page - 1}
               disabled={@txn_page <= 1}
-              class="btn btn-secondary btn-xs disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Previous
-            </button>
-            <button
-              type="button"
+            />
+            <.icon_button
+              icon="hero-chevron-right"
+              label="Next page"
               phx-click="paginate_transactions"
               phx-value-page={@txn_page + 1}
               disabled={@txn_page >= @txn_pages}
-              class="btn btn-secondary btn-xs disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Next
-            </button>
+            />
           </div>
         </div>
       </.fin_card>
@@ -2188,13 +2122,10 @@ defmodule CoreWeb.FinanceComponents do
 
   def review_section(assigns) do
     ~H"""
-    <section class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+    <section>
       <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Pending review</p>
-            <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Imported transaction suggestions</h2>
-          </div>
+          <h2 class="text-xl font-semibold text-[color:var(--fin-text)]">Pending review</h2>
           <span class="text-xs font-semibold text-[color:var(--fin-muted)]"><%= @pending_review_count %> waiting</span>
         </div>
 
@@ -2206,15 +2137,6 @@ defmodule CoreWeb.FinanceComponents do
         </div>
       </div>
 
-      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Review cadence</p>
-        <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">What happens here</h2>
-        <div class="mt-5 space-y-3 text-sm leading-6 text-[color:var(--fin-muted)]">
-          <p>Imported candidates wait here before they affect balances and budgets.</p>
-          <p>Confirm keeps the item in the ledger. Ignore removes the suggestion.</p>
-          <p>Edit lets you correct the details before confirming.</p>
-        </div>
-      </div>
     </section>
     """
   end
@@ -2223,8 +2145,7 @@ defmodule CoreWeb.FinanceComponents do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[0.72fr_1.28fr]">
       <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Planning</p>
-        <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Budgets</h2>
+        <h2 class="text-xl font-semibold text-[color:var(--fin-text)]">Budgets</h2>
         <div class="mt-5">
           <button
             type="button"
@@ -2242,8 +2163,7 @@ defmodule CoreWeb.FinanceComponents do
       <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Active budgets</p>
-            <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Budget status</h2>
+            <h2 class="text-xl font-semibold text-[color:var(--fin-text)]">Budget status</h2>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <span class="inline-flex items-center rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1 text-[11px] font-medium text-[color:var(--fin-muted)]">
@@ -2269,8 +2189,7 @@ defmodule CoreWeb.FinanceComponents do
     ~H"""
     <section class="grid gap-5 xl:grid-cols-[0.72fr_1.28fr]">
       <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Obligations</p>
-        <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Debts</h2>
+        <h2 class="text-xl font-semibold text-[color:var(--fin-text)]">Debts</h2>
         <div class="mt-5">
           <button
             type="button"
@@ -2296,10 +2215,9 @@ defmodule CoreWeb.FinanceComponents do
       <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Payoff comparison</p>
-            <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Snowball vs avalanche</h2>
+            <h2 class="text-xl font-semibold text-[color:var(--fin-text)]">Snowball vs avalanche</h2>
           </div>
-          <button type="button" phx-click="generate_plans" class="btn btn-primary btn-xs">Refresh</button>
+          <.icon_button icon="hero-arrow-path" label="Refresh plans" phx-click="generate_plans" />
         </div>
 
         <div class="mt-5 grid gap-4 lg:grid-cols-2">
@@ -2335,8 +2253,7 @@ defmodule CoreWeb.FinanceComponents do
     ~H"""
     <section class="grid gap-5 lg:grid-cols-2">
       <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Signals</p>
-        <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">Financial health</h2>
+        <h2 class="text-xl font-semibold text-[color:var(--fin-text)]">Financial health</h2>
 
         <div class="mt-5 space-y-3">
           <.status_row label="Debt-to-income" value={"#{@health.debt_to_income_ratio}%"} />
@@ -2346,17 +2263,9 @@ defmodule CoreWeb.FinanceComponents do
         </div>
       </div>
 
-      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Reading guide</p>
-        <h2 class="mt-1 text-xl font-semibold text-[color:var(--fin-text)]">How to read this snapshot</h2>
-        <div class="mt-5 space-y-3 text-sm leading-6 text-[color:var(--fin-muted)]">
-          <p>Health metrics reflect confirmed transactions in the active scope.</p>
-          <p>Warnings call out pressure points worth reviewing before they become problems.</p>
-        </div>
-      </div>
 
-      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6 lg:col-span-2">
-        <p class="text-xs font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Warnings</p>
+      <div class="hub-glass rounded-2xl border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] p-5 shadow-[0_16px_32px_-24px_var(--fin-glass-shadow)] sm:p-6">
+        <h2 class="text-xl font-semibold text-[color:var(--fin-text)]">Warnings</h2>
         <div class="mt-4 space-y-2">
           <div :for={warning <- @health.warnings} class="rounded-lg border border-[color:var(--fin-border)] bg-[color-mix(in_srgb,var(--tone-review)_14%,transparent)] p-3 text-sm text-[var(--tone-review)]">
             <%= warning %>
@@ -2932,12 +2841,8 @@ defmodule CoreWeb.FinanceComponents do
           <button type="button" phx-click="open_payment_form" phx-value-id={@debt.id} class="btn btn-secondary btn-xs">
             Record payment
           </button>
-          <button type="button" phx-click="edit_record" phx-value-type="debt" phx-value-id={@debt.id} aria-label={"Edit #{@debt.name}"} class="btn btn-ghost btn-xs">
-            Edit
-          </button>
-          <button type="button" phx-click="archive_debt" phx-value-id={@debt.id} class="btn btn-ghost btn-xs text-[var(--tone-expense)]">
-            Archive
-          </button>
+          <.icon_button icon="hero-pencil-square" label={"Edit #{@debt.name}"} phx-click="edit_record" phx-value-type="debt" phx-value-id={@debt.id} />
+          <.icon_button icon="hero-archive-box" tone="danger" label={"Archive #{@debt.name}"} phx-click="archive_debt" phx-value-id={@debt.id} />
         </div>
       </div>
 
@@ -3500,16 +3405,6 @@ defmodule CoreWeb.FinanceComponents do
   def active_section_title("debts", _pending_review_count), do: "Debts"
   def active_section_title("goals", _pending_review_count), do: "Savings goals"
   def active_section_title("insights", _pending_review_count), do: "Insights"
-
-  def active_section_subtitle("overview"), do: nil
-  def active_section_subtitle("networth"), do: "Everything you own minus everything you owe."
-  def active_section_subtitle("accounts"), do: "Every account you're tracking, in one place."
-  def active_section_subtitle("transactions"), do: nil
-  def active_section_subtitle("review"), do: nil
-  def active_section_subtitle("budgets"), do: nil
-  def active_section_subtitle("debts"), do: nil
-  def active_section_subtitle("goals"), do: "Track progress toward what you're saving for."
-  def active_section_subtitle("insights"), do: nil
 
   def budget_metric_note([]), do: "No active budgets"
   def budget_metric_note(budgets), do: "#{length(budgets)} active"
