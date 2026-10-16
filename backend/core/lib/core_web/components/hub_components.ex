@@ -339,6 +339,7 @@ defmodule CoreWeb.HubComponents do
 
   attr :focus, :map, default: nil
   attr :form, :any, default: nil
+  attr :added_task_id, :string, default: nil
   attr :selected_date, :any, default: nil
   attr :editing_task_id, :string, default: nil
   attr :edit_form, :any, default: nil
@@ -357,7 +358,15 @@ defmodule CoreWeb.HubComponents do
         <.icon_link href={~p"/office"} label="Open IziOffice" />
       </:actions>
 
-      <.form for={@form} id="quick-add-task" phx-submit="quick_add_task" class="flex gap-2">
+      <%!-- QuickAddTask (app.js) clears the field, flashes ✓ on the button and
+           scrolls the new row into view when the server confirms the add. --%>
+      <.form
+        for={@form}
+        id="quick-add-task"
+        phx-submit="quick_add_task"
+        phx-hook="QuickAddTask"
+        class="flex gap-2"
+      >
         <input
           type="text"
           name={@form[:title].name}
@@ -368,8 +377,9 @@ defmodule CoreWeb.HubComponents do
           maxlength="140"
           class="min-w-0 flex-1 rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] placeholder:text-[var(--hub-muted)] focus:border-[color:var(--hub-accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
         />
-        <button type="submit" class="btn btn-primary btn-sm" title="Add task" aria-label="Add task">
-          <.icon name="hero-plus" class="h-4 w-4" />
+        <button type="submit" class="group btn btn-primary btn-sm" title="Add task" aria-label="Add task">
+          <.icon name="hero-plus" class="h-4 w-4 group-data-[added]:hidden" />
+          <.icon name="hero-check" class="hidden h-4 w-4 group-data-[added]:block" />
         </button>
       </.form>
       <p :for={{msg, _} <- @form[:title].errors} class={["mt-2 text-xs", tone_class("expense", :text)]}>
@@ -388,6 +398,7 @@ defmodule CoreWeb.HubComponents do
             editing_task_id={@editing_task_id}
             edit_form={@edit_form}
             confirming_delete_id={@confirming_delete_id}
+            added_task_id={@added_task_id}
           />
           <.task_group
             :if={@focus.today != []}
@@ -397,6 +408,7 @@ defmodule CoreWeb.HubComponents do
             editing_task_id={@editing_task_id}
             edit_form={@edit_form}
             confirming_delete_id={@confirming_delete_id}
+            added_task_id={@added_task_id}
           />
           <.task_group
             :if={@focus.up_next != []}
@@ -406,6 +418,7 @@ defmodule CoreWeb.HubComponents do
             editing_task_id={@editing_task_id}
             edit_form={@edit_form}
             confirming_delete_id={@confirming_delete_id}
+            added_task_id={@added_task_id}
           />
         </div>
       <% end %>
@@ -419,6 +432,7 @@ defmodule CoreWeb.HubComponents do
   attr :editing_task_id, :string, default: nil
   attr :edit_form, :any, default: nil
   attr :confirming_delete_id, :string, default: nil
+  attr :added_task_id, :string, default: nil
 
   defp task_group(assigns) do
     ~H"""
@@ -427,7 +441,12 @@ defmodule CoreWeb.HubComponents do
         <%= @label %>
       </p>
       <ul class="mt-2 divide-y divide-[color:var(--hub-border)] rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)]">
-        <li :for={%{task: task, date: date} <- @tasks} id={"focus-task-#{task.id}"} class="px-3 py-2.5">
+        <li
+          :for={%{task: task, date: date} <- @tasks}
+          id={"focus-task-#{task.id}"}
+          data-just-added={task.id == @added_task_id}
+          class={["px-3 py-2.5", task.id == @added_task_id && "hub-task-added"]}
+        >
           <%= cond do %>
             <% @editing_task_id == task.id and @edit_form -> %>
               <.form for={@edit_form} id={"hub-task-edit-#{task.id}"} phx-submit="save_hub_task" class="flex flex-wrap items-center gap-2">

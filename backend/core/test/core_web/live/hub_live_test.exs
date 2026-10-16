@@ -131,6 +131,50 @@ defmodule CoreWeb.HubLiveTest do
       assert task.scheduled_for == day
     end
 
+    test "quick add highlights the new task and tells the browser", %{conn: conn} do
+      user = user_fixture()
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/hub")
+
+      html = view |> form("#quick-add-task", task: %{title: "Water plants"}) |> render_submit()
+
+      [task] = Office.list_work_items_for_project(Office.default_project_for_user(user).id)
+      assert_push_event(view, "hub:task-added", %{id: "focus-task-" <> id})
+      assert id == task.id
+      assert has_element?(view, "#focus-task-#{task.id}.hub-task-added")
+      refute html =~ "Task added for"
+    end
+
+    test "quick add shows the new task even when the list is full", %{conn: conn} do
+      user = user_fixture()
+      project = Office.default_project_for_user(user)
+      today = Date.to_iso8601(Date.utc_today())
+
+      for i <- 1..6 do
+        {:ok, _} =
+          Office.create_work_item(user, project, %{
+            "title" => "Busy #{i}",
+            "scheduled_for" => today
+          })
+      end
+
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/hub")
+      day = Date.add(Date.utc_today(), 5)
+      render_click(view, "select_calendar_date", %{"date" => Date.to_iso8601(day)})
+      view |> form("#quick-add-task", task: %{title: "Far away"}) |> render_submit()
+
+      assert has_element?(view, ".hub-task-added", "Far away")
+    end
+
+    test "quick add for another day says which day", %{conn: conn} do
+      {:ok, view, _html} = live(log_in_user(conn, user_fixture()), ~p"/hub")
+      day = Date.add(Date.utc_today(), 3)
+
+      render_click(view, "select_calendar_date", %{"date" => Date.to_iso8601(day)})
+      html = view |> form("#quick-add-task", task: %{title: "Dentist"}) |> render_submit()
+
+      assert html =~ "Task added for #{Calendar.strftime(day, "%b %-d")}"
+    end
+
     test "advances a task to its next stage", %{conn: conn} do
       user = user_fixture()
 

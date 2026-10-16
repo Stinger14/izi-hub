@@ -340,11 +340,24 @@ defmodule Core.Office do
     calendar_counts(work_items, timeline_entries)
   end
 
+  # Tasks past the limit sort after every shown one, so appending keeps order.
+  defp keep_included(shown, _tasks, _limit, nil), do: shown
+
+  defp keep_included(shown, tasks, limit, id) do
+    if Enum.any?(shown, fn {task, _date} -> task.id == id end) do
+      shown
+    else
+      case Enum.find(tasks, fn {task, _date} -> task.id == id end) do
+        nil -> shown
+        included -> Enum.take(shown, limit - 1) ++ [included]
+      end
+    end
+  end
+
   @doc """
-  Open tasks (queue/wip/qa) across active projects for the hub's focus list,
-  grouped by their effective date (due date, else scheduled date):
-  `%{overdue: [...], today: [...], up_next: [...], open_count: n}`. Each group
-  is ordered by date (undated last), and the three groups share `limit`.
+  The hub's open-task list across active projects, grouped as `overdue`,
+  `today` and `up_next`, sharing a `:limit` (default 6). `include: task_id`
+  keeps that task in the list past the limit.
   """
   def focus_tasks(%User{} = user, %Date{} = today, opts \\ []) do
     limit = Keyword.get(opts, :limit, 6)
@@ -360,7 +373,7 @@ defmodule Core.Office do
         {is_nil(date), date && Date.to_gregorian_days(date), task.sequence}
       end)
 
-    shown = Enum.take(tasks, limit)
+    shown = tasks |> Enum.take(limit) |> keep_included(tasks, limit, opts[:include])
 
     groups =
       Enum.group_by(

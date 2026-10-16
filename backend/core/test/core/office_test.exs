@@ -265,6 +265,33 @@ defmodule Core.OfficeTest do
       assert Enum.any?(focus.today, &(&1.task.project.name == "Side project"))
     end
 
+    test "focus_tasks keeps an included task past the limit", %{
+      user: user,
+      default: default,
+      today: today
+    } do
+      for i <- 1..3 do
+        {:ok, _} =
+          Office.create_work_item(user, default, %{
+            "title" => "Now #{i}",
+            "scheduled_for" => "2026-10-08"
+          })
+      end
+
+      {:ok, later} =
+        Office.create_work_item(user, default, %{
+          "title" => "Later",
+          "scheduled_for" => "2026-10-20"
+        })
+
+      assert titles(Office.focus_tasks(user, today, limit: 2).up_next) == []
+
+      focus = Office.focus_tasks(user, today, limit: 2, include: later.id)
+      assert titles(focus.today) == ["Now 1"]
+      assert titles(focus.up_next) == ["Later"]
+      assert focus.open_count == 4
+    end
+
     test "archived projects are excluded everywhere", %{user: user, side: side, today: today} do
       {:ok, _} =
         Office.create_work_item(user, side, %{

@@ -98,6 +98,39 @@ Hooks.ApexChart = {
   },
 };
 
+// The hub's quick-add form. When the server confirms a new task
+// ("hub:task-added"), clear the field (LiveView doesn't rewrite a focused
+// input), show a check on the + button, and scroll the new row into view
+// only if it's off screen (below the fold or under the sticky header).
+Hooks.QuickAddTask = {
+  mounted() {
+    this.handleEvent("hub:task-added", ({ id }) => {
+      const input = this.el.querySelector('input[type="text"]');
+      if (input) input.value = "";
+
+      const button = this.el.querySelector('button[type="submit"]');
+      if (button) {
+        button.dataset.added = "true";
+        clearTimeout(this.timer);
+        this.timer = setTimeout(() => delete button.dataset.added, 1200);
+      }
+
+      const row = document.getElementById(id);
+      if (!row) return;
+      const header = document.getElementById("site-header");
+      const top = header ? header.getBoundingClientRect().bottom : 0;
+      const rect = row.getBoundingClientRect();
+      if (rect.top < top || rect.bottom > window.innerHeight) {
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        row.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+      }
+    });
+  },
+  destroyed() {
+    clearTimeout(this.timer);
+  },
+};
+
 Hooks.ScrollHint = {
   mounted() {
     this.container =

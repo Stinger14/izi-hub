@@ -32,6 +32,7 @@ defmodule CoreWeb.HubLive do
      )
      |> assign(
        task_form: task_form(%{}),
+       added_task_id: nil,
        editing_hub_task_id: nil,
        hub_task_form: nil,
        confirming_hub_task_delete_id: nil
@@ -117,8 +118,13 @@ defmodule CoreWeb.HubLive do
              "title" => title,
              "scheduled_for" => Date.to_iso8601(date)
            }) do
-        {:ok, _task} ->
-          {:noreply, socket |> assign(task_form: task_form(%{})) |> assign_office()}
+        {:ok, task} ->
+          {:noreply,
+           socket
+           |> assign(task_form: task_form(%{}), added_task_id: task.id)
+           |> assign_office()
+           |> push_event("hub:task-added", %{id: "focus-task-#{task.id}"})
+           |> maybe_flash_other_day(date)}
 
         {:error, changeset} ->
           {:noreply, assign(socket, task_form: to_form(changeset, as: :task))}
@@ -379,6 +385,7 @@ defmodule CoreWeb.HubLive do
             <.tasks_panel
               focus={@focus}
               form={@task_form}
+              added_task_id={@added_task_id}
               selected_date={@selected_date}
               editing_task_id={@editing_hub_task_id}
               edit_form={@hub_task_form}
@@ -474,6 +481,14 @@ defmodule CoreWeb.HubLive do
     end
   end
 
+  # A task added for today shows up highlighted in the list; one added for
+  # another day (picked in the calendar) also says where it went.
+  defp maybe_flash_other_day(socket, date) do
+    if date == Date.utc_today(),
+      do: socket,
+      else: put_flash(socket, :info, "Task added for #{Calendar.strftime(date, "%b %-d")}")
+  end
+
   defp task_form(params), do: to_form(params, as: :task)
 
   # Tasks panel + calendar data from Core.Office (all active projects).
@@ -487,7 +502,7 @@ defmodule CoreWeb.HubLive do
     counts = Office.calendar_counts_for_user(user, grid_first, grid_last)
 
     assign(socket,
-      focus: Office.focus_tasks(user, Date.utc_today()),
+      focus: Office.focus_tasks(user, Date.utc_today(), include: socket.assigns[:added_task_id]),
       agenda: selected && Office.agenda_for_day(user, selected),
       calendar_days: calendar_days(month, selected, counts)
     )
