@@ -1,8 +1,16 @@
 defmodule CoreWeb.Api.Finance.ServiceEmailIngestionController do
+  @moduledoc """
+  `POST /api/service/finance/email-ingestion`: the email ingestion service
+  posts a user's bank email, identified by their ingestion token.
+
+  Context: the route is behind `CoreWeb.ServiceAuth` (service API key).
+  """
+
   use CoreWeb, :controller
 
   alias Core.Finance
 
+  @doc "Ingests the email for the token's user; 401 for an unknown token."
   def create(conn, %{"ingestion_token" => token} = params) do
     case Finance.user_for_ingestion_token(token) do
       {:ok, user} ->

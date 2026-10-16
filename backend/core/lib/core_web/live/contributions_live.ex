@@ -1,4 +1,9 @@
 defmodule CoreWeb.ContributionsLive do
+  @moduledoc """
+  `/contributions`: GitHub activity for the configured accounts (feed and
+  contribution calendar), loaded from `Core.GitHub`.
+  """
+
   use CoreWeb, :live_view
 
   alias Core.GitHub

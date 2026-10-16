@@ -1,4 +1,11 @@
 defmodule Core.Config do
+  @moduledoc """
+  Environment-backed settings (database, endpoint, secrets) read with Skogsra.
+
+  Context: `Core.Application` loads these at boot so env vars override the
+  defaults; each setting names its OS variable.
+  """
+
   use Skogsra
 
   # Repo config (defaults :dev)

@@ -1,6 +1,13 @@
 defmodule Core.Accounts.UsernameGenerator do
   @moduledoc """
-  Generates readable usernames in `string-string-string` format.
+  Readable random usernames like `bright-elixir-builder`.
+
+  Context: used when an account is created from just an email.
+
+  ## Example
+
+      UsernameGenerator.generate()
+      #=> "agile-phoenix-maker"
   """
 
   @adjectives ~w(
@@ -48,11 +55,16 @@ defmodule Core.Accounts.UsernameGenerator do
     planner
   )
 
+  @doc "A random `adjective-topic-role` username."
   def generate do
     [pick(@adjectives), pick(@topics), pick(@roles)]
     |> Enum.join("-")
   end
 
+  @doc """
+  A stable `adjective-topic-role` username picked from a hash of `value` (same
+  input, same name).
+  """
   def generate_from_value(value) do
     [
       pick_by_hash(@adjectives, value, 0),

@@ -1,9 +1,11 @@
 defmodule CoreWeb.SettingsLive do
   @moduledoc """
-  Account settings for the signed-in user: profile photo, name and username,
-  GitHub login, email and password. Email and password changes need the
-  current password. The photo uploads as soon as it's picked; its bytes are
-  checked by `Accounts.put_user_avatar/2`, not just its extension.
+  `/settings`: the signed-in user's photo, name and username, GitHub login,
+  email, password and other sessions.
+
+  Context: each card has its own changeset; email and password changes need
+  the current password. Photos upload as soon as they're picked and are
+  checked by `Accounts.put_user_avatar/2`.
   """
   use CoreWeb, :live_view
 

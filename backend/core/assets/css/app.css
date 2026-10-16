@@ -1609,6 +1609,31 @@
     color: #ffffff;
 }
 
+/* A task just added from the hub's quick-add: a short violet glow that
+   fades out (HubComponents.task_group adds the class to the new row). */
+.hub-shell .hub-task-added {
+    animation: hub-task-added 2.2s ease-out;
+}
+
+@keyframes hub-task-added {
+    0%,
+    35% {
+        background-color: rgba(139, 92, 246, 0.16);
+        box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.7);
+    }
+    100% {
+        background-color: transparent;
+        box-shadow: inset 0 0 0 1px transparent;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hub-shell .hub-task-added {
+        animation-duration: 0.01s;
+        background-color: rgba(139, 92, 246, 0.1);
+    }
+}
+
 /* In-page links (e.g. the hub's #tasks chip) land below the sticky
    header instead of under it. */
 html {

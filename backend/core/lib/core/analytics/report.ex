@@ -1,4 +1,10 @@
 defmodule Core.Analytics.Report do
+  @moduledoc """
+  A generated analytics report with its status, file URL and result data.
+
+  Context: managed through `Core.Analytics` (create, complete, fail).
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -29,7 +35,7 @@ defmodule Core.Analytics.Report do
   @statuses ~w(pending processing completed failed)
   @file_types ~w(csv pdf json excel)
 
-  @doc false
+  @doc "Validates type, status and the report's fields."
   def changeset(report, attrs) do
     report
     |> cast(attrs, [

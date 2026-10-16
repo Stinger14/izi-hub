@@ -1,9 +1,10 @@
 defmodule Core.Accounts.HouseholdNotifier do
   @moduledoc """
-  Emails for household invitations. Sending is best-effort: without SMTP
-  configured (see `config/runtime.exs`) the local adapter keeps the message,
-  and a delivery failure is logged rather than failing the invitation, since
-  the inviter can always copy the link.
+  Emails household invitation links.
+
+  Context: called by `Core.Accounts.invite_to_household/4`. Sends in the
+  background and only when a mailer is configured (`SMTP_*`); failures are
+  logged, never fatal, because the inviter can always copy the link.
   """
   import Swoosh.Email
   require Logger
@@ -11,6 +12,7 @@ defmodule Core.Accounts.HouseholdNotifier do
   alias Core.Accounts.HouseholdInvitation
   alias Core.Mailer
 
+  @doc "Emails the invitation link in the background. `:ok`, or `:skipped` when no mailer is set."
   def deliver_invitation(%HouseholdInvitation{} = invitation, url) do
     inviter = inviter_name(invitation.invited_by)
     household = invitation.household.name

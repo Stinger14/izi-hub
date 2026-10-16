@@ -1,4 +1,10 @@
 defmodule Core.Portfolio.TechStack do
+  @moduledoc """
+  A technology (language, framework, tool) shown on portfolio projects.
+
+  Context: managed through `Core.Portfolio`.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -17,7 +23,7 @@ defmodule Core.Portfolio.TechStack do
     timestamps()
   end
 
-  @doc false
+  @doc "Validates name and category."
   def changeset(tech_stack, attrs) do
     tech_stack
     |> cast(attrs, [:name, :category, :icon_url, :color, :description])

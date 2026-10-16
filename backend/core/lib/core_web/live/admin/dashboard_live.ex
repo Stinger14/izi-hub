@@ -1,4 +1,9 @@
 defmodule CoreWeb.Admin.DashboardLive do
+  @moduledoc """
+  `/admin`: admin console with user and site stats (CV downloads, online
+  visitors) and links to the other admin tools.
+  """
+
   use CoreWeb, :live_view
 
   alias Core.Accounts

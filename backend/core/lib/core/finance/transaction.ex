@@ -1,4 +1,12 @@
 defmodule Core.Finance.Transaction do
+  @moduledoc """
+  One income or expense, possibly a transfer leg or an emailed candidate.
+
+  Context: Owned by exactly one user or household (DB check constraint). Transfer
+  legs link through `counterpart_transaction_id` (set in code, never cast) and are
+  excluded from income/expense totals. Emailed ones start as `pending_review`.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -37,7 +45,7 @@ defmodule Core.Finance.Transaction do
   @statuses ["confirmed", "pending_review", "ignored"]
   @payment_methods ["cash", "card", "bank_transfer", "digital_wallet", "check", "other"]
 
-  @doc false
+  @doc "Validates amount, type, date, status and source; never casts the transfer link."
   def changeset(transaction, attrs) do
     transaction
     |> cast(attrs, [

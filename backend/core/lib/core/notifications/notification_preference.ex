@@ -1,4 +1,10 @@
 defmodule Core.Notifications.NotificationPreference do
+  @moduledoc """
+  Which notifications a user wants, and through which channels.
+
+  Context: managed through `Core.Notifications`.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -16,7 +22,7 @@ defmodule Core.Notifications.NotificationPreference do
     timestamps()
   end
 
-  @doc false
+  @doc "Validates the preference flags."
   def changeset(preference, attrs) do
     preference
     |> cast(attrs, [

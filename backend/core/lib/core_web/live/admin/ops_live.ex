@@ -1,4 +1,9 @@
 defmodule CoreWeb.Admin.OpsLive do
+  @moduledoc """
+  `/admin/ops`: runs `Core.AdminOps` maintenance operations with a preview and,
+  for sensitive ones, a typed confirmation.
+  """
+
   use CoreWeb, :live_view
 
   alias Core.AdminOps

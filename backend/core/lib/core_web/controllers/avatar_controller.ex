@@ -1,12 +1,16 @@
 defmodule CoreWeb.AvatarController do
+  @moduledoc """
+  Serves profile photos at `/avatars/:user_id` to signed-in users.
+
+  Context: bytes come from `Core.Accounts.get_user_avatar/1`; responses are
+  `nosniff` and cached for a year, since URLs carry a `?v=` version.
+  """
+
   use CoreWeb, :controller
 
   alias Core.Accounts
 
-  @doc """
-  Serves a profile photo to signed-in users. URLs carry `?v=<updated at>`
-  (see `CoreWeb.Layouts.avatar_path/1`), so a response can be cached forever.
-  """
+  @doc "Sends the photo with its stored type, or 404."
   def show(conn, %{"user_id" => user_id}) do
     case Accounts.get_user_avatar(user_id) do
       nil ->

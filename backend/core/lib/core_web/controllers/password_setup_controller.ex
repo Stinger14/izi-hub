@@ -1,8 +1,14 @@
 defmodule CoreWeb.PasswordSetupController do
+  @moduledoc """
+  `/set-password`: first password for accounts created from just an email,
+  using the setup token.
+  """
+
   use CoreWeb, :controller
 
   alias Core.Accounts
 
+  @doc "Shows the set-password form for a valid token."
   def new(conn, %{"token" => token}) do
     with {:ok, user} <- Accounts.get_user_by_token(token, "setup_password") do
       render(conn, :new, token: token, username: user.username, errors: [])
@@ -20,6 +26,7 @@ defmodule CoreWeb.PasswordSetupController do
     |> redirect(to: ~p"/signup")
   end
 
+  @doc "Sets the password, signs the user in and continues where they were going."
   def create(conn, %{"user" => %{"token" => token, "password" => password}}) do
     case Accounts.set_password_from_setup_token(token, password) do
       {:ok, user} ->

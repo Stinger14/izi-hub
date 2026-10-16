@@ -1,4 +1,11 @@
 defmodule Core.Finance.EmailIngestionAttempt do
+  @moduledoc """
+  A log row for each bank email the ingestion service sent in.
+
+  Context: Records whether it created a transaction, was a duplicate or failed, for
+  debugging the email pipeline.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -30,7 +37,7 @@ defmodule Core.Finance.EmailIngestionAttempt do
     "invalid_transaction"
   ]
 
-  @doc false
+  @doc "Validates status and message fields."
   def changeset(attempt, attrs) do
     attempt
     |> cast(attrs, [

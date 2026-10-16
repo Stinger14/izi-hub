@@ -1,6 +1,9 @@
 defmodule Core.Finance.Parsers.BankAlertParser do
   @moduledoc """
-  Extracts transaction candidates from a narrow bank alert email format.
+  Reads one simple bank alert format (Popular, BHD, Qik and test senders).
+
+  Context: one of `EmailIngestion`'s parsers. Detects expense or income from
+  English and Spanish keywords and pulls out amount, date and merchant.
   """
 
   alias Core.Finance.{EmailMessage, EmailParserResult}
@@ -29,6 +32,7 @@ defmodule Core.Finance.Parsers.BankAlertParser do
     "transferencia recibida"
   ]
 
+  @doc "`{:ok, %EmailParserResult{}}` for a supported alert, otherwise an error tuple."
   def parse(%EmailMessage{} = message) do
     with true <- supported_sender?(message.from),
          body when is_binary(body) <- email_body(message),

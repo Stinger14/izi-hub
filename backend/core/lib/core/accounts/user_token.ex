@@ -1,4 +1,16 @@
 defmodule Core.Accounts.UserToken do
+  @moduledoc """
+  Tokens for sessions, password setup/reset, email verification and the API.
+
+  Context: only the SHA-256 hash is stored; the raw token goes to the browser
+  or the link. `Core.Accounts` creates, looks up and deletes them.
+
+  ## Example
+
+      {raw, token} = UserToken.create_token(user, "session", 3600)
+      {:ok, query} = UserToken.verify_token_query(raw, "session")
+  """
+
   use Ecto.Schema
   import Ecto.Query
   import Ecto.Changeset
@@ -28,9 +40,7 @@ defmodule Core.Accounts.UserToken do
     timestamps()
   end
 
-  @doc """
-  Generates a token
-  """
+  @doc "Builds a token of `token_type`: returns `{raw_token, %UserToken{}}` (insert the struct)."
   def create_token(user, token_type, expires_in_seconds \\ 3600) do
     token = :crypto.strong_rand_bytes(@rand_size)
     hashed_token = :crypto.hash(@hash_algorithm, token) |> Base.encode64()
@@ -49,9 +59,7 @@ defmodule Core.Accounts.UserToken do
      }}
   end
 
-  @doc """
-    Checks if a token is valid
-  """
+  @doc "Query for the user of an unexpired token of this type. `{:ok, query}` or `:error`."
   def verify_token_query(token, token_type) do
     with {:ok, decoded_token} <- Base.url_decode64(token, padding: false) do
       query =
@@ -73,7 +81,7 @@ defmodule Core.Accounts.UserToken do
       where: [token: ^hashed_token, token_type: ^token_type]
   end
 
-  @doc "Hashes a raw (url-encoded) token the way it is stored."
+  @doc "Hashes a raw token the way it's stored. `{:ok, hash}` or `:error`."
   def hash_token(token) when is_binary(token) do
     case Base.url_decode64(token, padding: false) do
       {:ok, decoded} -> {:ok, :crypto.hash(@hash_algorithm, decoded) |> Base.encode64()}
@@ -81,9 +89,7 @@ defmodule Core.Accounts.UserToken do
     end
   end
 
-  @doc """
-  Return token struct to be inserted in db
-  """
+  @doc "Generic token changeset."
   def changeset(token, attrs) do
     token
     |> cast(attrs, [:token, :token_type, :expires_at, :user_id])

@@ -1,8 +1,15 @@
 defmodule Core.Accounts.HouseholdInvitation do
   @moduledoc """
-  An invitation to join a household, addressed to an email. Only the SHA-256
-  hash of the link token is stored; `household_id`, `invited_by_id`,
-  `token_hash`, `status` and `expires_at` are set in code, never cast.
+  An invitation to join a household, addressed to an email.
+
+  Context: created and closed only by `Core.Accounts` (invite, accept, decline,
+  revoke). Only the SHA-256 hash of the link token is stored; ids, token,
+  status and expiry are set in code, never cast.
+
+  ## Example
+
+      HouseholdInvitation.expired?(invitation)
+      #=> false
   """
   use Ecto.Schema
   import Ecto.Changeset
@@ -24,6 +31,7 @@ defmodule Core.Accounts.HouseholdInvitation do
     timestamps()
   end
 
+  @doc "Valid statuses: pending, accepted, declined, revoked."
   def statuses, do: @statuses
 
   @doc "Validates the invited email; everything else is set by `Core.Accounts`."
@@ -40,11 +48,13 @@ defmodule Core.Accounts.HouseholdInvitation do
     )
   end
 
+  @doc "Trims and downcases an email, so invites match case-insensitively."
   def normalize_email(email) when is_binary(email),
     do: email |> String.trim() |> String.downcase()
 
   def normalize_email(email), do: email
 
+  @doc "Whether the invitation's link has expired."
   def expired?(%__MODULE__{expires_at: expires_at}),
     do: DateTime.compare(expires_at, DateTime.utc_now()) != :gt
 end

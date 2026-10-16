@@ -55,4 +55,4 @@ erl_crash.dump
 .env
 .envrc*
 
-# End of https://www.toptal.com/developers/gitignore/api/phoenix,elixir
+CLAUDE.md

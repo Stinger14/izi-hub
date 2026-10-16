@@ -1,4 +1,11 @@
 defmodule Core.Finance.DebtPayoffPlan do
+  @moduledoc """
+  A saved snowball or avalanche payoff plan.
+
+  Context: Owned by exactly one user or household (DB check constraint). Generated
+  by `Core.Finance.DebtPlanner`, saved from the Debts section.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -23,7 +30,7 @@ defmodule Core.Finance.DebtPayoffPlan do
   @strategies ["snowball", "avalanche"]
   @statuses ["active", "archived"]
 
-  @doc false
+  @doc "Validates name, strategy and the plan figures."
   def changeset(plan, attrs) do
     plan
     |> cast(attrs, [

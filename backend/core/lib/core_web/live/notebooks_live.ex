@@ -1,4 +1,9 @@
 defmodule CoreWeb.NotebooksLive do
+  @moduledoc """
+  `/notebooks` and `/notebooks/:slug`: the library of books, notebook previews
+  and Livebook apps, and a single notebook's rendered preview.
+  """
+
   use CoreWeb, :live_view
 
   alias Core.Notebooks

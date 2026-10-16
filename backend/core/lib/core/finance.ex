@@ -1,6 +1,19 @@
 defmodule Core.Finance do
   @moduledoc """
-  The Finance context - Manages all financial transactions and budgets.
+  Money for a user or a household: accounts, transactions, transfers, budgets,
+  debts, payoff plans, savings goals and email-ingested transactions.
+
+  Context: every record has exactly one owner (a user or a household).
+  Functions taking `(actor, owner, ...)` check that `actor` may use that
+  scope; `*_for_user` variants are the personal-scope shortcuts. Every
+  successful write broadcasts `{:finance_changed, owner}` so open pages
+  (Finance, the hub) reload; inside a transaction the outer function
+  broadcasts once after commit.
+
+  ## Example
+
+      {:ok, account} = Finance.create_account(user, household, %{"name" => "Joint", "kind" => "checking"})
+      {:ok, accounts} = Finance.list_accounts(user, household)
   """
 
   @default_currency "DOP"
@@ -28,16 +41,24 @@ defmodule Core.Finance do
 
   # ------ Transactions ------
 
+  @doc """
+  Transactions in a scope. Filters: `:type`, `:status`, `:source`, `:category_id`,
+  `:account_id`, `:start_date`, `:end_date`, `:exclude_transfers`, plus `:limit`,
+  `:offset`, `:sort`. Scoped: `{:error, :forbidden}` unless `actor` can access
+  `owner`.
+  """
   def list_transactions(%User{} = actor, owner, opts \\ []) when is_list(opts) do
     with :ok <- ensure_scope_access(actor, owner) do
       {:ok, do_list_transactions(owner, opts)}
     end
   end
 
+  @doc "Personal-scope `list_transactions/3` without the `{:ok, _}` wrapper."
   def list_transactions_for_user(%User{} = user, opts \\ []) do
     do_list_transactions(user, opts)
   end
 
+  @doc "Like `list_transactions_for_user/2`, by user id."
   def list_user_transactions(user_id, opts \\ []) do
     do_list_transactions(%User{id: user_id}, opts)
   end
@@ -108,11 +129,7 @@ defmodule Core.Finance do
     Repo.all(query)
   end
 
-  @doc """
-  Counts transactions in scope for the given filters. Pagination options
-  (`:limit`, `:offset`, `:sort`) are ignored so the count always reflects the
-  full filtered set.
-  """
+  @doc "Counts transactions matching the filters; paging options are ignored. `{:ok, count}`."
   def count_transactions(%User{} = actor, owner, opts \\ []) when is_list(opts) do
     with :ok <- ensure_scope_access(actor, owner) do
       count =
@@ -125,24 +142,25 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "Personal transactions waiting for review (`pending_review`)."
   def list_pending_transactions_for_user(%User{} = user, opts \\ []) do
     user
     |> list_transactions_for_user(Keyword.put(opts, :status, "pending_review"))
   end
 
+  @doc "Transactions waiting for review in a scope. `{:ok, list}`."
   def list_pending_transactions(%User{} = actor, owner, opts \\ []) do
     list_transactions(actor, owner, Keyword.put(opts, :status, "pending_review"))
   end
 
-  @doc """
-  Gets a single transaction.
-  """
+  @doc "A transaction by id with user, category and account; raises if missing. No scope check."
   def get_transaction!(id) do
     Transaction
     |> preload([:user, :category, :account])
     |> Repo.get!(id)
   end
 
+  @doc "One of the user's personal transactions; raises if missing."
   def get_transaction_for_user!(%User{} = user, id) do
     Transaction
     |> where([transaction], transaction.user_id == ^user.id)
@@ -150,6 +168,7 @@ defmodule Core.Finance do
     |> Repo.get!(id)
   end
 
+  @doc "A transaction in a scope; raises if missing."
   def get_transaction!(%User{} = actor, owner, id) do
     with :ok <- ensure_scope_access(actor, owner) do
       Transaction
@@ -170,7 +189,7 @@ defmodule Core.Finance do
 
   @pubsub Core.PubSub
 
-  @doc "Subscribes to the user's personal finance topic and each household's."
+  @doc "Subscribes the caller to the user's finance topic and each of their households'."
   def subscribe(%User{} = user) do
     Phoenix.PubSub.subscribe(@pubsub, owner_topic({:user, user.id}))
 
@@ -179,13 +198,11 @@ defmodule Core.Finance do
     |> Enum.each(&subscribe_household/1)
   end
 
+  @doc "Subscribes to one household's topic (after creating it mid-session)."
   def subscribe_household(%Household{id: id}),
     do: Phoenix.PubSub.subscribe(@pubsub, owner_topic({:household, id}))
 
-  @doc """
-  Tells every member viewing a household that it changed (renamed, a member
-  added or removed, deleted), so their pages reload.
-  """
+  @doc "Tells every member viewing a household to reload (rename, members, delete)."
   def notify_household_change(household_id) do
     Phoenix.PubSub.broadcast_from(
       @pubsub,
@@ -195,10 +212,7 @@ defmodule Core.Finance do
     )
   end
 
-  @doc """
-  Tells a user's open pages to reload, for changes that aren't a finance
-  record (a household invitation sent to them, or one they answered).
-  """
+  @doc "Tells a user's open pages to reload for non-finance changes (e.g. invitations)."
   def notify_user_change(user_id) do
     Phoenix.PubSub.broadcast_from(
       @pubsub,
@@ -236,13 +250,15 @@ defmodule Core.Finance do
   defp owner_ref(%{user_id: id}) when not is_nil(id), do: {:user, id}
   defp owner_ref(_value), do: nil
 
-  @doc """
-  Creates a transaction
-  """
+  @doc "Creates a personal transaction. See `create_transaction/3`."
   def create_transaction(%User{} = user, attrs \\ %{}) do
     create_transaction(user, user, attrs)
   end
 
+  @doc """
+  Creates a transaction in a scope and moves its account's balance. Scoped:
+  `{:error, :forbidden}` unless `actor` can access `owner`.
+  """
   def create_transaction(%User{} = actor, owner, attrs) do
     with :ok <- ensure_scope_access(actor, owner),
          attrs <- scope_attrs(attrs, owner),
@@ -255,14 +271,17 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "A transaction changeset for forms."
   def change_transaction(%Transaction{} = transaction \\ %Transaction{}) do
     Transaction.changeset(transaction, %{})
   end
 
+  @doc "Turns a parsed bank email into a pending transaction (see `EmailIngestion`)."
   def ingest_email_transaction_candidate(%User{} = user, attrs) do
     EmailIngestion.ingest(user, attrs)
   end
 
+  @doc "The user's latest email ingestion attempts (`:limit`, default 25), newest first."
   def list_email_ingestions_for_user(%User{} = user, opts \\ []) do
     limit = Keyword.get(opts, :limit, 25)
 
@@ -274,9 +293,7 @@ defmodule Core.Finance do
     |> Repo.all()
   end
 
-  @doc """
-  Updates a transaction
-  """
+  @doc "Edits a transaction; its category must belong to the same scope."
   def update_transaction(%User{} = user, %Transaction{} = transaction, attrs) do
     with :ok <- ensure_resource_owner(user, transaction) do
       with :ok <- ensure_category_in_scope(attrs, resource_owner(transaction)),
@@ -286,6 +303,7 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "Edits a transaction without an access check (callers check first)."
   def update_transaction(%Transaction{} = transaction, attrs) do
     transaction
     |> Transaction.changeset(attrs)
@@ -293,6 +311,7 @@ defmodule Core.Finance do
     |> broadcast_change()
   end
 
+  @doc "Confirms a reviewed transaction (optionally with edits), so it counts in totals."
   def confirm_transaction(%User{} = user, %Transaction{} = transaction, attrs \\ %{}) do
     with :ok <- ensure_resource_owner(user, transaction) do
       transaction
@@ -304,6 +323,7 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "Marks a pending transaction as ignored."
   def ignore_transaction(%User{} = user, %Transaction{} = transaction) do
     with :ok <- ensure_resource_owner(user, transaction) do
       transaction
@@ -313,10 +333,7 @@ defmodule Core.Finance do
     end
   end
 
-  @doc """
-  Deletes a transaction. Deleting a transfer leg deletes both legs and
-  reverses the balance movement on both accounts atomically.
-  """
+  @doc "Deletes a transaction and reverses its balance; a transfer leg deletes both legs."
   def delete_transaction(%User{} = user, %Transaction{} = transaction) do
     with :ok <- ensure_resource_owner(user, transaction),
          :ok <- ensure_counterpart_owner(user, transaction) do
@@ -336,6 +353,7 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "Deletes a transaction without an access check; a transfer leg deletes both legs."
   def delete_transaction(%Transaction{counterpart_transaction_id: nil} = transaction) do
     transaction |> Repo.delete() |> broadcast_change()
   end
@@ -376,18 +394,14 @@ defmodule Core.Finance do
     :ok
   end
 
-  @doc """
-  Generates and inserts a token for a user
-  """
+  @doc "Creates an API token for the email ingestion service."
   def create_ingestion_token(%User{} = user) do
     %IngestionToken{user_id: user.id, token: generate_ingestion_token()}
     |> IngestionToken.changeset(%{})
     |> Repo.insert()
   end
 
-  @doc """
-  Revokes an ingestion token owned by the given user.
-  """
+  @doc "Revokes one of the user's ingestion tokens."
   def revoke_ingestion_token(%User{} = user, token_id) do
     with %IngestionToken{} = token <- Repo.get(IngestionToken, token_id),
          :ok <- ensure_resource_owner(user, token) do
@@ -401,9 +415,8 @@ defmodule Core.Finance do
   end
 
   @doc """
-  Resolves an active ingestion token to its owning user. This is the
-  auth boundary itself for the service-to-service ingestion path, so it
-  runs no session/scope checks beyond "token exists and isn't revoked."
+  The user for an active ingestion token: `{:ok, user}` or `{:error, :not_found}`.
+  This is the service API's auth check.
   """
   def user_for_ingestion_token(token) when is_binary(token) do
     query = from(t in IngestionToken, where: t.token == ^token and is_nil(t.revoked_at))
@@ -419,18 +432,11 @@ defmodule Core.Finance do
   end
 
   @doc """
-  Moves money between two accounts by creating a linked pair of transactions
-  (expense on the source, income on the destination) and shifting both
-  balances atomically. Transfer legs carry a `counterpart_transaction_id` and
-  are excluded from income/expense aggregates so moving money never reads as
-  earning or spending it.
+  Moves money between two accounts (same currency, any of the actor's scopes)
+  as a linked expense/income pair, updating both balances atomically. Transfers
+  never count as income or spending.
 
-  The accounts may belong to different owners — e.g. personal savings into a
-  household account — as long as the actor can access both. Each leg is
-  owned by its own account's owner, so each scope's balance moves while
-  neither scope books the transfer as income or spending.
-
-  Cross-currency transfers are rejected for now.
+      Finance.create_account_transfer(user, user, %{"from_account_id" => a, "to_account_id" => b, "amount" => "50"})
   """
   def create_account_transfer(%User{} = actor, owner, attrs) do
     with :ok <- ensure_scope_access(actor, owner),
@@ -568,9 +574,7 @@ defmodule Core.Finance do
     |> Repo.update!()
   end
 
-  @doc """
-  Calculates total income for a user in a date range
-  """
+  @doc "Confirmed income between two dates (single currency, legacy)."
   def calculate_total_income(%User{} = user, start_date, end_date) do
     calculate_total_income_for_scope(user, start_date, end_date)
   end
@@ -590,9 +594,7 @@ defmodule Core.Finance do
     |> Repo.one() || Decimal.new(0)
   end
 
-  @doc """
-  Calculates total expenses for a user in a date range
-  """
+  @doc "Confirmed expenses between two dates (single currency, legacy)."
   def calculate_total_expenses(%User{} = user, start_date, end_date) do
     calculate_total_expenses_for_scope(user, start_date, end_date)
   end
@@ -612,9 +614,7 @@ defmodule Core.Finance do
     |> Repo.one() || Decimal.new(0)
   end
 
-  @doc """
-  Gets financial summary for a user
-  """
+  @doc "Income, expenses and balance between two dates (single currency, legacy)."
   def get_financial_summary(%User{} = user, start_date, end_date) do
     get_financial_summary_for_scope(user, start_date, end_date)
   end
@@ -623,6 +623,11 @@ defmodule Core.Finance do
     get_financial_summary_for_scope(owner, start_date, end_date)
   end
 
+  @doc """
+  Income, expenses and balance per currency between two dates, transfers
+  excluded. Options: `:statuses` (default confirmed),
+  `:exclude_debt_payment_expenses`.
+  """
   def get_currency_summary(owner, start_date, end_date, opts \\ []) do
     statuses = Keyword.get(opts, :statuses, ["confirmed"])
     exclude_debt_payment_expenses = Keyword.get(opts, :exclude_debt_payment_expenses, false)
@@ -676,12 +681,17 @@ defmodule Core.Finance do
 
   # ------ Accounts ------
 
+  @doc """
+  Active accounts in a scope. `{:ok, list}`. Scoped: `{:error, :forbidden}` unless
+  `actor` can access `owner`.
+  """
   def list_accounts(%User{} = actor, owner) do
     with :ok <- ensure_scope_access(actor, owner) do
       {:ok, do_list_accounts(owner)}
     end
   end
 
+  @doc "The user's active personal accounts."
   def list_accounts_for_user(%User{} = user) do
     do_list_accounts(user)
   end
@@ -694,6 +704,7 @@ defmodule Core.Finance do
     |> Repo.all()
   end
 
+  @doc "An account in a scope; raises if missing."
   def get_account!(%User{} = actor, owner, id) do
     with :ok <- ensure_scope_access(actor, owner) do
       Account
@@ -702,10 +713,15 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "Creates a personal account. See `create_account/3`."
   def create_account(%User{} = user, attrs \\ %{}) do
     create_account(user, user, attrs)
   end
 
+  @doc """
+  Creates an account in a scope with its starting balance. Scoped:
+  `{:error, :forbidden}` unless `actor` can access `owner`.
+  """
   def create_account(%User{} = actor, owner, attrs) do
     with :ok <- ensure_scope_access(actor, owner),
          attrs <- scope_attrs(attrs, owner) do
@@ -717,13 +733,9 @@ defmodule Core.Finance do
   end
 
   @doc """
-  Creates a household owned by `user` and, when any starting-account field is
-  filled, its first account in the same transaction, so the household's
-  dashboard shows a balance right away. A blank account name defaults to
-  "Household account". An invalid account rolls the household back.
-
-  Returns `{:ok, household}`, `{:error, :household, changeset}` or
-  `{:error, :account, changeset}`.
+  Creates a household and, if any starting-account field is filled, its first
+  account, in one transaction. `{:ok, household}` or
+  `{:error, :household | :account, changeset}`.
   """
   def create_household_with_account(%User{} = user, household_attrs, account_attrs \\ %{}) do
     account_attrs = starting_account_attrs(account_attrs)
@@ -774,11 +786,7 @@ defmodule Core.Finance do
     end
   end
 
-  @doc """
-  Edits an account's details. Status changes go through archive/restore, and
-  the currency is locked once the account has transactions (otherwise its
-  history would be re-labelled in another currency).
-  """
+  @doc "Edits an account; the currency is locked once it has transactions."
   def update_account(%User{} = user, %Account{} = account, attrs) do
     with :ok <- ensure_resource_owner(user, account) do
       account
@@ -798,17 +806,17 @@ defmodule Core.Finance do
     end
   end
 
-  @doc "Hides an account from lists and pickers; its history stays intact."
+  @doc "Hides an account from lists and pickers; history stays."
   def archive_account(%User{} = user, %Account{} = account),
     do: set_account_status(user, account, "archived")
 
+  @doc "Brings an archived account back."
   def restore_account(%User{} = user, %Account{} = account),
     do: set_account_status(user, account, "active")
 
   @doc """
-  Deletes an account only when nothing references it. Accounts with
-  transactions must be archived instead: deleting them would orphan their
-  transactions and break transfer pairs.
+  Deletes an account with no transactions; otherwise `{:error, :has_transactions}`
+  (archive it).
   """
   def delete_account(%User{} = user, %Account{} = account) do
     with :ok <- ensure_resource_owner(user, account) do
@@ -820,7 +828,7 @@ defmodule Core.Finance do
     end
   end
 
-  @doc "Which of the given account ids have at least one transaction."
+  @doc "Which of the given account ids have at least one transaction (a `MapSet`)."
   def account_ids_with_transactions([]), do: MapSet.new()
 
   def account_ids_with_transactions(account_ids) do
@@ -832,16 +840,19 @@ defmodule Core.Finance do
     |> MapSet.new()
   end
 
+  @doc "A debt payment in a scope; raises if missing."
   def get_debt_payment!(%User{} = actor, owner, id) do
     with :ok <- ensure_scope_access(actor, owner) do
       DebtPayment |> scope_query(owner) |> Repo.get!(id)
     end
   end
 
+  @doc "Whether any transaction uses this account."
   def account_has_transactions?(%Account{id: id}) do
     Transaction |> where([transaction], transaction.account_id == ^id) |> Repo.exists?()
   end
 
+  @doc "Archived accounts in a scope. `{:ok, list}`."
   def list_archived_accounts(%User{} = actor, owner) do
     with :ok <- ensure_scope_access(actor, owner) do
       {:ok,
@@ -874,10 +885,15 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "An account changeset for forms."
   def change_account(%Account{} = account \\ %Account{}) do
     Account.changeset(account, %{})
   end
 
+  @doc """
+  Each active account with its income, expenses, net and transaction count for a
+  date range. `{:ok, list}`.
+  """
   def list_account_summaries(%User{} = actor, owner, start_date, end_date) do
     with :ok <- ensure_scope_access(actor, owner) do
       accounts = do_list_accounts(owner)
@@ -933,17 +949,17 @@ defmodule Core.Finance do
     end
   end
 
-  @doc """
-  Returns the list of categories for a user
-  """
+  @doc "The user's personal categories, optionally of one `type`."
   def list_categories_for_user(%User{} = user, type \\ nil) do
     do_list_categories(user, type)
   end
 
+  @doc "Like `list_categories_for_user/2`, by user id."
   def list_user_categories(user_id, type \\ nil) do
     do_list_categories(%User{id: user_id}, type)
   end
 
+  @doc "Categories in a scope, optionally of one `type`. `{:ok, list}`."
   def list_categories(%User{} = actor, owner, type \\ nil) do
     with :ok <- ensure_scope_access(actor, owner) do
       {:ok, do_list_categories(owner, type)}
@@ -960,17 +976,17 @@ defmodule Core.Finance do
     Repo.all(query)
   end
 
-  @doc """
-  Gets a single category
-  """
+  @doc "A category by id, or nil (despite the name). No scope check."
   def get_category!(id), do: Repo.get(Category, id)
 
+  @doc "One of the user's personal categories; raises if missing."
   def get_category_for_user!(%User{} = user, id) do
     Category
     |> where([category], category.user_id == ^user.id)
     |> Repo.get!(id)
   end
 
+  @doc "A category in a scope; raises if missing."
   def get_category!(%User{} = actor, owner, id) do
     with :ok <- ensure_scope_access(actor, owner) do
       Category
@@ -979,13 +995,15 @@ defmodule Core.Finance do
     end
   end
 
-  @doc """
-  Creates a category
-  """
+  @doc "Creates a personal category. See `create_category/3`."
   def create_category(%User{} = user, attrs \\ %{}) do
     create_category(user, user, attrs)
   end
 
+  @doc """
+  Creates a category in a scope. Scoped: `{:error, :forbidden}` unless `actor` can
+  access `owner`.
+  """
   def create_category(%User{} = actor, owner, attrs) do
     with :ok <- ensure_scope_access(actor, owner),
          attrs <- scope_attrs(attrs, owner) do
@@ -996,19 +1014,19 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "A category changeset for forms."
   def change_category(%Category{} = category \\ %Category{}) do
     Category.changeset(category, %{})
   end
 
-  @doc """
-  Updates a category
-  """
+  @doc "Edits a category (name, type, colour, icon)."
   def update_category(%User{} = user, %Category{} = category, attrs) do
     with :ok <- ensure_resource_owner(user, category) do
       update_category(category, attrs)
     end
   end
 
+  @doc "Edits a category without an access check."
   def update_category(%Category{} = category, attrs) do
     category
     |> Category.changeset(attrs)
@@ -1016,32 +1034,31 @@ defmodule Core.Finance do
     |> broadcast_change()
   end
 
-  @doc """
-  Deletes a category
-  """
+  @doc "Deletes a category; its transactions stay, uncategorised."
   def delete_category(%User{} = user, %Category{} = category) do
     with :ok <- ensure_resource_owner(user, category) do
       delete_category(category)
     end
   end
 
+  @doc "Deletes a category without an access check."
   def delete_category(%Category{} = category) do
     category |> Repo.delete() |> broadcast_change()
   end
 
   # ------ Budgets ------
 
-  @doc """
-  Returns the list of budgets for a user
-  """
+  @doc "The user's personal budgets."
   def list_budgets_for_user(%User{} = user) do
     do_list_budgets(user)
   end
 
+  @doc "Like `list_budgets_for_user/1`, by user id."
   def list_user_budgets(user_id) do
     do_list_budgets(%User{id: user_id})
   end
 
+  @doc "Budgets in a scope. `{:ok, list}`."
   def list_budgets(%User{} = actor, owner) do
     with :ok <- ensure_scope_access(actor, owner) do
       {:ok, do_list_budgets(owner)}
@@ -1057,15 +1074,14 @@ defmodule Core.Finance do
     |> Repo.all()
   end
 
-  @doc """
-  Gets a single budget
-  """
+  @doc "A budget by id with user and category; raises if missing. No scope check."
   def get_budget!(id) do
     Budget
     |> preload([:user, :category])
     |> Repo.get!(id)
   end
 
+  @doc "One of the user's personal budgets; raises if missing."
   def get_budget_for_user!(%User{} = user, id) do
     Budget
     |> where([budget], budget.user_id == ^user.id)
@@ -1073,6 +1089,7 @@ defmodule Core.Finance do
     |> Repo.get!(id)
   end
 
+  @doc "A budget in a scope; raises if missing."
   def get_budget!(%User{} = actor, owner, id) do
     with :ok <- ensure_scope_access(actor, owner) do
       Budget
@@ -1082,13 +1099,15 @@ defmodule Core.Finance do
     end
   end
 
-  @doc """
-  Creates a budget
-  """
+  @doc "Creates a personal budget. See `create_budget/3`."
   def create_budget(%User{} = user, attrs \\ %{}) do
     create_budget(user, user, attrs)
   end
 
+  @doc """
+  Creates a budget in a scope. Scoped: `{:error, :forbidden}` unless `actor` can
+  access `owner`.
+  """
   def create_budget(%User{} = actor, owner, attrs) do
     with :ok <- ensure_scope_access(actor, owner),
          attrs <- scope_attrs(attrs, owner),
@@ -1100,25 +1119,26 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "A budget changeset for forms."
   def change_budget(%Budget{} = budget \\ %Budget{}) do
     Budget.changeset(budget, %{})
   end
 
+  @doc "`check_budget_status/1` for each personal budget."
   def list_budget_statuses_for_user(%User{} = user) do
     user
     |> list_budgets_for_user()
     |> Enum.map(&check_budget_status/1)
   end
 
+  @doc "`check_budget_status/1` for each budget in a scope. `{:ok, list}`."
   def list_budget_statuses(%User{} = actor, owner) do
     with {:ok, budgets} <- list_budgets(actor, owner) do
       {:ok, Enum.map(budgets, &check_budget_status/1)}
     end
   end
 
-  @doc """
-  Updates a budget
-  """
+  @doc "Edits a budget; its category must belong to the same scope."
   def update_budget(%User{} = user, %Budget{} = budget, attrs) do
     with :ok <- ensure_resource_owner(user, budget) do
       with :ok <- ensure_category_in_scope(attrs, resource_owner(budget)) do
@@ -1127,6 +1147,7 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "Edits a budget without an access check."
   def update_budget(%Budget{} = budget, attrs) do
     budget
     |> Budget.changeset(attrs)
@@ -1134,23 +1155,24 @@ defmodule Core.Finance do
     |> broadcast_change()
   end
 
-  @doc """
-  Deletes a budget
-  """
+  @doc "Deletes a budget."
   def delete_budget(%User{} = user, %Budget{} = budget) do
     with :ok <- ensure_resource_owner(user, budget) do
       delete_budget(budget)
     end
   end
 
+  @doc "Deletes a budget without an access check."
   def delete_budget(%Budget{} = budget), do: budget |> Repo.delete() |> broadcast_change()
 
   # ------ Debts ------
 
+  @doc "The user's personal debts."
   def list_debts_for_user(%User{} = user) do
     do_list_debts(user)
   end
 
+  @doc "Debts in a scope. `{:ok, list}`."
   def list_debts(%User{} = actor, owner) do
     with :ok <- ensure_scope_access(actor, owner) do
       {:ok, do_list_debts(owner)}
@@ -1166,6 +1188,7 @@ defmodule Core.Finance do
     |> Repo.all()
   end
 
+  @doc "One of the user's personal debts; raises if missing."
   def get_debt_for_user!(%User{} = user, id) do
     Debt
     |> where([debt], debt.user_id == ^user.id)
@@ -1173,6 +1196,7 @@ defmodule Core.Finance do
     |> Repo.get!(id)
   end
 
+  @doc "A debt in a scope; raises if missing."
   def get_debt!(%User{} = actor, owner, id) do
     with :ok <- ensure_scope_access(actor, owner) do
       Debt
@@ -1182,14 +1206,20 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "A debt changeset for forms."
   def change_debt(%Debt{} = debt \\ %Debt{}) do
     Debt.changeset(debt, %{})
   end
 
+  @doc "Creates a personal debt. See `create_debt/3`."
   def create_debt(%User{} = user, attrs \\ %{}) do
     create_debt(user, user, attrs)
   end
 
+  @doc """
+  Creates a debt in a scope. Scoped: `{:error, :forbidden}` unless `actor` can
+  access `owner`.
+  """
   def create_debt(%User{} = actor, owner, attrs) do
     with :ok <- ensure_scope_access(actor, owner),
          attrs <- scope_attrs(attrs, owner) do
@@ -1200,6 +1230,7 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "Edits a debt."
   def update_debt(%User{} = user, %Debt{} = debt, attrs) do
     with :ok <- ensure_resource_owner(user, debt) do
       debt
@@ -1209,6 +1240,7 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "Deletes a debt."
   def delete_debt(%User{} = user, %Debt{} = debt) do
     with :ok <- ensure_resource_owner(user, debt) do
       debt
@@ -1218,10 +1250,12 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "A debt payment changeset for forms."
   def change_debt_payment(%DebtPayment{} = payment \\ %DebtPayment{}) do
     DebtPayment.changeset(payment, %{})
   end
 
+  @doc "The user's latest debt payments (`:limit`, default 25)."
   def list_debt_payments_for_user(%User{} = user, opts \\ []) do
     limit = Keyword.get(opts, :limit, 25)
 
@@ -1233,6 +1267,7 @@ defmodule Core.Finance do
     |> Repo.all()
   end
 
+  @doc "Payments recorded against one debt."
   def list_debt_payments_for_debt(%User{} = user, %Debt{} = debt) do
     with :ok <- ensure_resource_owner(user, debt) do
       owner = resource_owner(debt)
@@ -1246,6 +1281,10 @@ defmodule Core.Finance do
     end
   end
 
+  @doc """
+  Records a payment that lowers the debt (paid off at zero) and, when asked, logs it
+  as an expense, atomically.
+  """
   def record_debt_payment(%User{} = user, %Debt{} = debt, attrs \\ %{}) do
     with :ok <- ensure_resource_owner(user, debt) do
       owner = resource_owner(debt)
@@ -1269,11 +1308,7 @@ defmodule Core.Finance do
     end
   end
 
-  @doc """
-  Undoes a recorded payment: deletes it, deletes the expense transaction it
-  created (if any) and puts the amount back on the debt, reopening a debt
-  the payment had marked paid off.
-  """
+  @doc "Undoes a payment: restores the balance, reopens a paid-off debt, deletes its expense."
   def delete_debt_payment(%User{} = user, %DebtPayment{} = payment) do
     with :ok <- ensure_resource_owner(user, payment) do
       Repo.transaction(fn ->
@@ -1301,10 +1336,12 @@ defmodule Core.Finance do
     |> Repo.update!()
   end
 
+  @doc "The user's saved payoff plans."
   def list_payoff_plans_for_user(%User{} = user) do
     do_list_payoff_plans(user)
   end
 
+  @doc "Saved payoff plans in a scope. `{:ok, list}`."
   def list_payoff_plans(%User{} = actor, owner) do
     with :ok <- ensure_scope_access(actor, owner) do
       {:ok, do_list_payoff_plans(owner)}
@@ -1319,6 +1356,10 @@ defmodule Core.Finance do
     |> Repo.all()
   end
 
+  @doc """
+  Snowball vs avalanche plans for the scope's debts, paying `:monthly_amount`
+  (default: this month's free cash flow). Not saved.
+  """
   def generate_debt_payoff_comparison(%User{} = user, opts \\ []) do
     today = Keyword.get(opts, :today, Date.utc_today())
     starts_on = Keyword.get(opts, :starts_on, Date.beginning_of_month(today))
@@ -1330,6 +1371,10 @@ defmodule Core.Finance do
     |> DebtPlanner.compare(monthly_amount, starts_on)
   end
 
+  @doc """
+  Scope version of `generate_debt_payoff_comparison/2`. `{:error, :forbidden}` if no
+  access.
+  """
   def generate_debt_payoff_comparison(%User{} = actor, owner, opts) do
     with :ok <- ensure_scope_access(actor, owner) do
       today = Keyword.get(opts, :today, Date.utc_today())
@@ -1343,10 +1388,15 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "Saves a personal payoff plan. See `save_debt_payoff_plan/3`."
   def save_debt_payoff_plan(%User{} = user, attrs) do
     save_debt_payoff_plan(user, user, attrs)
   end
 
+  @doc """
+  Saves a payoff plan in a scope. Scoped: `{:error, :forbidden}` unless `actor` can
+  access `owner`.
+  """
   def save_debt_payoff_plan(%User{} = actor, owner, attrs) do
     with :ok <- ensure_scope_access(actor, owner),
          attrs <- scope_attrs(attrs, owner) do
@@ -1356,6 +1406,7 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "Saves one plan from `generate_debt_payoff_comparison/2` as a named plan."
   def save_generated_debt_payoff_plan(%User{} = user, plan) do
     save_debt_payoff_plan(user, %{
       "name" => "#{String.capitalize(plan.strategy)} payoff plan",
@@ -1367,6 +1418,7 @@ defmodule Core.Finance do
     })
   end
 
+  @doc "Scope version of `save_generated_debt_payoff_plan/2`."
   def save_generated_debt_payoff_plan(%User{} = actor, owner, plan) do
     save_debt_payoff_plan(actor, owner, %{
       "name" => "#{String.capitalize(plan.strategy)} payoff plan",
@@ -1380,10 +1432,12 @@ defmodule Core.Finance do
 
   # ------ Savings goals ------
 
+  @doc "The user's personal savings goals."
   def list_savings_goals_for_user(%User{} = user) do
     do_list_savings_goals(user)
   end
 
+  @doc "Savings goals in a scope. `{:ok, list}`."
   def list_savings_goals(%User{} = actor, owner) do
     with :ok <- ensure_scope_access(actor, owner) do
       {:ok, do_list_savings_goals(owner)}
@@ -1398,6 +1452,7 @@ defmodule Core.Finance do
     |> Repo.all()
   end
 
+  @doc "A savings goal in a scope; raises if missing."
   def get_savings_goal!(%User{} = actor, owner, id) do
     with :ok <- ensure_scope_access(actor, owner) do
       SavingsGoal
@@ -1406,14 +1461,20 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "A savings goal changeset for forms."
   def change_savings_goal(%SavingsGoal{} = goal \\ %SavingsGoal{}) do
     SavingsGoal.changeset(goal, %{})
   end
 
+  @doc "Creates a personal savings goal. See `create_savings_goal/3`."
   def create_savings_goal(%User{} = user, attrs \\ %{}) do
     create_savings_goal(user, user, attrs)
   end
 
+  @doc """
+  Creates a savings goal in a scope. Scoped: `{:error, :forbidden}` unless `actor`
+  can access `owner`.
+  """
   def create_savings_goal(%User{} = actor, owner, attrs) do
     with :ok <- ensure_scope_access(actor, owner),
          attrs <- scope_attrs(attrs, owner) do
@@ -1424,6 +1485,7 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "Edits a savings goal."
   def update_savings_goal(%User{} = user, %SavingsGoal{} = goal, attrs) do
     with :ok <- ensure_resource_owner(user, goal) do
       goal
@@ -1433,6 +1495,7 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "Adds `amount` to a goal's saved amount."
   def contribute_to_savings_goal(%User{} = user, %SavingsGoal{} = goal, amount) do
     with :ok <- ensure_resource_owner(user, goal) do
       new_saved_amount = Decimal.add(goal.saved_amount || Decimal.new("0"), amount)
@@ -1449,6 +1512,7 @@ defmodule Core.Finance do
     end
   end
 
+  @doc "Deletes a savings goal."
   def delete_savings_goal(%User{} = user, %SavingsGoal{} = goal) do
     with :ok <- ensure_resource_owner(user, goal) do
       goal
@@ -1458,6 +1522,10 @@ defmodule Core.Finance do
     end
   end
 
+  @doc """
+  Health snapshot (debt-to-income, payment burden, cash flow, warnings); see
+  `Finance.Health`.
+  """
   def get_financial_health(%User{} = user, opts \\ []) do
     today = Keyword.get(opts, :today, Date.utc_today())
 
@@ -1474,6 +1542,7 @@ defmodule Core.Finance do
     Health.build(current_month, next_month, list_debts_for_user(user))
   end
 
+  @doc "Scope version of `get_financial_health/2`."
   def get_financial_health(%User{} = actor, owner, opts) do
     with :ok <- ensure_scope_access(actor, owner) do
       today = Keyword.get(opts, :today, Date.utc_today())
@@ -1493,7 +1562,8 @@ defmodule Core.Finance do
   end
 
   @doc """
-  Checks budget status and returns spending %
+  Spending against a budget for its period: `%{budget, spent, remaining,
+  percentage, is_over, is_near_limit}`.
   """
   def check_budget_status(%Budget{} = budget) do
     budget_currency = normalize_currency(budget.currency)

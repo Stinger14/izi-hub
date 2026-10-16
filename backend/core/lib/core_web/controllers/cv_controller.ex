@@ -1,4 +1,9 @@
 defmodule CoreWeb.CVController do
+  @moduledoc """
+  `/cv`: downloads the site owner's CV PDF and records the download in
+  `Core.Analytics` (anonymous session id).
+  """
+
   use CoreWeb, :controller
 
   require Logger
@@ -7,6 +12,7 @@ defmodule CoreWeb.CVController do
 
   @cv_download_path "/cv/download"
 
+  @doc "Records the download and sends the PDF."
   def download(conn, _params) do
     conn =
       conn

@@ -1,4 +1,12 @@
 defmodule Core.Accounts.HouseholdMember do
+  @moduledoc """
+  A user's membership in a household, with a role (owner or member).
+
+  Context: rows are created by `Core.Accounts` (household creation, accepted
+  invitations) and deleted when someone leaves or is removed. One row per
+  household and user.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -18,6 +26,7 @@ defmodule Core.Accounts.HouseholdMember do
   @roles ["owner", "member"]
   @statuses ["active", "inactive"]
 
+  @doc "Validates role and status for a membership."
   def changeset(household_member, attrs) do
     household_member
     |> cast(attrs, [:role, :status, :household_id, :user_id])

@@ -1,6 +1,18 @@
 defmodule Core.Office do
   @moduledoc """
-  The Office context for project-scoped roadmap planning.
+  Personal project planning: projects, tasks (work items) moving through
+  stages, and timeline entries (milestones, releases, deadlines, notes).
+
+  Context: every user gets a default project. IziOffice and the hub share the
+  queries here (calendar counts, focus tasks, agenda). Every successful write
+  broadcasts `{:office_changed, user_id}` on `"office:user:<id>"` so other
+  open pages reload; the writing LiveView skips its own echo.
+
+  ## Example
+
+      project = Office.default_project_for_user(user)
+      {:ok, task} = Office.create_work_item(user, project, %{"title" => "Ship it"})
+      {:ok, task} = Office.transition_work_item(task, "wip", user)
   """
 
   import Ecto.Query, warn: false
@@ -12,7 +24,10 @@ defmodule Core.Office do
 
   @statuses WorkItem.statuses()
 
+  @doc "Task stages in order: queue, wip, qa, release."
   def statuses, do: @statuses
+
+  @doc "Stages shown as lanes on the IziOffice board."
   def canvas_stages, do: CanvasLayout.stages()
 
   # ------ Live updates ------
@@ -24,6 +39,7 @@ defmodule Core.Office do
 
   @pubsub Core.PubSub
 
+  @doc "Subscribes the caller to the user's Office changes."
   def subscribe(%User{id: user_id}), do: Phoenix.PubSub.subscribe(@pubsub, topic(user_id))
 
   defp topic(user_id), do: "office:user:#{user_id}"
@@ -37,6 +53,7 @@ defmodule Core.Office do
 
   defp broadcast_change(result, _user_id), do: result
 
+  @doc "The user's active projects, creating the default one if needed."
   def list_projects_for_user(%User{} = user) do
     _default_project = ensure_default_project(user)
 
@@ -46,10 +63,12 @@ defmodule Core.Office do
     |> Repo.all()
   end
 
+  @doc "The user's default project, created on first use."
   def default_project_for_user(%User{} = user) do
     ensure_default_project(user)
   end
 
+  @doc "Counts for a project: `work_item_count`, `timeline_entry_count`, `transition_count`."
   def project_summary(%Project{} = project) do
     work_item_count =
       WorkItem
@@ -79,6 +98,7 @@ defmodule Core.Office do
     }
   end
 
+  @doc "Archives a project (owner only; not the default one)."
   def archive_project(%User{} = user, %Project{} = project) do
     result =
       with :ok <- ensure_project_owner(user, project),
@@ -91,6 +111,7 @@ defmodule Core.Office do
     broadcast_change(result, user.id)
   end
 
+  @doc "Deletes a project and its contents (owner only; not the default one)."
   def delete_project(%User{} = user, %Project{} = project) do
     result =
       with :ok <- ensure_project_owner(user, project),
@@ -101,12 +122,15 @@ defmodule Core.Office do
     broadcast_change(result, user.id)
   end
 
+  @doc "Whether this is the user's default project."
   def default_project?(%User{} = user, %Project{} = project) do
     ensure_default_project(user).id == project.id
   end
 
+  @doc "Whether the project is active (not archived)."
   def active_project?(%Project{} = project), do: project.status == "active"
 
+  @doc "The user's active project with this slug, falling back to the default project."
   def get_project_for_user(%User{} = user, slug \\ nil) do
     default_project = ensure_default_project(user)
 
@@ -125,6 +149,7 @@ defmodule Core.Office do
     end
   end
 
+  @doc "A project's tasks, timeline entries and board layout, for IziOffice."
   def list_workbench_for_project(%Project{} = project) do
     work_items = list_work_items_for_project(project.id)
     timeline_entries = list_timeline_entries_for_project(project.id)
@@ -137,6 +162,7 @@ defmodule Core.Office do
     }
   end
 
+  @doc "A project's tasks."
   def list_work_items_for_project(project_id) do
     WorkItem
     |> where([work_item], work_item.project_id == ^project_id)
@@ -144,6 +170,7 @@ defmodule Core.Office do
     |> Repo.all()
   end
 
+  @doc "A project's timeline entries."
   def list_timeline_entries_for_project(project_id) do
     TimelineEntry
     |> where([entry], entry.project_id == ^project_id)
@@ -151,6 +178,7 @@ defmodule Core.Office do
     |> Repo.all()
   end
 
+  @doc "Creates a project for the user."
   def create_project(%User{} = user, attrs) when is_map(attrs) do
     %Project{}
     |> Project.changeset(attrs)
@@ -159,6 +187,7 @@ defmodule Core.Office do
     |> broadcast_change(user.id)
   end
 
+  @doc "Creates a task in a project from quick-entry attrs (title, dates, priority)."
   def create_work_item(%User{} = user, %Project{} = project, attrs) when is_map(attrs) do
     attrs = Planner.normalize_quick_entry(attrs)
 
@@ -172,6 +201,7 @@ defmodule Core.Office do
     |> broadcast_change(user.id)
   end
 
+  @doc "Edits a task (title, description, priority, dates)."
   def update_work_item(%WorkItem{} = work_item, attrs) when is_map(attrs) do
     attrs = Planner.normalize_quick_entry(attrs)
 
@@ -181,6 +211,10 @@ defmodule Core.Office do
     |> broadcast_change(work_item.user_id)
   end
 
+  @doc """
+  Moves a task to an allowed next stage and records the move;
+  `{:error, :invalid_transition}` otherwise.
+  """
   def transition_work_item(%WorkItem{} = work_item, to_status, %User{} = moved_by)
       when is_binary(to_status) do
     result =
@@ -214,6 +248,7 @@ defmodule Core.Office do
     broadcast_change(result, work_item.user_id)
   end
 
+  @doc "Adds a milestone, release, deadline or note to a project's timeline."
   def create_timeline_entry(%User{} = user, %Project{} = project, attrs) when is_map(attrs) do
     attrs = Planner.normalize_timeline_entry(attrs)
 
@@ -225,6 +260,7 @@ defmodule Core.Office do
     |> broadcast_change(user.id)
   end
 
+  @doc "Edits a timeline entry."
   def update_timeline_entry(%TimelineEntry{} = timeline_entry, attrs) when is_map(attrs) do
     attrs = Planner.normalize_timeline_entry(attrs)
 
@@ -234,7 +270,7 @@ defmodule Core.Office do
     |> broadcast_change(timeline_entry.user_id)
   end
 
-  @doc "Renames a project (owner only). Its slug is kept so links stay stable."
+  @doc "Renames a project (owner only); the slug stays so links keep working."
   def rename_project(%User{} = user, %Project{} = project, attrs) do
     with :ok <- ensure_project_owner(user, project) do
       project
@@ -248,8 +284,8 @@ defmodule Core.Office do
   end
 
   @doc """
-  Deletes a task. Its stage-transition history goes with it; milestones that
-  pointed at it stay on the timeline, just no longer linked.
+  Deletes a task and its stage history; milestones pointing at it are unlinked, not
+  deleted.
   """
   def delete_work_item(%User{} = user, %WorkItem{} = work_item) do
     with :ok <- ensure_record_owner(user, work_item) do
@@ -257,6 +293,7 @@ defmodule Core.Office do
     end
   end
 
+  @doc "Deletes a timeline entry (owner only)."
   def delete_timeline_entry(%User{} = user, %TimelineEntry{} = timeline_entry) do
     with :ok <- ensure_record_owner(user, timeline_entry) do
       timeline_entry |> Repo.delete() |> broadcast_change(user.id)
@@ -266,6 +303,7 @@ defmodule Core.Office do
   defp ensure_record_owner(%User{id: user_id}, %{user_id: user_id}), do: :ok
   defp ensure_record_owner(_user, _record), do: {:error, :forbidden}
 
+  @doc "A task in one of the user's projects; raises if missing."
   def get_work_item_for_project!(user_id, project_id, work_item_id) do
     WorkItem
     |> where(
@@ -275,6 +313,7 @@ defmodule Core.Office do
     |> Repo.get!(work_item_id)
   end
 
+  @doc "A timeline entry in one of the user's projects; raises if missing."
   def get_timeline_entry_for_project!(user_id, project_id, timeline_entry_id) do
     TimelineEntry
     |> where(
@@ -292,8 +331,8 @@ defmodule Core.Office do
   @open_statuses ["queue", "wip", "qa"]
 
   @doc """
-  Per-day counts for the calendar dots: a task counts on its scheduled day and
-  on its due day; a timeline entry counts on the day it starts.
+  Per-day counts for calendar dots: tasks on their scheduled and due days, entries
+  on their start day.
   """
   def calendar_counts(work_items, timeline_entries) do
     work_items
@@ -316,7 +355,7 @@ defmodule Core.Office do
     end)
   end
 
-  @doc "Calendar counts across all of the user's active projects for a date range."
+  @doc "`calendar_counts/2` across all the user's active projects for a date range."
   def calendar_counts_for_user(%User{} = user, %Date{} = first_day, %Date{} = last_day) do
     first = NaiveDateTime.new!(first_day, ~T[00:00:00])
     last = NaiveDateTime.new!(last_day, ~T[23:59:59])
@@ -340,11 +379,24 @@ defmodule Core.Office do
     calendar_counts(work_items, timeline_entries)
   end
 
+  # Tasks past the limit sort after every shown one, so appending keeps order.
+  defp keep_included(shown, _tasks, _limit, nil), do: shown
+
+  defp keep_included(shown, tasks, limit, id) do
+    if Enum.any?(shown, fn {task, _date} -> task.id == id end) do
+      shown
+    else
+      case Enum.find(tasks, fn {task, _date} -> task.id == id end) do
+        nil -> shown
+        included -> Enum.take(shown, limit - 1) ++ [included]
+      end
+    end
+  end
+
   @doc """
-  Open tasks (queue/wip/qa) across active projects for the hub's focus list,
-  grouped by their effective date (due date, else scheduled date):
-  `%{overdue: [...], today: [...], up_next: [...], open_count: n}`. Each group
-  is ordered by date (undated last), and the three groups share `limit`.
+  The hub's open-task list across active projects, grouped as `overdue`,
+  `today` and `up_next`, sharing a `:limit` (default 6). `include: task_id`
+  keeps that task in the list past the limit.
   """
   def focus_tasks(%User{} = user, %Date{} = today, opts \\ []) do
     limit = Keyword.get(opts, :limit, 6)
@@ -360,7 +412,7 @@ defmodule Core.Office do
         {is_nil(date), date && Date.to_gregorian_days(date), task.sequence}
       end)
 
-    shown = Enum.take(tasks, limit)
+    shown = tasks |> Enum.take(limit) |> keep_included(tasks, limit, opts[:include])
 
     groups =
       Enum.group_by(
@@ -415,15 +467,16 @@ defmodule Core.Office do
     %{tasks: tasks, entries: entries}
   end
 
+  @doc "Whether a stage counts as open (queue, wip, qa)."
   def open_status?(status), do: status in @open_statuses
 
-  @doc "The next forward stage for a task, or nil once released."
+  @doc "The next stage for a task, or nil once released."
   def next_status("queue"), do: "wip"
   def next_status("wip"), do: "qa"
   def next_status("qa"), do: "release"
   def next_status(_status), do: nil
 
-  @doc "Fetches one of the user's work items in an active project, or nil."
+  @doc "One of the user's tasks in an active project, or nil."
   def get_user_work_item(%User{} = user, id) do
     user |> active_work_items_query() |> where([work_item], work_item.id == ^id) |> Repo.one()
   end
@@ -456,22 +509,27 @@ defmodule Core.Office do
     |> update_in([date, kind], &MapSet.put(&1, id))
   end
 
+  @doc "A task changeset for the planner form."
   def planner_changeset(%WorkItem{} = work_item, attrs) when is_map(attrs) do
     WorkItem.planner_changeset(work_item, attrs)
   end
 
+  @doc "A blank task changeset for the planner form."
   def planner_changeset(attrs) when is_map(attrs) do
     WorkItem.planner_changeset(%WorkItem{}, attrs)
   end
 
+  @doc "A timeline entry changeset for forms."
   def timeline_entry_changeset(%TimelineEntry{} = timeline_entry, attrs) when is_map(attrs) do
     TimelineEntry.changeset(timeline_entry, attrs)
   end
 
+  @doc "A blank timeline entry changeset for forms."
   def timeline_entry_changeset(attrs) when is_map(attrs) do
     TimelineEntry.changeset(%TimelineEntry{}, attrs)
   end
 
+  @doc "A project changeset for the new-project form."
   def project_changeset(attrs \\ %{}) do
     Project.changeset(%Project{}, attrs)
   end

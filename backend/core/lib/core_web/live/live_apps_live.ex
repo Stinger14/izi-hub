@@ -1,4 +1,6 @@
 defmodule CoreWeb.LiveAppsLive do
+  @moduledoc "`/liveapps`: lists the Livebook apps in `priv/notebooks`."
+
   use CoreWeb, :live_view
 
   alias Core.Notebooks

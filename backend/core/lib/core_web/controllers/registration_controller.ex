@@ -1,8 +1,14 @@
 defmodule CoreWeb.RegistrationController do
+  @moduledoc """
+  `/signup`: creates an account from an email (prefilled with `?email=`); the
+  user then picks a password at `/set-password`.
+  """
+
   use CoreWeb, :controller
 
   alias Core.Accounts
 
+  @doc "Shows the sign-up form."
   def new(conn, params) do
     form_data =
       case params do
@@ -13,6 +19,10 @@ defmodule CoreWeb.RegistrationController do
     render(conn, :new, errors: [], form_data: form_data)
   end
 
+  @doc """
+  Creates the account from the email and sends the user to `/set-password`, or
+  re-renders with errors.
+  """
   def create(conn, %{"user" => user_params}) do
     case Accounts.register_email_only_user(extract_email(user_params)) do
       {:ok, _user, setup_token} ->

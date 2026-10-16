@@ -1,9 +1,17 @@
 defmodule CoreWeb.SessionController do
+  @moduledoc """
+  `/login` and `/logout`: password sign-in and sign-out.
+
+  Context: inactive users get the same error as a wrong password. Logout
+  revokes this browser's session and lands on `/welcome`.
+  """
+
   use CoreWeb, :controller
 
   alias Core.Accounts
   alias CoreWeb.UserAuth
 
+  @doc "Shows the sign-in form."
   def new(conn, params) do
     case conn.assigns.current_scope do
       %{user: user} ->
@@ -15,6 +23,7 @@ defmodule CoreWeb.SessionController do
     end
   end
 
+  @doc "Signs in with email and password and continues where the user was going."
   def create(conn, %{"user" => %{"email" => email, "password" => password}}) do
     case Accounts.get_user_by_email_password(email, password) do
       nil ->
@@ -35,6 +44,7 @@ defmodule CoreWeb.SessionController do
     render_login_error(conn, "Invalid login payload", "")
   end
 
+  @doc "Signs out this browser."
   def delete(conn, _params) do
     conn
     |> UserAuth.log_out_user()

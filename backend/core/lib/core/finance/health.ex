@@ -1,8 +1,16 @@
 defmodule Core.Finance.Health do
   @moduledoc """
-  Calculates month-oriented financial health signals.
+  Financial health signals for a month: debt-to-income, minimum payment
+  burden, free cash flow and warnings.
+
+  Context: pure; `Core.Finance.get_financial_health/2` passes in this and
+  next month's summaries and the debts.
   """
 
+  @doc """
+  The health map: `current_month`, `next_month` (each with `free_cash_flow`),
+  totals, ratios and `warnings`.
+  """
   def build(current_month, next_month, debts) do
     minimum_debt_payment = sum_decimal(debts, & &1.minimum_payment)
     current_free_cash_flow = Decimal.sub(current_month.income, current_month.expenses)
