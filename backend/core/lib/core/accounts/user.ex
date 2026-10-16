@@ -18,6 +18,8 @@ defmodule Core.Accounts.User do
     field :email_verified_at, :naive_datetime
     field :last_login_at, :naive_datetime
     field :github_username, :string
+    # Set only by Accounts.put_user_avatar/2 and delete_user_avatar/1.
+    field :avatar_updated_at, :utc_datetime
 
     has_many :user_tokens, Core.Accounts.UserToken
     has_many :household_memberships, Core.Accounts.HouseholdMember

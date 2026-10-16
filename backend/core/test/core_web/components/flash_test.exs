@@ -114,12 +114,13 @@ defmodule CoreWeb.FlashTest do
     end
   end
 
-  test "toasts render inside the header, between the logo and the buttons", %{conn: conn} do
+  test "toasts render outside the header, which has a glass backdrop", %{conn: conn} do
     conn = get(conn, ~p"/set-password?token=invalid-token")
     html = conn |> recycle() |> get(~p"/signup") |> html_response(200)
+    doc = LazyHTML.from_document(html)
 
-    [header] = html |> LazyHTML.from_document() |> LazyHTML.query("header") |> Enum.take(1)
-    assert header |> LazyHTML.query("#flash-group #flash-error") |> Enum.count() == 1
+    assert doc |> LazyHTML.query("#flash-group #flash-error") |> Enum.count() == 1
+    assert doc |> LazyHTML.query("#site-header #flash-group") |> Enum.count() == 0
   end
 
   describe "controller-rendered pages" do

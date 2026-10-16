@@ -16,7 +16,7 @@ defmodule CoreWeb.HubComponents do
 
   @doc "Base hub surface: walnut card, hairline border, soft shadow."
   attr :id, :string, default: nil
-  attr :kicker, :string, required: true
+  attr :kicker, :string, default: nil
   attr :title, :string, required: true
   attr :icon, :string, default: nil
   attr :class, :any, default: nil
@@ -41,7 +41,7 @@ defmodule CoreWeb.HubComponents do
             <.icon name={@icon} class="h-4 w-4" />
           </span>
           <div class="min-w-0">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--hub-accent-2)]">
+            <p :if={@kicker} class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--hub-accent-2)]">
               <%= @kicker %>
             </p>
             <h2 class="font-display truncate text-lg text-[var(--hub-text)]"><%= @title %></h2>
@@ -80,13 +80,14 @@ defmodule CoreWeb.HubComponents do
   def finance_card(assigns) do
     ~H"""
     <.fin_card class="flex h-full flex-col">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--hub-accent-2)]">
-            Finance<%= if @scope == "household" && @household, do: " · #{@household.name}" %>
-          </p>
-          <h2 class="font-display text-2xl text-[var(--fin-text)]">Your money, at a glance</h2>
-        </div>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <.card_title icon="hero-banknotes">
+          Finance<span
+            :if={@scope == "household" && @household}
+            class="text-[var(--hub-muted)]"
+          > · <%= @household.name %></span>
+        </.card_title>
+        <div class="flex items-center gap-1">
         <div
           :if={@household}
           role="group"
@@ -103,6 +104,8 @@ defmodule CoreWeb.HubComponents do
           >
             <%= label %>
           </button>
+        </div>
+        <.icon_link href={~p"/finance"} label="Open Finance" />
         </div>
       </div>
 
@@ -152,16 +155,23 @@ defmodule CoreWeb.HubComponents do
             </div>
           </div>
       <% end %>
-
-      <div class="mt-auto pt-5">
-        <a
-          href={~p"/finance"}
-          class="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-semibold text-[var(--fin-accent)] transition hover:bg-[var(--fin-surface)] hover:text-[var(--hub-accent-2)]"
-        >
-          Open Finance <.icon name="hero-arrow-right" class="h-4 w-4" />
-        </a>
-      </div>
     </.fin_card>
+    """
+  end
+
+  # Icon chip + title, the same header the hub_card widgets use, for the two
+  # large cards that build their own surface.
+  attr :icon, :string, required: true
+  slot :inner_block, required: true
+
+  defp card_title(assigns) do
+    ~H"""
+    <div class="flex min-w-0 items-center gap-2.5">
+      <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-surface)] text-[var(--hub-secondary)]">
+        <.icon name={@icon} class="h-4 w-4" />
+      </span>
+      <h2 class="font-display truncate text-xl text-[var(--hub-text)]"><%= render_slot(@inner_block) %></h2>
+    </div>
     """
   end
 
@@ -196,15 +206,10 @@ defmodule CoreWeb.HubComponents do
   def role_stats_card(assigns) do
     ~H"""
     <section class="hub-glass flex h-full flex-col rounded-2xl p-5 sm:p-6">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--hub-accent-2)]">
-            <%= if @variant == "creator", do: "Creator stats", else: "Developer stats" %>
-          </p>
-          <h2 class="font-display text-2xl text-[var(--hub-text)]">
-            <%= if @variant == "creator", do: "Your reach", else: "Your code activity" %>
-          </h2>
-        </div>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <.card_title icon="hero-chart-bar-square">
+          <%= if @variant == "creator", do: "Facebook", else: "GitHub" %>
+        </.card_title>
         <div
           role="group"
           aria-label="Stats view"
@@ -228,12 +233,7 @@ defmodule CoreWeb.HubComponents do
           <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--hub-surface)] text-xs font-bold text-[var(--hub-muted)]">
             f
           </span>
-          <div class="min-w-0">
-            <p class="text-sm font-semibold text-[var(--hub-text)]">Facebook stats are coming soon</p>
-            <p class="text-[11px] text-[var(--hub-muted)]">
-              Followers, video views and interactions will show here once the Meta integration lands.
-            </p>
-          </div>
+          <p class="min-w-0 text-sm font-semibold text-[var(--hub-text)]">Facebook stats are coming soon</p>
         </div>
       <% else %>
         <.async_result :let={developer} assign={@developer}>
@@ -281,22 +281,11 @@ defmodule CoreWeb.HubComponents do
   defp github_identity(assigns) do
     ~H"""
     <div class="mt-auto flex flex-wrap items-center justify-between gap-2 pt-5 text-sm">
-      <span class="text-[var(--hub-muted)]">
+      <span class="inline-flex items-center gap-1 text-[var(--hub-muted)]">
         @<%= @login %>
-        <button
-          type="button"
-          phx-click="edit_github"
-          class="ml-1 font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)]"
-        >
-          Change
-        </button>
+        <.icon_button icon="hero-pencil-square" label="Change GitHub user" phx-click="edit_github" />
       </span>
-      <a
-        href={~p"/contributions"}
-        class="inline-flex items-center gap-1 font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)]"
-      >
-        Details <.icon name="hero-arrow-right" class="h-4 w-4" />
-      </a>
+      <.icon_link href={~p"/contributions"} label="Contribution details" />
     </div>
     """
   end
@@ -324,9 +313,7 @@ defmodule CoreWeb.HubComponents do
         <button type="submit" class="btn btn-primary btn-sm">
           <%= if @linked, do: "Save", else: "Connect GitHub" %>
         </button>
-        <button :if={@linked} type="button" phx-click="cancel_github" class="btn btn-secondary btn-sm">
-          Cancel
-        </button>
+        <.icon_button :if={@linked} icon="hero-x-mark" label="Cancel" phx-click="cancel_github" />
       </div>
       <p
         :for={{msg, _} <- @form[:github_username].errors}
@@ -359,7 +346,7 @@ defmodule CoreWeb.HubComponents do
 
   def tasks_panel(assigns) do
     ~H"""
-    <.hub_card id="tasks" kicker="Focus" title="Tasks" icon="hero-check" class="h-full sm:p-6">
+    <.hub_card id="tasks" title="Tasks" icon="hero-check" class="h-full sm:p-6">
       <:actions>
         <span
           :if={@focus}
@@ -367,6 +354,7 @@ defmodule CoreWeb.HubComponents do
         >
           <%= @focus.open_count %> open
         </span>
+        <.icon_link href={~p"/office"} label="Open IziOffice" />
       </:actions>
 
       <.form for={@form} id="quick-add-task" phx-submit="quick_add_task" class="flex gap-2">
@@ -380,7 +368,9 @@ defmodule CoreWeb.HubComponents do
           maxlength="140"
           class="min-w-0 flex-1 rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2 text-sm text-[var(--hub-text)] placeholder:text-[var(--hub-muted)] focus:border-[color:var(--hub-accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"
         />
-        <button type="submit" class="btn btn-primary btn-sm">Add</button>
+        <button type="submit" class="btn btn-primary btn-sm" title="Add task" aria-label="Add task">
+          <.icon name="hero-plus" class="h-4 w-4" />
+        </button>
       </.form>
       <p :for={{msg, _} <- @form[:title].errors} class={["mt-2 text-xs", tone_class("expense", :text)]}>
         Title <%= msg %>
@@ -419,13 +409,6 @@ defmodule CoreWeb.HubComponents do
           />
         </div>
       <% end %>
-
-      <a
-        href={~p"/office"}
-        class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)]"
-      >
-        Open IziOffice <.icon name="hero-arrow-right" class="h-4 w-4" />
-      </a>
     </.hub_card>
     """
   end
@@ -464,8 +447,8 @@ defmodule CoreWeb.HubComponents do
                   aria-label="Scheduled day"
                   class="rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-card)] px-2 py-1.5 text-xs text-[var(--hub-text)] focus:outline-none"
                 />
-                <button type="button" phx-click="cancel_hub_task_edit" class="btn btn-ghost btn-xs">Cancel</button>
-                <button type="submit" class="btn btn-primary btn-xs">Save</button>
+                <.icon_button icon="hero-x-mark" label="Cancel" phx-click="cancel_hub_task_edit" />
+                <.icon_button type="submit" icon="hero-check" label="Save" />
               </.form>
             <% @confirming_delete_id == task.id -> %>
               <div class="flex flex-wrap items-center justify-between gap-2">
@@ -499,6 +482,7 @@ defmodule CoreWeb.HubComponents do
                   phx-click="edit_hub_task"
                   phx-value-id={task.id}
                   aria-label={"Edit #{task.title}"}
+                  title="Edit"
                   class="shrink-0 rounded-md p-1 text-[var(--hub-muted)] transition hover:text-[var(--hub-text)]"
                 >
                   <.icon name="hero-pencil-square" class="h-3.5 w-3.5" />
@@ -508,9 +492,10 @@ defmodule CoreWeb.HubComponents do
                   phx-click="request_hub_task_delete"
                   phx-value-id={task.id}
                   aria-label={"Delete #{task.title}"}
+                  title="Delete"
                   class="shrink-0 rounded-md p-1 text-[var(--hub-muted)] transition hover:text-[var(--tone-expense)]"
                 >
-                  <.icon name="hero-x-mark" class="h-3.5 w-3.5" />
+                  <.icon name="hero-trash" class="h-3.5 w-3.5" />
                 </button>
               </div>
           <% end %>
@@ -546,7 +531,6 @@ defmodule CoreWeb.HubComponents do
     ~H"""
     <.hub_card
       id="calendar"
-      kicker="Calendar"
       title={Calendar.strftime(@month, "%B %Y")}
       icon="hero-calendar-days"
     >
@@ -555,17 +539,19 @@ defmodule CoreWeb.HubComponents do
           type="button"
           phx-click="prev_calendar_month"
           aria-label="Previous month"
+          title="Previous month"
           class="grid h-8 w-8 place-items-center rounded-lg text-[var(--hub-secondary)] transition hover:bg-[var(--hub-surface)]"
         >
-          <.icon name="hero-arrow-left" class="h-3.5 w-3.5" />
+          <.icon name="hero-chevron-left" class="h-4 w-4" />
         </button>
         <button
           type="button"
           phx-click="next_calendar_month"
           aria-label="Next month"
+          title="Next month"
           class="grid h-8 w-8 place-items-center rounded-lg text-[var(--hub-secondary)] transition hover:bg-[var(--hub-surface)]"
         >
-          <.icon name="hero-arrow-right" class="h-3.5 w-3.5" />
+          <.icon name="hero-chevron-right" class="h-4 w-4" />
         </button>
       </:actions>
       <div class="grid grid-cols-7 text-center text-[10px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">
@@ -587,7 +573,7 @@ defmodule CoreWeb.HubComponents do
       </div>
       <div class="mt-2 border-t border-[color:var(--hub-border)] pt-2">
         <p class="text-[11px] text-[var(--hub-muted)]">
-          <%= if @selected_date, do: Calendar.strftime(@selected_date, "%a, %b %-d"), else: "Select a date to see its agenda" %>
+          <%= if @selected_date, do: Calendar.strftime(@selected_date, "%a, %b %-d"), else: "Pick a date" %>
         </p>
         <div :if={@agenda} id="calendar-agenda" class="mt-2 space-y-1.5">
           <p :if={@agenda.tasks == [] and @agenda.entries == []} class="text-xs text-[var(--hub-muted)]">
@@ -626,7 +612,7 @@ defmodule CoreWeb.HubComponents do
 
   def music_card(assigns) do
     ~H"""
-    <.hub_card id="music" kicker="Listening" title="Music" icon="hero-musical-note">
+    <.hub_card id="music" title="Music" icon="hero-musical-note">
       <div class="flex items-center gap-3">
         <div class="h-12 w-12 shrink-0 rounded-lg border border-[color:var(--hub-border)] bg-[linear-gradient(135deg,var(--hub-accent),var(--hub-surface))]">
         </div>
@@ -654,17 +640,14 @@ defmodule CoreWeb.HubComponents do
 
   def library_shortcuts(assigns) do
     ~H"""
-    <.hub_card id="library" kicker="Library" title="Books & courses" icon="hero-book-open">
+    <.hub_card id="library" title="Library" icon="hero-book-open">
       <div class="grid gap-2">
         <a
           href={~p"/notebooks"}
           class="group flex items-center gap-3 rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2.5 transition hover:border-[color:var(--hub-accent)]"
         >
           <.icon name="hero-book-open" class="h-4 w-4 shrink-0 text-[var(--hub-secondary)]" />
-          <span class="min-w-0 flex-1">
-            <span class="block text-sm font-semibold text-[var(--hub-text)]">Books</span>
-            <span class="block text-[11px] text-[var(--hub-muted)]">PDF library &amp; notebooks</span>
-          </span>
+          <span class="min-w-0 flex-1 text-sm font-semibold text-[var(--hub-text)]">Books</span>
           <.icon
             name="hero-arrow-right"
             class="h-4 w-4 shrink-0 text-[var(--hub-muted)] transition group-hover:translate-x-0.5 group-hover:text-[var(--hub-secondary)]"
@@ -672,10 +655,7 @@ defmodule CoreWeb.HubComponents do
         </a>
         <div class="flex items-center gap-3 rounded-xl border border-dashed border-[color:var(--hub-border)] px-3 py-2.5">
           <.icon name="hero-academic-cap" class="h-4 w-4 shrink-0 text-[var(--hub-muted)]" />
-          <span class="min-w-0 flex-1">
-            <span class="block text-sm font-semibold text-[var(--hub-text)]">Courses</span>
-            <span class="block text-[11px] text-[var(--hub-muted)]">Track what you're learning</span>
-          </span>
+          <span class="min-w-0 flex-1 text-sm font-semibold text-[var(--hub-text)]">Courses</span>
           <span class="shrink-0 rounded-full bg-[color:var(--hub-accent)]/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--hub-accent-2)]">
             Soon
           </span>
@@ -687,7 +667,7 @@ defmodule CoreWeb.HubComponents do
 
   def gmail_preview(assigns) do
     ~H"""
-    <.hub_card id="gmail" kicker="Inbox" title="Gmail" icon="hero-envelope">
+    <.hub_card id="gmail" title="Gmail" icon="hero-envelope">
       <ul class="space-y-2" aria-label="Inbox preview">
         <li
           :for={width <- ["w-3/4", "w-2/3", "w-1/2"]}

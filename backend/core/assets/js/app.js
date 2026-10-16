@@ -270,14 +270,23 @@ const setupStaticFlashes = () => {
 
 window.addEventListener("DOMContentLoaded", setupStaticFlashes);
 
-// Keep flash toasts visible: record where the header ends so they sit just
-// below it on phones, and float at the top centre once it has scrolled away.
+// Toasts float just below the sticky header, whose height changes when a
+// page panel (e.g. the hub's translator) opens under it, so watch its size.
+// LiveView navigation can swap the header element; re-observe the new one.
+let observedHeader = null;
+const headerObserver =
+  "ResizeObserver" in window ? new ResizeObserver(() => scheduleFlashSync()) : null;
+
 const syncFlashPosition = () => {
-  const header = document.querySelector("header");
+  const header = document.getElementById("site-header");
   if (!header) return;
+  if (headerObserver && header !== observedHeader) {
+    if (observedHeader) headerObserver.unobserve(observedHeader);
+    headerObserver.observe(header);
+    observedHeader = header;
+  }
   const bottom = header.getBoundingClientRect().bottom;
   document.body.style.setProperty("--flash-top", `${Math.max(bottom, 0) + 8}px`);
-  document.body.classList.toggle("header-offscreen", bottom <= 0);
 };
 
 let flashFrame = null;

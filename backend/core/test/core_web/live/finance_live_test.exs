@@ -17,8 +17,8 @@ defmodule CoreWeb.FinanceLiveTest do
 
     assert {:ok, _view, html} = live(conn, ~p"/finance")
 
-    assert html =~ "IziHub Finance"
-    assert html =~ "Total Balance"
+    assert html =~ "Finance"
+    assert html =~ "Total balance"
     assert html =~ "Switch finance scope"
     assert html =~ "New household"
   end
@@ -127,7 +127,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button", "Open review queue")
+    |> element("button[aria-label='Open review queue']")
     |> render_click()
 
     html =
@@ -157,7 +157,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button", "Open review queue")
+    |> element("button[aria-label='Open review queue']")
     |> render_click()
 
     html =
@@ -208,7 +208,7 @@ defmodule CoreWeb.FinanceLiveTest do
     {:ok, view, _html} = live(conn, ~p"/finance")
 
     view
-    |> element("button", "Open review queue")
+    |> element("button[aria-label='Open review queue']")
     |> render_click()
 
     html =
@@ -323,7 +323,7 @@ defmodule CoreWeb.FinanceLiveTest do
       |> element("#scope-new-household")
       |> render_click()
 
-    assert html =~ "Create or switch scope"
+    assert html =~ "Households"
     assert html =~ "aria-label=\"Create household\""
   end
 

@@ -254,132 +254,107 @@ defmodule CoreWeb.HubLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
-      <main class="min-h-screen max-w-none p-0">
-        <header class="sticky top-2 z-50 mx-auto max-w-[1440px] px-4 pt-2 sm:px-8">
-          <div
-            class="relative"
-            phx-click-away="close_translator"
-            phx-window-keydown="close_translator"
-            phx-key="Escape"
+    <Layouts.app flash={@flash} current_scope={@current_scope} workspace={:hub}>
+      <:workspace_tools>
+        <a href="#tasks" aria-label="Tasks" title="Tasks" class={Layouts.workspace_chip_class(false)}>
+          <.icon name="hero-check" class="h-4 w-4 text-[var(--hub-secondary)]" />
+          <span class="hidden sm:inline">Tasks</span>
+        </a>
+        <%!-- While open, a click anywhere outside the popover closes it
+             (phx-click-away), so the chip only opens it. --%>
+        <button
+          type="button"
+          phx-click={unless @translator_open, do: "toggle_translator"}
+          aria-expanded={to_string(@translator_open)}
+          aria-controls="translator-popover"
+          aria-label="Translate"
+          title="Translate"
+          class={Layouts.workspace_chip_class(@translator_open)}
+        >
+          <.icon name="hero-arrow-path" class="h-4 w-4 text-[var(--hub-secondary)]" />
+          <span class="hidden sm:inline">Translate</span>
+        </button>
+        <button
+          type="button"
+          disabled
+          title="Music connection coming soon"
+          aria-label="Music"
+          class={Layouts.workspace_chip_class(:disabled)}
+        >
+          <.icon name="hero-musical-note" class="h-4 w-4" />
+          <span class="hidden sm:inline">Music</span>
+        </button>
+        <button
+          type="button"
+          disabled
+          title="Gmail connection coming soon"
+          aria-label="Gmail"
+          class={Layouts.workspace_chip_class(:disabled)}
+        >
+          <.icon name="hero-envelope" class="h-4 w-4" />
+          <span class="hidden sm:inline">Gmail</span>
+        </button>
+      </:workspace_tools>
+      <:workspace_panel>
+        <section
+          :if={@translator_open}
+          id="translator-popover"
+          phx-click-away="close_translator"
+          phx-window-keydown="close_translator"
+          phx-key="Escape"
+          role="dialog"
+          aria-label="Translator"
+          class="hub-glass mt-2 w-full rounded-2xl p-3 shadow-[0_16px_32px_-20px_var(--hub-shadow)] sm:p-4"
+        >
+          <form
+            id="translator-form"
+            phx-change="translator_input"
+            class="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
           >
-            <div class="hub-glass flex items-center gap-2 rounded-2xl border border-[color:var(--hub-border)] bg-[color:var(--hub-card)]/95 p-2 shadow-[0_16px_32px_-20px_var(--hub-shadow)] backdrop-blur">
-              <a
-                href={~p"/welcome"}
-                class="font-display hidden shrink-0 px-2 text-base text-[var(--hub-secondary)] sm:block"
-              >
-                Workspace
-              </a>
-              <nav
-                aria-label="Command center"
-                class="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto rounded-xl bg-[var(--hub-bg)]/60 p-1"
-              >
-                <a href="#tasks" class={command_chip_class(false)}>
-                  <.icon name="hero-check" class="h-4 w-4 text-[var(--hub-secondary)]" />Tasks
-                </a>
-                <button
-                  type="button"
-                  phx-click="toggle_translator"
-                  aria-expanded={to_string(@translator_open)}
-                  aria-controls="translator-popover"
-                  class={command_chip_class(@translator_open)}
-                >
-                  <.icon name="hero-arrow-path" class="h-4 w-4 text-[var(--hub-secondary)]" />Translate
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  title="Music connection coming soon"
-                  class={command_chip_class(:disabled)}
-                >
-                  <.icon name="hero-musical-note" class="h-4 w-4" />Music
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  title="Gmail connection coming soon"
-                  class={command_chip_class(:disabled)}
-                >
-                  <.icon name="hero-envelope" class="h-4 w-4" />Gmail
-                </button>
-              </nav>
-              <details class="relative shrink-0">
-                <summary class="inline-flex h-9 cursor-pointer list-none items-center gap-1.5 rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-card)] px-3 text-xs font-semibold text-[var(--hub-text)] transition hover:border-[color:var(--hub-accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/40">
-                  <.icon name="hero-ellipsis-horizontal" class="h-4 w-4 text-[var(--hub-secondary)]" />Pages
-                </summary>
-                <div class="hub-glass absolute right-0 top-full z-[60] mt-2 grid w-52 gap-1 rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-card)] p-2 shadow-[0_24px_40px_-20px_var(--hub-shadow)]">
-                  <a
-                    :for={{label, path} <- page_links()}
-                    href={path}
-                    class="rounded-lg px-3 py-2 text-sm font-medium text-[var(--hub-text)] transition hover:bg-[var(--hub-surface)] hover:text-[var(--hub-primary)]"
-                  >
-                    <%= label %>
-                  </a>
-                </div>
-              </details>
-            </div>
-            <section
-              :if={@translator_open}
-              id="translator-popover"
-              role="dialog"
-              aria-label="Translator"
-              class="hub-glass mt-2 w-full rounded-2xl border border-[color:var(--hub-border)] bg-[var(--hub-card)] p-3 shadow-[0_16px_32px_-20px_var(--hub-shadow)] sm:p-4"
+            <label for="translator-text" class="sr-only">
+              Text in <%= translator_source_language(@translator_direction) %>
+            </label>
+            <input type="hidden" name="translator[direction]" value={@translator_direction} />
+            <textarea
+              id="translator-text"
+              name="translator[text]"
+              rows="1"
+              maxlength="5000"
+              autofocus
+              phx-debounce="500"
+              phx-hook="AutoGrow"
+              placeholder={translator_source_language(@translator_direction)}
+              aria-label={translator_source_language(@translator_direction)}
+              class={translator_field_class()}
+            ><%= @translator_text %></textarea>
+            <button
+              type="button"
+              phx-click="toggle_translator_direction"
+              aria-label="Swap English and Spanish"
+              title="Swap languages"
+              class="mx-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--hub-border)] bg-[var(--hub-surface)] text-[var(--hub-secondary)] transition hover:border-[color:var(--hub-accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/40"
             >
-              <form
-                id="translator-form"
-                phx-change="translator_input"
-                class="grid grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
-              >
-                <label for="translator-text" class="sr-only">
-                  Text in <%= translator_source_language(@translator_direction) %>
-                </label>
-                <input type="hidden" name="translator[direction]" value={@translator_direction} />
-                <textarea
-                  id="translator-text"
-                  name="translator[text]"
-                  rows="1"
-                  maxlength="5000"
-                  autofocus
-                  phx-debounce="500"
-                  phx-hook="AutoGrow"
-                  placeholder={translator_source_language(@translator_direction)}
-                  aria-label={translator_source_language(@translator_direction)}
-                  class={translator_field_class()}
-                ><%= @translator_text %></textarea>
-                <button
-                  type="button"
-                  phx-click="toggle_translator_direction"
-                  aria-label="Swap English and Spanish"
-                  title="Swap languages"
-                  class="mx-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--hub-border)] bg-[var(--hub-surface)] text-[var(--hub-secondary)] transition hover:border-[color:var(--hub-accent)] focus:outline-none focus:ring-2 focus:ring-[color:var(--hub-accent)]/40"
-                >
-                  <.icon name="hero-arrow-path" class="h-4 w-4" />
-                </button>
-                <label for="translator-result" class="sr-only">
-                  Translation in <%= translator_target_language(@translator_direction) %>
-                </label>
-                <textarea
-                  id="translator-result"
-                  readonly
-                  rows="1"
-                  phx-hook="AutoGrow"
-                  placeholder={translator_target_language(@translator_direction)}
-                  aria-label={translator_target_language(@translator_direction)}
-                  class={translator_field_class()}
-                ></textarea>
-              </form>
-            </section>
-          </div>
-        </header>
-
+              <.icon name="hero-arrow-path" class="h-4 w-4" />
+            </button>
+            <label for="translator-result" class="sr-only">
+              Translation in <%= translator_target_language(@translator_direction) %>
+            </label>
+            <textarea
+              id="translator-result"
+              readonly
+              rows="1"
+              phx-hook="AutoGrow"
+              placeholder={translator_target_language(@translator_direction)}
+              aria-label={translator_target_language(@translator_direction)}
+              class={translator_field_class()}
+            ></textarea>
+          </form>
+        </section>
+      </:workspace_panel>
+      <main class="min-h-screen max-w-none p-0">
         <div class="mx-auto max-w-[1440px] space-y-5 px-4 py-6 sm:px-8 sm:py-8">
           <div class="flex flex-wrap items-end justify-between gap-3 px-1">
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--hub-accent-2)]">
-                Your workspace
-              </p>
-              <h1 class="font-display mt-1 text-4xl text-[var(--hub-text)] sm:text-5xl">Dashboard</h1>
-            </div>
+            <h1 class="font-display text-4xl text-[var(--hub-text)] sm:text-5xl">Dashboard</h1>
             <p class="text-sm text-[var(--hub-muted)]">
               <%= Calendar.strftime(Date.utc_today(), "%A, %B %-d") %>
             </p>
@@ -556,32 +531,6 @@ defmodule CoreWeb.HubLive do
 
   defp translator_target_language("en-es"), do: "Spanish"
   defp translator_target_language("es-en"), do: "English"
-
-  defp page_links do
-    [
-      {"Dashboard", ~p"/hub"},
-      {"Finance", ~p"/finance"},
-      {"Books & notebooks", ~p"/notebooks"},
-      {"Resources", ~p"/resources"},
-      {"Live Apps", ~p"/liveapps"},
-      {"Contributions", ~p"/contributions"},
-      {"Profile", ~p"/profile"},
-      {"Account settings", ~p"/settings"},
-      {"Welcome", ~p"/welcome"}
-    ]
-  end
-
-  defp command_chip_class(:disabled) do
-    "inline-flex h-8 shrink-0 cursor-not-allowed items-center gap-1.5 rounded-lg border border-transparent px-2.5 text-xs font-medium text-[var(--hub-muted)] opacity-70"
-  end
-
-  defp command_chip_class(true) do
-    "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--hub-accent)] bg-[color:var(--hub-accent)]/15 px-2.5 text-xs font-semibold text-[var(--hub-primary)] transition"
-  end
-
-  defp command_chip_class(false) do
-    "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--hub-border)] bg-[var(--hub-card)] px-2.5 text-xs font-semibold text-[var(--hub-text)] transition hover:border-[color:var(--hub-accent)]"
-  end
 
   defp translator_field_class do
     "min-h-10 max-h-40 w-full resize-none overflow-y-auto rounded-xl border border-[color:var(--hub-border)] bg-[var(--hub-surface)] px-3 py-2.5 text-sm text-[var(--hub-text)] outline-none transition placeholder:text-[var(--hub-muted)] focus:border-[color:var(--hub-accent)] focus:ring-2 focus:ring-[color:var(--hub-accent)]/30"

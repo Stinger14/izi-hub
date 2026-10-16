@@ -107,6 +107,7 @@ defmodule CoreWeb.Router do
     end
 
     get "/books/:slug", BooksController, :download
+    get "/avatars/:user_id", AvatarController, :show
   end
 
   scope "/admin", CoreWeb.Admin do
