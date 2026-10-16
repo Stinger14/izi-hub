@@ -1,6 +1,15 @@
 defmodule Core.Notifications do
   @moduledoc """
-  The Notifications context.
+  In-app notifications for users and their notification preferences.
+
+  Context: Not used by any page yet. New notifications are broadcast over PubSub to
+  the
+  recipient.
+
+  ## Example
+
+      Notifications.create_notification(%{user_id: id, title: "Hi", type: "info"})
+      Notifications.count_unread_notifications(id)
   """
 
   import Ecto.Query, warn: false
@@ -8,9 +17,7 @@ defmodule Core.Notifications do
 
   alias Core.Notifications.{Notification, NotificationPreference}
 
-  @doc """
-  Returns a list of notifications for a user
-  """
+  @doc "A user's notifications, newest first (`:limit` default 50, `:unread_only`)."
   def list_user_notifications(user_id, opts \\ []) do
     limit = Keyword.get(opts, :limit, 50)
     unread_only = Keyword.get(opts, :unread_only, false)
@@ -30,27 +37,21 @@ defmodule Core.Notifications do
     Repo.all(query)
   end
 
-  @doc """
-  Returns unread notifications count for a user
-  """
+  @doc "How many unread notifications a user has."
   def count_unread_notifications(user_id) do
     Notification
     |> where([n], n.user_id == ^user_id and n.is_read == false)
     |> Repo.aggregate(:count)
   end
 
-  @doc """
-  Gets a single notification
-  """
+  @doc "A notification by id; raises if missing."
   def get_notification!(id) do
     Notification
     |> preload([:user, :triggered_by])
     |> Repo.get!(id)
   end
 
-  @doc """
-  Creates a notification
-  """
+  @doc "Creates a notification and broadcasts it to the user."
   def create_notification(attrs \\ %{}) do
     %Notification{}
     |> Notification.changeset(attrs)
@@ -58,9 +59,7 @@ defmodule Core.Notifications do
     |> broadcast_notification()
   end
 
-  @doc """
-  Creates a notification and send it to multiple users
-  """
+  @doc "Sends the same notification to many users in one insert."
   def create_bulk_notification(user_ids, attrs) when is_list(user_ids) do
     notifications =
       Enum.map(user_ids, fn user_id ->
@@ -79,9 +78,7 @@ defmodule Core.Notifications do
     {:ok, count}
   end
 
-  @doc """
-  Marks notification as read
-  """
+  @doc "Marks a notification read."
   def mark_as_read(%Notification{} = notification) do
     notification
     |> Ecto.Changeset.change(%{
@@ -91,9 +88,7 @@ defmodule Core.Notifications do
     |> Repo.update()
   end
 
-  @doc """
-  Marks all notifications as read for a user
-  """
+  @doc "Marks all of a user's notifications read."
   def mark_all_read(user_id) do
     from(n in Notification,
       where: n.user_id == ^user_id and n.is_read == false
@@ -101,16 +96,12 @@ defmodule Core.Notifications do
     |> Repo.update_all(set: [is_read: true, read_at: NaiveDateTime.utc_now()])
   end
 
-  @doc """
-  Deletes a notification
-  """
+  @doc "Deletes a notification."
   def delete_notification(%Notification{} = notification) do
     Repo.delete(notification)
   end
 
-  @doc """
-  Deletes old read notifications (clean up)
-  """
+  @doc "Deletes read notifications older than `days_old` days (default 30)."
   def delete_old_notifications(days_old \\ 30) do
     due_date =
       NaiveDateTime.utc_now()
@@ -124,9 +115,7 @@ defmodule Core.Notifications do
 
   ## Notification Preferences
 
-  @doc """
-  Gets user notification preferences
-  """
+  @doc "A user's notification preferences, or nil."
   def get_user_preferences(user_id) do
     case Repo.get_by(NotificationPreference, user_id: user_id) do
       nil -> create_default_preferences(user_id)
@@ -134,15 +123,14 @@ defmodule Core.Notifications do
     end
   end
 
-  @doc """
-  Creates default notification preferences for user
-  """
+  @doc "Creates default preferences for a user."
   def create_default_preferences(user_id) do
     %NotificationPreference{}
     |> NotificationPreference.changeset(%{user_id: user_id})
     |> Repo.insert()
   end
 
+  @doc "Updates a user's notification preferences."
   def update_preferences(%NotificationPreference{} = preferences, attrs) do
     preferences
     |> NotificationPreference.changeset(attrs)

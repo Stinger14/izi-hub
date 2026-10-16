@@ -1,4 +1,12 @@
 defmodule Core.Accounts.User do
+  @moduledoc """
+  A person who can sign in.
+
+  Context: each changeset matches one flow, so a form can only change what
+  that flow allows (Settings can't touch role or `is_active`). Managed through
+  `Core.Accounts`.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -40,9 +48,7 @@ defmodule Core.Accounts.User do
     timestamps()
   end
 
-  @doc """
-  Changeset for user registration.
-  """
+  @doc "Sign-up: email, username, name and a hashed password."
   def registration_changeset(user, attrs) do
     user
     |> cast(attrs, [:email, :password, :username, :full_name])
@@ -53,9 +59,7 @@ defmodule Core.Accounts.User do
     |> hash_password()
   end
 
-  @doc """
-  Changeset for user profile updates
-  """
+  @doc "Name, username and avatar URL (admin/legacy)."
   def profile_changeset(user, attrs) do
     user
     |> cast(attrs, [:username, :full_name, :avatar_url])
@@ -64,10 +68,7 @@ defmodule Core.Accounts.User do
     |> validate_format(:avatar_url, ~r/^https?:\/\//, message: "must be a valid URL")
   end
 
-  @doc """
-  Changeset for linking (or clearing, with a blank value) the GitHub login
-  shown on the hub's Developer card. Only public data is read for it.
-  """
+  @doc "Links or clears (blank) the GitHub login for the hub's Developer card."
   def github_username_changeset(user, attrs) do
     user
     |> cast(attrs, [:github_username], empty_values: [nil, ""])
@@ -89,9 +90,7 @@ defmodule Core.Accounts.User do
   defp normalize_github_username(login),
     do: login |> String.trim() |> String.trim_leading("@") |> String.trim()
 
-  @doc """
-  Changeset for password updates
-  """
+  @doc "Sets and hashes a new password, no other checks."
   def password_changeset(user, attrs) do
     user
     |> cast(attrs, [:password])
@@ -100,10 +99,7 @@ defmodule Core.Accounts.User do
     |> hash_password()
   end
 
-  @doc """
-  Changeset for the account settings page: name and username only. Role,
-  status and verification flags are never castable here.
-  """
+  @doc "Settings: full name and username only."
   def account_profile_changeset(user, attrs) do
     user
     |> cast(attrs, [:full_name, :username])
@@ -113,11 +109,7 @@ defmodule Core.Accounts.User do
     |> validate_username()
   end
 
-  @doc """
-  Changeset for a signed-in user changing their own password: needs the
-  current password and a matching confirmation. Both are checked before
-  hashing, because hashing drops the plain password from the changes.
-  """
+  @doc "Settings: new password, checked against confirmation and current password before hashing."
   def password_update_changeset(user, attrs, current_password) do
     user
     |> cast(attrs, [:password])
@@ -128,10 +120,7 @@ defmodule Core.Accounts.User do
     |> hash_password()
   end
 
-  @doc """
-  Changeset for a signed-in user changing their own email: needs the current
-  password, and marks the new address unverified.
-  """
+  @doc "Settings: new email (needs the current password), marked unverified."
   def email_update_changeset(user, attrs, current_password) do
     user
     |> email_changeset(attrs)
@@ -149,9 +138,7 @@ defmodule Core.Accounts.User do
       else: add_error(changeset, :current_password, "is not valid")
   end
 
-  @doc """
-  Changeset for email updates
-  """
+  @doc "Sets a new email, no password check (admin flows)."
   def email_changeset(user, attrs) do
     user
     |> cast(attrs, [:email])
@@ -206,9 +193,7 @@ defmodule Core.Accounts.User do
     end
   end
 
-  @doc """
-  Verifies the password against the hashed password
-  """
+  @doc "Whether the password matches; always false (in constant time) for no user."
   def valid_password?(%__MODULE__{hashed_password: hashed_password}, password)
       when is_binary(hashed_password) and byte_size(password) > 0 do
     Bcrypt.verify_pass(password, hashed_password)

@@ -1,4 +1,11 @@
 defmodule Core.Finance.Category do
+  @moduledoc """
+  A label for income or expense transactions.
+
+  Context: Owned by exactly one user or household (DB check constraint). Deleting
+  one leaves its transactions uncategorised.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -22,7 +29,7 @@ defmodule Core.Finance.Category do
 
   @category_types ["income", "expense"]
 
-  @doc false
+  @doc "Validates name, type (income or expense), colour and icon."
   def changeset(category, attrs) do
     category
     |> cast(attrs, [:name, :type, :color, :icon, :description, :user_id, :household_id])

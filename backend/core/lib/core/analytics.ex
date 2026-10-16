@@ -1,6 +1,14 @@
 defmodule Core.Analytics do
   @moduledoc """
-  The Analytics context.
+  Anonymous page-view tracking and the stats built on it, plus report records.
+
+  Context: `CvController` records CV downloads; the admin dashboard and
+  Analytics page read counts, top pages and device/browser/country breakdowns.
+
+  ## Example
+
+      Analytics.record_page_view(%{page_path: "/cv/download", session_id: sid})
+      Analytics.count_page_views("/cv/download")
   """
 
   import Ecto.Query, warn: false
@@ -10,18 +18,14 @@ defmodule Core.Analytics do
 
   # Page Views
 
-  @doc """
-  Records a page view
-  """
+  @doc "Stores one page view. `{:ok, view}` or `{:error, changeset}`."
   def record_page_view(attrs) do
     %PageView{}
     |> PageView.changeset(attrs)
     |> Repo.insert()
   end
 
-  @doc """
-  Returns page views for a specific page path
-  """
+  @doc "Views of one path, newest first (`:limit` default 100, `:start_date`, `:end_date`)."
   def list_page_views(page_path, opts \\ []) do
     limit = Keyword.get(opts, :limit, 100)
     start_date = Keyword.get(opts, :start_date)
@@ -50,9 +54,7 @@ defmodule Core.Analytics do
     Repo.all(query)
   end
 
-  @doc """
-  Returns total page views count
-  """
+  @doc "Number of views, for one path or all. Optional `start_date`/`end_date` limit the range."
   def count_page_views(page_path \\ nil, start_date \\ nil, end_date \\ nil) do
     query = PageView
 
@@ -80,9 +82,7 @@ defmodule Core.Analytics do
     Repo.aggregate(query, :count)
   end
 
-  @doc """
-  Counts unique sessions for a specific page path.
-  """
+  @doc "Distinct sessions that viewed a path. Optional `start_date`/`end_date` limit the range."
   def count_unique_page_sessions(page_path, start_date \\ nil, end_date \\ nil) do
     query =
       PageView
@@ -108,9 +108,7 @@ defmodule Core.Analytics do
     |> Repo.one()
   end
 
-  @doc """
-  Counts unique sessions across all tracked page views.
-  """
+  @doc "Distinct sessions across all pages. Optional `start_date`/`end_date` limit the range."
   def count_unique_sessions(start_date \\ nil, end_date \\ nil) do
     query =
       PageView
@@ -135,9 +133,7 @@ defmodule Core.Analytics do
     |> Repo.one()
   end
 
-  @doc """
-  Returns the timestamp of the most recent page view for a given path.
-  """
+  @doc "When a path (or any page) was last viewed, or nil."
   def last_page_viewed_at(page_path \\ nil) do
     query =
       if page_path do
@@ -154,7 +150,8 @@ defmodule Core.Analytics do
   end
 
   @doc """
-  Returns most viewed pages
+  The `limit` most viewed paths with counts. Optional `start_date`/`end_date` limit
+  the range.
   """
   def get_top_pages(limit \\ 10, start_date \\ nil, end_date \\ nil) do
     query =
@@ -182,9 +179,7 @@ defmodule Core.Analytics do
     |> Enum.map(fn {path, count} -> %{page_path: path, views: count} end)
   end
 
-  @doc """
-  Returns the most recent tracked page views across all pages.
-  """
+  @doc "Latest views across all pages (`:limit` default 50, `:start_date`, `:end_date`)."
   def list_recent_page_views(opts \\ []) do
     limit = Keyword.get(opts, :limit, 50)
     start_date = Keyword.get(opts, :start_date)
@@ -212,9 +207,7 @@ defmodule Core.Analytics do
     Repo.all(query)
   end
 
-  @doc """
-  Returns device type breakdown
-  """
+  @doc "View counts per device type. Optional `start_date`/`end_date` limit the range."
   def get_devices_breakdown(start_date \\ nil, end_date \\ nil) do
     query =
       PageView
@@ -239,9 +232,7 @@ defmodule Core.Analytics do
     |> Enum.map(fn {device_type, count} -> %{device_type: device_type, count: count} end)
   end
 
-  @doc """
-  Returns browser breakdown
-  """
+  @doc "View counts per browser. Optional `start_date`/`end_date` limit the range."
   def get_browsers_breakdown(start_date \\ nil, end_date \\ nil) do
     query =
       PageView
@@ -262,9 +253,7 @@ defmodule Core.Analytics do
     |> Enum.map(fn {browser, count} -> %{browser: browser, count: count} end)
   end
 
-  @doc """
-  Returns geographic distribution
-  """
+  @doc "View counts per country. Optional `start_date`/`end_date` limit the range."
   def get_geographic_distribution(start_date \\ nil, end_date \\ nil) do
     query =
       PageView
@@ -292,9 +281,7 @@ defmodule Core.Analytics do
     end)
   end
 
-  @doc """
-  Delete all page views older than a given date(Clean up)
-  """
+  @doc "Deletes views older than `days_old` days (default 90)."
   def delete_old_page_views(days_old \\ 90) do
     cutoff_date =
       NaiveDateTime.utc_now()
@@ -305,9 +292,7 @@ defmodule Core.Analytics do
   end
 
   # Reports
-  @doc """
-  Returns a list of reports for a user
-  """
+  @doc "A user's reports, newest first."
   def list_reports(user_id) do
     Report
     |> where([r], r.user_id == ^user_id)
@@ -315,36 +300,28 @@ defmodule Core.Analytics do
     |> Repo.all()
   end
 
-  @doc """
-  Gets a single report
-  """
+  @doc "A report by id; raises if missing."
   def get_report!(id) do
     Report
     |> preload(:user)
     |> Repo.get!(id)
   end
 
-  @doc """
-  Creates a report
-  """
+  @doc "Creates a report request."
   def create_report(attrs) do
     %Report{}
     |> Report.changeset(attrs)
     |> Repo.insert()
   end
 
-  @doc """
-  Updates a report
-  """
+  @doc "Updates a report."
   def update_report(%Report{} = report, attrs \\ %{}) do
     report
     |> Report.changeset(attrs)
     |> Repo.update()
   end
 
-  @doc """
-  Marks report as completed
-  """
+  @doc "Marks a report done with its file URL and result data."
   def mark_report_completed(%Report{} = report, file_url, result_data \\ %{}) do
     report
     |> Report.changeset(%{
@@ -356,9 +333,7 @@ defmodule Core.Analytics do
     |> Repo.update()
   end
 
-  @doc """
-  Marks report as failed
-  """
+  @doc "Marks a report failed with an error message."
   def mark_report_failed(%Report{} = report, error_msg) do
     report
     |> Report.changeset(%{
@@ -368,9 +343,7 @@ defmodule Core.Analytics do
     |> Repo.update()
   end
 
-  @doc """
-  Deletes a report
-  """
+  @doc "Deletes a report."
   def delete_report(%Report{} = report) do
     Repo.delete(report)
   end

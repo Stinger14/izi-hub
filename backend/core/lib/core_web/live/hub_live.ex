@@ -1,4 +1,12 @@
 defmodule CoreWeb.HubLive do
+  @moduledoc """
+  `/hub`: the signed-in dashboard (Finance, GitHub, Tasks, Calendar and more).
+
+  Context: loads real data for the Finance, GitHub, Tasks and Calendar cards
+  and reloads on Office and Finance broadcasts. Adds Tasks/Translate chips and
+  the translator panel to the header.
+  """
+
   use CoreWeb, :live_view
 
   import CoreWeb.HubComponents

@@ -1,4 +1,12 @@
 defmodule CoreWeb.OfficeLive do
+  @moduledoc """
+  `/office` and `/office/:slug`: IziOffice, a project's roadmap, stage board
+  and calendar.
+
+  Context: reads and writes through `Core.Office` and reloads on
+  `{:office_changed, _}` from other pages or tabs.
+  """
+
   use CoreWeb, :live_view
 
   alias Core.Office

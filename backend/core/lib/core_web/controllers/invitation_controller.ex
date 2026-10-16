@@ -1,14 +1,17 @@
 defmodule CoreWeb.InvitationController do
   @moduledoc """
-  The household invitation link (`/invites/:token`). Signed-in visitors can
-  accept or decline; signed-out visitors are remembered so signing in or
-  creating an account brings them back here.
+  `/invites/:token`: the household invitation link.
+
+  Context: signed-in visitors accept or decline; signed-out visitors are
+  remembered (`UserAuth.remember_invitation/2`) so signing in or signing up
+  brings them back.
   """
   use CoreWeb, :controller
 
   alias Core.Accounts
   alias CoreWeb.UserAuth
 
+  @doc "Shows the invitation (or why it can't be used) and remembers it for signed-out visitors."
   def show(conn, %{"token" => token}) do
     case Accounts.get_invitation_by_token(token) do
       {:ok, invitation} ->
@@ -26,6 +29,7 @@ defmodule CoreWeb.InvitationController do
     end
   end
 
+  @doc "Joins the household and opens it in Finance."
   def accept(conn, %{"token" => token}) do
     with %{user: user} <- conn.assigns.current_scope,
          {:ok, household} <- Accounts.accept_invitation(user, {:token, token}) do
@@ -38,6 +42,7 @@ defmodule CoreWeb.InvitationController do
     end
   end
 
+  @doc "Declines the invitation and goes to the hub."
   def decline(conn, %{"token" => token}) do
     with %{user: user} <- conn.assigns.current_scope,
          {:ok, _invitation} <- Accounts.decline_invitation(user, {:token, token}) do

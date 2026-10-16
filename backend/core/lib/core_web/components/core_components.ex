@@ -1,7 +1,20 @@
 defmodule CoreWeb.CoreComponents do
+  @moduledoc """
+  Small shared UI pieces: icons and icon-only actions.
+
+  Context: imported into every view. `icon/1` only knows a fixed set of
+  hand-copied heroicons (an unknown name renders an empty span), so check the
+  list before using a new one.
+
+  ## Example
+
+      <.icon name="hero-check" class="h-4 w-4" />
+      <.icon_button icon="hero-trash" tone="danger" label="Delete task" phx-click="delete" />
+  """
+
   use Phoenix.Component
 
-  @doc "Renders an icon by name"
+  @doc "An inline heroicon SVG by name (`hero-*`); unknown names render an empty span."
   attr :name, :string, required: true
   attr :class, :string, default: nil
 

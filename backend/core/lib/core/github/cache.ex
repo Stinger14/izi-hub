@@ -1,15 +1,20 @@
 defmodule Core.GitHub.Cache do
   @moduledoc """
-  	Simple GenServer to own GitHub's stats ETS table.
+  Owns the ETS table where `Core.GitHub` caches API results for five minutes.
+
+  Context: started by the application supervisor. Tests seed it directly to
+  avoid network calls.
   """
   use GenServer
 
   @table __MODULE__
 
+  @doc "Starts the cache owner process."
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
   end
 
+  @doc "The ETS table name."
   def table, do: @table
 
   @impl true

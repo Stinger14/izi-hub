@@ -1,4 +1,14 @@
 defmodule CoreWeb.FinanceLive do
+  @moduledoc """
+  `/finance`: accounts, transactions, transfers, budgets, debts, goals,
+  insights, review queue and households, for the personal scope or a household.
+
+  Context: sidebar sections are full pages (`show_section`); quick actions
+  open in a focus panel. `assign_finance_data/1` recomputes everything derived
+  after each change, and `{:finance_changed, _}` broadcasts reload it live.
+  `?household=<id>` opens a household.
+  """
+
   use CoreWeb, :live_view
 
   import CoreWeb.FinanceComponents

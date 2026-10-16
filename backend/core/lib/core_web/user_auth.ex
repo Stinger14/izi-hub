@@ -1,4 +1,19 @@
 defmodule CoreWeb.UserAuth do
+  @moduledoc """
+  Sign-in for the web layer: session cookies, the current scope, route guards
+  and LiveView `on_mount` hooks.
+
+  Context: the router pipes through its plugs (`:fetch_current_scope`,
+  `:require_authenticated_user`, `:require_admin_user`) and live sessions use
+  its hooks. Only session tokens are trusted, never a user id in the cookie.
+  Signed-out visitors to `/hub` go to `/welcome`; other pages go to sign in
+  and come back afterwards.
+
+  ## Example
+
+      conn |> UserAuth.log_in_user(user) |> redirect(to: ~p"/hub")
+  """
+
   import Plug.Conn
   import Phoenix.Controller
 
@@ -10,17 +25,18 @@ defmodule CoreWeb.UserAuth do
 
   @presence_topic "site:presence"
 
+  @doc "Plug init: the action atom."
   def init(action), do: action
 
+  @doc "Plug entry point; runs the named action."
   def call(conn, :fetch_current_scope), do: fetch_current_scope(conn, [])
   def call(conn, :require_authenticated_user), do: require_authenticated_user(conn, [])
   def call(conn, :require_authenticated_api_user), do: require_authenticated_api_user(conn, [])
   def call(conn, :require_admin_user), do: require_admin_user(conn, [])
 
   @doc """
-  Signs the user in: issues a server-side session token and stores it, with
-  the LiveView socket id used to disconnect this session later, in a fresh
-  session cookie.
+  Signs the user in: issues a session token and puts it, with its socket id, in a
+  fresh cookie.
   """
   def log_in_user(conn, user) do
     {token, token_id} = Accounts.generate_user_session_token(user)
@@ -33,10 +49,8 @@ defmodule CoreWeb.UserAuth do
   end
 
   @doc """
-  Where to go right after signing in or setting a password: back to a
-  household invitation opened while signed out (`remember_invitation/2`),
-  then to the page that asked for sign-in (`:user_return_to`), otherwise
-  `default`. Clears both.
+  Where to go after sign-in or password setup: a pending invitation, else the
+  page that asked for sign-in, else `default`. Returns `{conn, path}`.
   """
   def after_sign_in_path(conn, default) do
     path =
@@ -70,6 +84,10 @@ defmodule CoreWeb.UserAuth do
     configure_session(conn, drop: true)
   end
 
+  @doc """
+  Assigns `:current_scope` from the session token (nil when signed out) and clears
+  stale cookies.
+  """
   def fetch_current_scope(conn, _opts) do
     conn = ensure_analytics_session_id(conn)
 
@@ -97,6 +115,9 @@ defmodule CoreWeb.UserAuth do
     end
   end
 
+  @doc """
+  Lets admins through; others go to sign in or to `/hub` with "Not authorized".
+  """
   def require_admin_user(conn, _opts) do
     cond do
       Scope.admin?(conn.assigns.current_scope) ->
@@ -113,6 +134,10 @@ defmodule CoreWeb.UserAuth do
     end
   end
 
+  @doc """
+  Lets signed-in users through; `/hub` sends visitors to `/welcome`, other pages to
+  sign in.
+  """
   def require_authenticated_user(conn, _opts) do
     if is_nil(conn.assigns.current_scope), do: redirect_signed_out(conn), else: conn
   end
@@ -137,6 +162,7 @@ defmodule CoreWeb.UserAuth do
 
   defp maybe_store_return_to(conn), do: conn
 
+  @doc "401 JSON for API requests without a signed-in user."
   def require_authenticated_api_user(conn, _opts) do
     if is_nil(conn.assigns.current_scope) do
       conn
@@ -148,6 +174,11 @@ defmodule CoreWeb.UserAuth do
     end
   end
 
+  @doc """
+  LiveView hooks: `:mount_current_scope` (assign the scope),
+  `:track_site_presence`, `:ensure_authenticated` and `:ensure_admin`
+  (redirect like the plugs).
+  """
   def on_mount(:mount_current_scope, _params, session, socket) do
     scope =
       session

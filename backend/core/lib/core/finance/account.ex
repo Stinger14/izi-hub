@@ -1,4 +1,12 @@
 defmodule Core.Finance.Account do
+  @moduledoc """
+  A money account (checking, savings, card, cash…) with a currency and balance.
+
+  Context: Owned by exactly one user or household (DB check constraint). Balances
+  move with transactions and transfers; archived accounts keep their history.
+  Managed through `Core.Finance`.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -26,6 +34,7 @@ defmodule Core.Finance.Account do
   @kinds ["checking", "savings", "cash", "credit_card", "investment", "loan", "other"]
   @statuses ["active", "archived"]
 
+  @doc "Validates name, kind, currency and balances, and the single owner."
   def changeset(account, attrs) do
     account
     |> cast(attrs, [

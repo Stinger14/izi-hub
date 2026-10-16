@@ -1,6 +1,18 @@
 defmodule Core.Accounts do
   @moduledoc """
-  The Accounts context - handles user auth and management
+  Users, sign-in sessions, households, invitations and profile photos.
+
+  Context: the single entry point for identity. Web code (UserAuth, the auth
+  controllers, SettingsLive, FinanceLive's household panel) calls it; it never
+  calls the web layer. Household changes notify `Core.Finance` so open pages
+  of every member reload.
+
+  ## Example
+
+      {:ok, user} = Accounts.register_user(%{"email" => "a@b.c", "password" => "Secret123"})
+      {token, _id} = Accounts.generate_user_session_token(user)
+      Accounts.get_user_by_session_token(token)
+      #=> %User{}
   """
 
   import Ecto.Query, warn: false
@@ -23,7 +35,8 @@ defmodule Core.Accounts do
   @avatar_max_bytes 2_000_000
 
   @doc """
-  Register new user
+  Creates a user from email, password and username. Returns `{:ok, user}` or
+  `{:error, changeset}`.
   """
   def register_user(attrs) do
     %User{}
@@ -32,7 +45,8 @@ defmodule Core.Accounts do
   end
 
   @doc """
-  Registers a user using email only and returns a setup password token.
+  Creates a user from just an email (random username and password). Returns
+  `{:ok, user, setup_token}` for `/set-password`.
   """
   def register_email_only_user(email) when is_binary(email) do
     email
@@ -41,7 +55,8 @@ defmodule Core.Accounts do
   end
 
   @doc """
-  Completes onboarding by setting a password from a setup token.
+  Sets the first password from a setup token, then signs out all sessions. Returns
+  `{:ok, user}` or `{:error, :invalid_or_expired_token | changeset}`.
   """
   def set_password_from_setup_token(token, password)
       when is_binary(token) and is_binary(password) do
@@ -56,15 +71,14 @@ defmodule Core.Accounts do
     end
   end
 
-  @doc """
-  Gets a user by email
-  """
+  @doc "The user with this email, or nil."
   def get_user_by_email(email) do
     Repo.get_by(User, email: email)
   end
 
   @doc """
-  Gets a user by email and password
+  The user for this email and password, or nil. Inactive users get nil too, so the
+  answer doesn't reveal which emails exist.
   """
   def get_user_by_email_password(email, password)
       when is_binary(email) and is_binary(password) do
@@ -74,45 +88,29 @@ defmodule Core.Accounts do
     if User.valid_password?(user, password) and user.is_active, do: user
   end
 
-  @doc """
-  Get user by username
-  """
+  @doc "The user with this username, or nil."
   def get_user_by_username(username) when is_binary(username) do
     Repo.get_by(User, username: username)
   end
 
-  @doc """
-  Returns the list of users.
-
-  ## Examples
-
-      iex> list_users()
-      [%User{}, ...]
-
-  """
+  @doc "Every user (admin pages)."
   def list_users do
     Repo.all(User)
   end
 
-  @doc """
-  Returns total users count.
-  """
+  @doc "Total number of users."
   def count_users do
     Repo.aggregate(User, :count)
   end
 
-  @doc """
-  Returns active users count.
-  """
+  @doc "Number of users that can sign in."
   def count_active_users do
     User
     |> where([u], u.is_active == true)
     |> Repo.aggregate(:count)
   end
 
-  @doc """
-  Returns the most recent users.
-  """
+  @doc "The newest `limit` users (default 5)."
   def list_recent_users(limit \\ 5) do
     User
     |> order_by([u], desc: u.inserted_at)
@@ -120,13 +118,16 @@ defmodule Core.Accounts do
     |> Repo.all()
   end
 
-  @doc """
-  Gets a single user.
-  """
+  @doc "The user with this id; raises if missing."
   def get_user!(id), do: Repo.get!(User, id)
 
+  @doc "The user with this id, or nil."
   def get_user(id), do: Repo.get(User, id)
 
+  @doc """
+  Creates a household with `owner` as its first member. Returns `{:ok, household}`
+  or `{:error, changeset}`.
+  """
   def create_household(%User{} = owner, attrs) do
     attrs =
       attrs
@@ -162,6 +163,7 @@ defmodule Core.Accounts do
     end)
   end
 
+  @doc "Adds `member` directly (owner only). Internal and tests; the UI invites instead."
   def add_household_member(
         %User{} = actor,
         %Household{} = household,
@@ -184,6 +186,7 @@ defmodule Core.Accounts do
     end
   end
 
+  @doc "Like `add_household_member/4`, by email. `{:error, :user_not_found}` if no account."
   def add_household_member_by_email(
         %User{} = actor,
         %Household{} = household,
@@ -202,6 +205,7 @@ defmodule Core.Accounts do
     end
   end
 
+  @doc "Active households the user belongs to, with members preloaded, by name."
   def list_households_for_user(%User{} = user) do
     Household
     |> join(:inner, [household], membership in HouseholdMember,
@@ -218,6 +222,7 @@ defmodule Core.Accounts do
     |> Repo.all()
   end
 
+  @doc "One of the user's active households; raises if they aren't a member."
   def get_household_for_user!(%User{} = user, household_id) do
     Household
     |> join(:inner, [household], membership in HouseholdMember,
@@ -236,6 +241,7 @@ defmodule Core.Accounts do
     |> Repo.one!()
   end
 
+  @doc "Whether the user is an active member of the household."
   def user_household?(%User{} = user, household_id) do
     HouseholdMember
     |> where(
@@ -246,6 +252,7 @@ defmodule Core.Accounts do
     |> Repo.exists?()
   end
 
+  @doc "Whether the user owns the household."
   def user_household_owner?(%User{} = user, household_id) do
     HouseholdMember
     |> where(
@@ -263,7 +270,7 @@ defmodule Core.Accounts do
   # members reload — a removed member or a deleted household drops out of
   # their scope picker immediately.
 
-  @doc "Renames a household (owner only). The slug is kept so links stay stable."
+  @doc "Renames a household (owner only). The slug stays so links keep working."
   def rename_household(%User{} = actor, %Household{} = household, attrs) do
     with :ok <- ensure_household_owner(actor, household) do
       household
@@ -273,7 +280,7 @@ defmodule Core.Accounts do
     end
   end
 
-  @doc "Removes a member (owner only). The owner can't be removed."
+  @doc "Removes a member (owner only); the owner can't be removed."
   def remove_household_member(%User{} = actor, %Household{} = household, member_user_id) do
     with :ok <- ensure_household_owner(actor, household),
          %HouseholdMember{} = membership <- get_membership(household.id, member_user_id),
@@ -286,8 +293,8 @@ defmodule Core.Accounts do
   end
 
   @doc """
-  Leaves a household. Owners can't leave (they would orphan it): they delete
-  the household instead.
+  Leaves a household. Owners get `{:error, :owner_cannot_leave}` and must delete it
+  instead.
   """
   def leave_household(%User{} = user, %Household{} = household) do
     case get_membership(household.id, user.id) do
@@ -298,9 +305,8 @@ defmodule Core.Accounts do
   end
 
   @doc """
-  Deletes a household and, through the database's cascading foreign keys,
-  every finance record it owns. Owner only, and only when `confirmation`
-  matches the household's name (case and surrounding spaces ignored).
+  Deletes a household and, by cascade, all its finance records. Owner only,
+  and `confirmation` must match the name (case and spaces ignored).
   """
   def delete_household(%User{} = actor, %Household{} = household, confirmation) do
     with :ok <- ensure_household_owner(actor, household),
@@ -333,6 +339,7 @@ defmodule Core.Accounts do
 
   defp notify_household_change(result, _household_id), do: result
 
+  @doc "A blank household changeset for forms."
   def change_household(%Household{} = household \\ %Household{}) do
     Household.changeset(household, %{})
   end
@@ -345,12 +352,11 @@ defmodule Core.Accounts do
   # existed when the invitation was sent; anyone else joins through the link.
 
   @doc """
-  Invites `email` to `household`, or refreshes the pending invitation for it
-  with a new link and expiry (the old link stops working). `url_fun` turns the
-  raw token into the invitation link. The email is sent when a mailer is
-  configured; the link is returned either way so it can be shared by hand.
+  Invites an email to a household (any member), or refreshes its pending
+  invite with a new link (the old one dies). Emails it when a mailer is set.
 
-  Returns `{:ok, invitation, url}` or `{:error, reason}`.
+      {:ok, invitation, url} =
+        Accounts.invite_to_household(user, home, "ana@x.com", &("https://izihub.app/invites/" <> &1))
   """
   def invite_to_household(%User{} = actor, %Household{} = household, email, url_fun)
       when is_function(url_fun, 1) do
@@ -390,11 +396,12 @@ defmodule Core.Accounts do
     end
   end
 
+  @doc "An invitation changeset for the invite form."
   def change_invitation(attrs \\ %{}) do
     HouseholdInvitation.changeset(%HouseholdInvitation{}, attrs)
   end
 
-  @doc "Pending, unexpired invitations to a household (members only)."
+  @doc "Pending, unexpired invitations to a household (members only; `[]` otherwise)."
   def list_household_invitations(%User{} = actor, %Household{} = household) do
     if user_household?(actor, household.id) do
       HouseholdInvitation
@@ -408,8 +415,8 @@ defmodule Core.Accounts do
   end
 
   @doc """
-  Pending invitations addressed to the user's email that they can accept in
-  the app: sent after their account existed, to a household they aren't in.
+  Invitations the user can accept in the app: sent to their email after their
+  account existed.
   """
   def list_pending_invitations_for_user(%User{} = user) do
     HouseholdInvitation
@@ -424,7 +431,10 @@ defmodule Core.Accounts do
     |> Enum.reject(&user_household?(user, &1.household_id))
   end
 
-  @doc "A pending, unexpired invitation by its link token, with household and inviter."
+  @doc """
+  The invitation for a link token. `{:ok, inv}` or
+  `{:error, :used | :expired | :not_found}`.
+  """
   def get_invitation_by_token(token) when is_binary(token) do
     with {:ok, token_hash} <- UserToken.hash_token(token),
          %HouseholdInvitation{} = invitation <-
@@ -445,8 +455,8 @@ defmodule Core.Accounts do
   def get_invitation_by_token(_token), do: {:error, :not_found}
 
   @doc """
-  Accepts an invitation: `{:token, token}` from the link (anyone holding it),
-  or an invitation id from the in-app list (only the addressed account).
+  Joins the household: `{:token, t}` from the link, or an invitation id from the
+  in-app list.
   """
   def accept_invitation(%User{} = user, {:token, token}) do
     with {:ok, invitation} <- get_invitation_by_token(token) do
@@ -581,27 +591,21 @@ defmodule Core.Accounts do
 
   defp notify_user(user_id), do: Core.Finance.notify_user_change(user_id)
 
-  @doc """
-  Updates user profile
-  """
+  @doc "Updates name, username and avatar URL (admin/legacy path)."
   def update_user_profile(user, attrs) do
     user
     |> User.profile_changeset(attrs)
     |> Repo.update()
   end
 
-  @doc """
-  Links (or clears) the user's GitHub username.
-  """
+  @doc "Links or clears the user's GitHub username (hub Developer card)."
   def update_github_username(user, attrs) do
     user
     |> User.github_username_changeset(attrs)
     |> Repo.update()
   end
 
-  @doc """
-  Updates the signed-in user's name and username from the settings page.
-  """
+  @doc "Updates full name and username from Settings."
   def update_account_profile(%User{} = user, attrs) do
     user
     |> User.account_profile_changeset(attrs)
@@ -612,10 +616,8 @@ defmodule Core.Accounts do
   def avatar_max_bytes, do: @avatar_max_bytes
 
   @doc """
-  Saves `binary` as the user's profile photo. The type comes from the file's
-  own bytes, not its name: only JPEG, PNG, GIF and WebP are accepted (never
-  SVG, which can carry scripts). Returns `{:ok, user}` with
-  `avatar_updated_at` stamped, or `{:error, :invalid_image | :too_large}`.
+  Saves a profile photo after checking its bytes (JPEG, PNG, GIF or WebP; no
+  SVG) and size. `{:ok, user}` or `{:error, :invalid_image | :too_large}`.
   """
   def put_user_avatar(%User{} = user, binary) when is_binary(binary) do
     with :ok <- check_avatar_size(binary),
@@ -647,7 +649,7 @@ defmodule Core.Accounts do
     end)
   end
 
-  @doc "The stored profile photo for a user id, or nil."
+  @doc "The stored photo for a user id, or nil."
   def get_user_avatar(user_id) do
     case Ecto.UUID.cast(user_id) do
       {:ok, id} -> Repo.get(UserAvatar, id)
@@ -665,9 +667,7 @@ defmodule Core.Accounts do
   defp image_type(<<"RIFF", _size::binary-size(4), "WEBP", _::binary>>), do: {:ok, "image/webp"}
   defp image_type(_binary), do: {:error, :invalid_image}
 
-  @doc """
-  Changes the signed-in user's email. Requires their current password.
-  """
+  @doc "Changes the email; requires the current password."
   def change_user_email(%User{} = user, current_password, attrs) do
     user
     |> User.email_update_changeset(attrs, current_password)
@@ -675,8 +675,8 @@ defmodule Core.Accounts do
   end
 
   @doc """
-  Changes the signed-in user's password. Requires their current password and
-  a matching `password_confirmation`.
+  Changes the password; requires the current password. Signs out other sessions
+  (`except:` keeps one).
   """
   def change_user_password(%User{} = user, current_password, attrs, opts \\ []) do
     changeset = User.password_update_changeset(user, attrs, current_password)
@@ -707,6 +707,7 @@ defmodule Core.Accounts do
 
   @session_validity_in_days 60
 
+  @doc "How long a session token lasts (60 days)."
   def session_validity_in_seconds, do: @session_validity_in_days * 24 * 60 * 60
 
   @doc "Issues a session token. Returns `{raw_token, token_row_id}`."
@@ -716,7 +717,7 @@ defmodule Core.Accounts do
     {token, id}
   end
 
-  @doc "The active user for a session token, or nil if it's unknown, expired or the user is inactive."
+  @doc "The active user for a session token, or nil."
   def get_user_by_session_token(token) when is_binary(token) do
     with {:ok, query} <- UserToken.verify_token_query(token, "session"),
          %User{is_active: true} = user <- Repo.one(query) do
@@ -728,7 +729,7 @@ defmodule Core.Accounts do
 
   def get_user_by_session_token(_token), do: nil
 
-  @doc "Signs out one session (logout)."
+  @doc "Signs out one session (logout) and drops its open LiveViews."
   def delete_user_session_token(token) when is_binary(token) do
     case UserToken.hash_token(token) do
       {:ok, hashed} ->
@@ -750,10 +751,7 @@ defmodule Core.Accounts do
 
   def delete_user_session_token(_token), do: :ok
 
-  @doc """
-  Signs the user out of every session, or every one but the token passed as
-  `except:`. Returns how many were revoked.
-  """
+  @doc "Signs the user out everywhere (or everywhere but `except:`). Returns the count."
   def revoke_user_sessions(%User{} = user, opts \\ []) do
     ids = delete_session_tokens(user, opts)
     disconnect_sessions(ids)
@@ -791,10 +789,10 @@ defmodule Core.Accounts do
     end)
   end
 
-  @doc "The LiveView socket id for a session, so it can be disconnected."
+  @doc "LiveView socket id for a session, used to disconnect it."
   def session_socket_id(token_row_id), do: "user_sessions:#{token_row_id}"
 
-  @doc "Deactivates or reactivates a user. Deactivating signs them out everywhere."
+  @doc "Activates or deactivates a user; deactivating signs them out everywhere."
   def set_user_active(%User{} = user, active?) when is_boolean(active?) do
     with {:ok, user} <- user |> Ecto.Changeset.change(is_active: active?) |> Repo.update() do
       unless active?, do: revoke_user_sessions(user)
@@ -802,27 +800,21 @@ defmodule Core.Accounts do
     end
   end
 
-  @doc """
-  Updates user password
-  """
+  @doc "Sets a new password without checks (setup and admin flows)."
   def update_user_password(user, password) do
     user
     |> User.password_changeset(%{password: password})
     |> Repo.update()
   end
 
-  @doc """
-  Updates user email
-  """
+  @doc "Sets a new email without checks (admin flows)."
   def update_user_email(user, email) do
     user
     |> User.email_changeset(%{email: email})
     |> Repo.update()
   end
 
-  @doc """
-  Updates last login timestamp
-  """
+  @doc "Stamps `last_login_at` with now."
   def update_last_login(%User{} = user) do
     now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
 
@@ -831,9 +823,7 @@ defmodule Core.Accounts do
     |> Repo.update()
   end
 
-  @doc """
-  Verifies user email
-  """
+  @doc "Marks the email as verified."
   def verify_user_email(user) do
     now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
 
@@ -845,16 +835,12 @@ defmodule Core.Accounts do
     |> Repo.update()
   end
 
-  @doc """
-  Deletes a user
-  """
+  @doc "Deletes a user."
   def delete_user(user) do
     Repo.delete(user)
   end
 
-  @doc """
-  Lists users with pagination
-  """
+  @doc "A page of users, newest first, with `total_count` and `total_pages`."
   def list_users_paginated(page \\ 1, per_page \\ 20) do
     offset = (page - 1) * per_page
 
@@ -876,9 +862,7 @@ defmodule Core.Accounts do
     }
   end
 
-  @doc """
-  Generates an access token for user
-  """
+  @doc "API access token, valid 1 hour."
   def generate_access_token(user) do
     # 1 hour
     {token, user_token} = UserToken.create_token(user, "access", 3600)
@@ -886,9 +870,7 @@ defmodule Core.Accounts do
     token
   end
 
-  @doc """
-  Generates a refrest token for user
-  """
+  @doc "API refresh token, valid 7 days."
   def generate_refresh_token(user) do
     # 7 days
     {token, user_token} = UserToken.create_token(user, "refresh", 604_800)
@@ -896,9 +878,7 @@ defmodule Core.Accounts do
     token
   end
 
-  @doc """
-  Generates a password reset token
-  """
+  @doc "Password reset token, valid 1 hour."
   def generate_password_reset_token(user) do
     # 1 hour
     {token, user_token} = UserToken.create_token(user, "reset_password", 3600)
@@ -906,9 +886,7 @@ defmodule Core.Accounts do
     token
   end
 
-  @doc """
-  Generates an email verification token
-  """
+  @doc "Email verification token, valid 24 hours."
   def generate_email_verification_token(user) do
     # 24 hours
     {token, user_token} = UserToken.create_token(user, "verify_email", 86400)
@@ -916,9 +894,7 @@ defmodule Core.Accounts do
     token
   end
 
-  @doc """
-  Generates a setup password token.
-  """
+  @doc "Fresh setup-password token (replaces older ones), valid 24 hours."
   def generate_setup_password_token(user) do
     from(t in UserToken,
       where: t.user_id == ^user.id and t.token_type == "setup_password"
@@ -932,9 +908,7 @@ defmodule Core.Accounts do
     token
   end
 
-  @doc """
-  Gets user by token
-  """
+  @doc "The user for a token of the given type. `{:ok, user}` or `:error`."
   def get_user_by_token(token, token_type) do
     with {:ok, query} <- UserToken.verify_token_query(token, token_type),
          %User{} = user <- Repo.one(query) do
@@ -944,9 +918,7 @@ defmodule Core.Accounts do
     end
   end
 
-  @doc """
-  Deletes user token
-  """
+  @doc "Deletes one token of the given type."
   def delete_user_token(token, token_type) do
     token_query =
       case Base.url_decode64(token, padding: false) do
@@ -964,9 +936,7 @@ defmodule Core.Accounts do
     :ok
   end
 
-  @doc """
-  Deletes all tokens for a user
-  """
+  @doc "Deletes every token the user has and drops their open LiveViews."
   def delete_user_tokens(%User{} = user) do
     {count, rows} =
       Repo.delete_all(
@@ -977,9 +947,7 @@ defmodule Core.Accounts do
     {count, nil}
   end
 
-  @doc """
-  Deletes expired tokens (to be run as a background job)
-  """
+  @doc "Deletes expired tokens (for a periodic job)."
   def delete_expired_tokens do
     from(t in UserToken, where: t.expires_at < ^NaiveDateTime.utc_now())
     |> Repo.delete_all()

@@ -1,4 +1,11 @@
 defmodule Core.Finance.Budget do
+  @moduledoc """
+  A spending limit for a period, optionally for one category.
+
+  Context: Owned by exactly one user or household (DB check constraint). Progress
+  comes from `Core.Finance.check_budget_status/1`; budget bars show what's left.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -24,7 +31,7 @@ defmodule Core.Finance.Budget do
 
   @periods ["daily", "weekly", "monthly", "quarterly", "yearly", "custom"]
 
-  @doc false
+  @doc "Validates amount, period, dates, currency and alert threshold."
   def changeset(budget, attrs) do
     budget
     |> cast(attrs, [

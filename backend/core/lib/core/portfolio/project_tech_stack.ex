@@ -1,4 +1,10 @@
 defmodule Core.Portfolio.ProjectTechStack do
+  @moduledoc """
+  Join row linking a portfolio project to a tech stack.
+
+  Context: written by `Core.Portfolio.add_tech_stacks_to_project/2`.
+  """
+
   use Ecto.Schema
 
   @primary_key {:id, :binary_id, autogenerate: true}

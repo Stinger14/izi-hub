@@ -1,4 +1,19 @@
 defmodule CoreWeb.Layouts do
+  @moduledoc """
+  The page shell: the sticky header (wordmark, workspace nav, account menu),
+  toasts and the footer, shared by LiveViews and controller pages.
+
+  Context: `layouts/app.html.heex` uses these components. Pages pass
+  `workspace={:hub | :office | :finance | :admin}` to highlight their app, and
+  can add `<:workspace_tools>` chips and a `<:workspace_panel>` under the header.
+
+  ## Example
+
+      <Layouts.app flash={@flash} current_scope={@current_scope} workspace={:finance}>
+        ...
+      </Layouts.app>
+  """
+
   use CoreWeb, :html
 
   import CoreWeb.FinanceComponents, only: [tone_class: 2]
@@ -6,14 +21,8 @@ defmodule CoreWeb.Layouts do
   embed_templates "layouts/*"
 
   @doc """
-  Flash messages plus a "reconnecting" notice, rendered once by the app
-  layout on every page (LiveViews and controller-rendered pages alike).
-  Only call this from the layout.
-
-  It floats at the top centre just below the sticky header (`--flash-top`,
-  kept by `syncFlashPosition` in app.js). It must stay outside the header:
-  the header's glass uses `backdrop-filter`, which would make a fixed child
-  position relative to the header.
+  Toasts plus a "Reconnecting…" notice, fixed just below the header. Render it only
+  from the layout.
   """
   attr :flash, :map, required: true
 
@@ -44,14 +53,7 @@ defmodule CoreWeb.Layouts do
     """
   end
 
-  @doc """
-  The signed-in header's navigation: the app switcher (Hub, Office, Finance,
-  and Admin for admins), any page `tools` after a divider, and the Pages
-  menu. The app layout renders it inside the sticky header; pages pass
-  `workspace` (the key to highlight) and may fill `workspace_tools` (extra
-  chips) and `workspace_panel` (shown under the header, e.g. the hub's
-  translator).
-  """
+  @doc "App chips (Hub, Office, Finance, Admin for admins), page tool chips and the Pages menu."
   attr :current_scope, :map, required: true
   attr :active, :atom, default: nil
   slot :tools
@@ -103,9 +105,8 @@ defmodule CoreWeb.Layouts do
   end
 
   @doc """
-  The signed-in user's chip (photo or initials, plus username) opening a
-  menu with Account settings and Sign out. Pure JS commands, so it works on
-  controller-rendered pages too.
+  Photo or initials plus username, opening Settings and Sign out (pure JS, works on
+  any page).
   """
   attr :user, :map, required: true
 
@@ -170,7 +171,7 @@ defmodule CoreWeb.Layouts do
     """
   end
 
-  @doc "URL of a user's photo; the version makes a new photo show at once."
+  @doc "URL of a user's photo; the `?v=` version makes a new photo show at once."
   def avatar_path(user),
     do: ~p"/avatars/#{user.id}?v=#{DateTime.to_unix(user.avatar_updated_at)}"
 
@@ -197,7 +198,10 @@ defmodule CoreWeb.Layouts do
     "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-[var(--hub-text)] transition hover:bg-[var(--hub-surface)] hover:text-[var(--hub-secondary)]"
   end
 
-  @doc "Class for a chip in the header's workspace nav; pages use it for their `workspace_tools`."
+  @doc """
+  Class for a header chip: `true` (active), `false` or `:disabled`. Pages use it for
+  their tools.
+  """
   def workspace_chip_class(:disabled) do
     "inline-flex h-8 shrink-0 cursor-not-allowed items-center gap-1.5 rounded-lg border border-transparent px-2.5 text-xs font-medium text-[var(--hub-muted)] opacity-70"
   end

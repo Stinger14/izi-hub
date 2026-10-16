@@ -1,4 +1,9 @@
 defmodule CoreWeb.Admin.FinOpsLive do
+  @moduledoc """
+  `/admin/finops`: finance ingestion tools; submit a bank-style email for a
+  user to test parsing and see the result.
+  """
+
   use CoreWeb, :live_view
 
   alias Core.Accounts

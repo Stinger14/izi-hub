@@ -1,4 +1,9 @@
 defmodule CoreWeb.Admin.AnalyticsLive do
+  @moduledoc """
+  `/admin/analytics`: anonymous visitor stats from `Core.Analytics` (views,
+  sessions, top pages, devices, browsers, countries).
+  """
+
   use CoreWeb, :live_view
 
   alias Core.Accounts.UsernameGenerator

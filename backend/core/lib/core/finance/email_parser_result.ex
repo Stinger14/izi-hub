@@ -1,6 +1,9 @@
 defmodule Core.Finance.EmailParserResult do
   @moduledoc """
-  Parsed transaction candidate extracted from an email message.
+  What a parser found in an email: amount, type, date, merchant, currency.
+
+  Context: returned by parsers such as `BankAlertParser`; `EmailIngestion`
+  turns it into a pending transaction.
   """
 
   @enforce_keys [:external_id, :amount, :type, :transaction_date]

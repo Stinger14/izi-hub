@@ -1,6 +1,14 @@
 defmodule Core.Finance.EmailIngestion do
   @moduledoc """
-  Converts supported email alerts into pending-review transactions.
+  Turns bank alert emails into transactions waiting for review.
+
+  Context: called by the ingestion API (via `Core.Finance`) for a user; tries
+  each parser, creates a `pending_review` transaction and logs every attempt.
+
+  ## Example
+
+      EmailIngestion.ingest(user, %{"from" => "alerts@bank.com", "subject" => "...", "text_body" => "..."})
+      #=> {:ok, %Transaction{status: "pending_review"}}
   """
 
   import Ecto.Query, warn: false
@@ -13,6 +21,10 @@ defmodule Core.Finance.EmailIngestion do
 
   @parsers [BankAlertParser]
 
+  @doc """
+  Parses and stores one email. `{:ok, transaction}`, `{:ok, :duplicate}`, or
+  `{:error, :unsupported_email | :unparseable_email | changeset}`.
+  """
   def ingest(%User{} = user, attrs) when is_map(attrs) do
     message = build_message(attrs)
 

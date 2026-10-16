@@ -1,10 +1,15 @@
 defmodule CoreWeb.HubComponents do
   @moduledoc """
-  Dashboard widgets for `CoreWeb.HubLive`. Every widget is presentation-only
-  and renders an empty state until its feature is wired up. Colors resolve
-  through the `--hub-*` tokens scoped to `.hub-shell` (see `app.css`); the
-  Finance card reuses `FinanceComponents.fin_card/1` and `tone_class/2`,
-  which `.hub-shell` maps onto the hub palette.
+  The widgets on the `/hub` dashboard: Finance, GitHub/Facebook stats, Tasks,
+  Calendar, Music, Library and Gmail.
+
+  Context: rendered by `CoreWeb.HubLive`, which loads their data. Unwired
+  features show an empty state, never placeholder numbers. Colours come from
+  `--hub-*` tokens and `tone_class/2`.
+
+  ## Example
+
+      <.hub_card id="music" title="Music" icon="hero-musical-note">...</.hub_card>
   """
   use CoreWeb, :html
 
@@ -12,9 +17,10 @@ defmodule CoreWeb.HubComponents do
 
   @stats_variants ~w(creator developer)
 
+  @doc "The stats card's views: creator and developer."
   def stats_variants, do: @stats_variants
 
-  @doc "Base hub surface: walnut card, hairline border, soft shadow."
+  @doc "The base hub panel: optional icon, optional kicker, title, actions slot and body."
   attr :id, :string, default: nil
   attr :kicker, :string, default: nil
   attr :title, :string, required: true
@@ -72,6 +78,7 @@ defmodule CoreWeb.HubComponents do
     """
   end
 
+  @doc "Balance, this month's spending and budget left, for the personal or household scope."
   attr :finance, :map, default: nil
   attr :scope, :string, default: "personal"
   attr :household, :any, default: nil
@@ -198,6 +205,9 @@ defmodule CoreWeb.HubComponents do
     """
   end
 
+  @doc """
+  GitHub stats (link form, stats, errors) or the Facebook "coming soon" view.
+  """
   attr :variant, :string, required: true, values: ~w(creator developer)
   attr :developer, :any, required: true
   attr :github_form, :any, required: true
@@ -337,6 +347,10 @@ defmodule CoreWeb.HubComponents do
     end
   end
 
+  @doc """
+  Quick add plus open tasks grouped Overdue / Today / Up next, with inline edit,
+  delete and advance.
+  """
   attr :focus, :map, default: nil
   attr :form, :any, default: nil
   attr :added_task_id, :string, default: nil
@@ -540,6 +554,7 @@ defmodule CoreWeb.HubComponents do
   defp stage_label("release"), do: "Release"
   defp stage_label(other), do: other
 
+  @doc "Month grid with busy-ness dots and the selected day's agenda."
   attr :month, Date, required: true
   attr :days, :list, required: true
   attr :weekdays, :list, required: true
@@ -629,6 +644,7 @@ defmodule CoreWeb.HubComponents do
   defp entry_dot_class("note"), do: "bg-[var(--tone-info)]"
   defp entry_dot_class(_), do: "bg-[var(--hub-accent)]"
 
+  @doc "Music placeholder until a service is connected."
   def music_card(assigns) do
     ~H"""
     <.hub_card id="music" title="Music" icon="hero-musical-note">
@@ -657,6 +673,7 @@ defmodule CoreWeb.HubComponents do
     """
   end
 
+  @doc "Links to Books, with Courses marked as coming soon."
   def library_shortcuts(assigns) do
     ~H"""
     <.hub_card id="library" title="Library" icon="hero-book-open">
@@ -684,6 +701,7 @@ defmodule CoreWeb.HubComponents do
     """
   end
 
+  @doc "Gmail placeholder until it's connected."
   def gmail_preview(assigns) do
     ~H"""
     <.hub_card id="gmail" title="Gmail" icon="hero-envelope">

@@ -1,8 +1,12 @@
 defmodule Core.Office.TimelineLayout do
   @moduledoc """
-  Computes stable overlap lanes for timeline entries.
+  Assigns timeline entries to lanes so overlapping ones don't collide.
+
+  Context: pure and stable (same entries, same lanes); used by the IziOffice
+  roadmap.
   """
 
+  @doc "The entries sorted by start, each with `lane_index` and `lane_count`."
   def layout(entries) when is_list(entries) do
     entries
     |> Enum.sort_by(&sort_key/1)

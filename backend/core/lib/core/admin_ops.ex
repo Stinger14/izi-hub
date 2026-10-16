@@ -1,4 +1,17 @@
 defmodule Core.AdminOps do
+  @moduledoc """
+  Admin maintenance operations: promote/demote, activate/deactivate users,
+  setup links, token and page-view cleanup, resetting CV downloads.
+
+  Context: backs the admin Ops page. Each operation has a preview (what would
+  change) and a run; sensitive ones need a typed confirmation phrase.
+
+  ## Example
+
+      AdminOps.preview(:deactivate_user, %{"email" => "a@b.c"}, admin)
+      AdminOps.run(:deactivate_user, %{"email" => "a@b.c", "confirm_text" => "DEACTIVATE"}, admin)
+  """
+
   import Ecto.Query, warn: false
 
   alias Core.{Accounts, Analytics, Repo}
@@ -95,9 +108,14 @@ defmodule Core.AdminOps do
     }
   ]
 
+  @doc "Every operation with its label, description, risk, params and confirm phrase."
   @spec list_operations() :: [map()]
   def list_operations, do: @operations
 
+  @doc """
+  What an operation would do, without changing anything. `{:ok, summary}` or
+  `{:error, reason}`.
+  """
   @spec preview(op_id(), map(), actor()) :: {:ok, map()} | {:error, term()}
   def preview(op_id, params, actor) do
     with :ok <- validate_actor(actor),
@@ -108,6 +126,10 @@ defmodule Core.AdminOps do
     end
   end
 
+  @doc """
+  Runs an operation after validating params (and its confirm phrase).
+  `{:ok, result}` or `{:error, reason}`.
+  """
   @spec run(op_id(), map(), actor()) :: {:ok, map()} | {:error, term()}
   def run(op_id, params, actor) do
     with :ok <- validate_actor(actor),

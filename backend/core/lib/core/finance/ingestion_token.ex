@@ -1,4 +1,11 @@
 defmodule Core.Finance.IngestionToken do
+  @moduledoc """
+  An API token the email ingestion service uses to post a user's bank emails.
+
+  Context: Created and revoked through `Core.Finance`; `user_for_ingestion_token/1`
+  is the service's auth check.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -14,7 +21,7 @@ defmodule Core.Finance.IngestionToken do
     timestamps()
   end
 
-  @doc false
+  @doc "Requires the token and user."
   def changeset(ingestion_token, attrs) do
     ingestion_token
     |> cast(attrs, [:revoked_at])
