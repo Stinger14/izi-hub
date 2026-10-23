@@ -1,4 +1,12 @@
 defmodule CoreWeb.OfficeLive do
+  @moduledoc """
+  `/office` and `/office/:slug`: IziOffice, a project's roadmap, stage board
+  and calendar.
+
+  Context: reads and writes through `Core.Office` and reloads on
+  `{:office_changed, _}` from other pages or tabs.
+  """
+
   use CoreWeb, :live_view
 
   alias Core.Office
@@ -562,13 +570,12 @@ defmodule CoreWeb.OfficeLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.app flash={@flash} current_scope={@current_scope} workspace={:office}>
       <div class="min-h-screen">
         <main class="mx-auto max-w-7xl px-6 pb-16 pt-12">
           <section class="mb-8 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--hub-secondary)]">Private roadmap canvas</p>
-              <h1 class="mt-3 text-4xl font-semibold tracking-tight text-[var(--hub-text)] sm:text-5xl">
+              <h1 class="text-4xl font-semibold tracking-tight text-[var(--hub-text)] sm:text-5xl">
                 IziOffice
               </h1>
             </div>
@@ -576,7 +583,6 @@ defmodule CoreWeb.OfficeLive do
             <div :if={@current_project} class="hub-glass rounded-2xl px-4 py-3">
               <div class="flex items-start justify-between gap-4">
                 <div>
-                  <p class="text-[11px] font-semibold uppercase tracking-wide text-[var(--hub-muted)]">Current project</p>
                   <form
                     :if={@project_rename_open}
                     id="project-rename-form"
@@ -591,14 +597,12 @@ defmodule CoreWeb.OfficeLive do
                       aria-label="Project name"
                       class={task_input_class()}
                     />
-                    <button type="button" phx-click="cancel_project_rename" class="btn btn-ghost btn-xs">Cancel</button>
-                    <button type="submit" class="btn btn-primary btn-xs">Save</button>
+                    <.icon_button icon="hero-x-mark" label="Cancel" phx-click="cancel_project_rename" />
+                    <.icon_button type="submit" icon="hero-check" label="Save" />
                   </form>
                   <div :if={!@project_rename_open} class="mt-1 flex items-center gap-2">
                     <p class="text-sm font-semibold text-[var(--hub-text)]"><%= @current_project.name %></p>
-                    <button type="button" phx-click="open_project_rename" aria-label="Rename project" class="text-xs font-semibold text-[var(--hub-secondary)] transition hover:text-[var(--hub-accent-2)]">
-                      Rename
-                    </button>
+                    <.icon_button icon="hero-pencil-square" label="Rename project" phx-click="open_project_rename" />
                     <span
                       :if={current_project_default?(@current_project, @default_project_id)}
                       class="rounded-full border border-[color:var(--hub-border)] bg-[color:var(--hub-accent)]/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--hub-secondary)]"
@@ -607,7 +611,7 @@ defmodule CoreWeb.OfficeLive do
                     </span>
                   </div>
                   <p class="mt-1 text-xs text-[var(--hub-muted)]">
-                    <%= length(@canvas_milestones) %> milestones and <%= @canvas_item_count %> roadmap cards
+                    <%= length(@canvas_milestones) %> milestones · <%= @canvas_item_count %> cards
                   </p>
                 </div>
 
@@ -615,12 +619,8 @@ defmodule CoreWeb.OfficeLive do
                   :if={!current_project_default?(@current_project, @default_project_id)}
                   class="flex flex-wrap items-center justify-end gap-2"
                 >
-                  <button type="button" phx-click="archive_current_project" class="btn btn-secondary btn-xs">
-                    Archive
-                  </button>
-                  <button type="button" phx-click="open_delete_project_confirm" class="btn btn-ghost btn-xs text-[var(--tone-expense)] hover:text-[var(--tone-expense)]">
-                    Delete
-                  </button>
+                  <.icon_button icon="hero-archive-box" label="Archive project" phx-click="archive_current_project" />
+                  <.icon_button icon="hero-trash" tone="danger" label="Delete project" phx-click="open_delete_project_confirm" />
                 </div>
               </div>
 
@@ -891,7 +891,7 @@ defmodule CoreWeb.OfficeLive do
                   <div class="relative rounded-[1.75rem] border border-[color:var(--hub-border)] bg-[linear-gradient(180deg,rgba(36,30,56,0.97),rgba(23,22,28,0.97))] p-5 shadow-sm">
                     <div class="flex flex-wrap items-end justify-between gap-4">
                       <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-secondary)]">Interactive Roadmap</p>
+                        <h2 class="text-lg font-semibold text-[var(--hub-text)]">Roadmap</h2>
                       </div>
 
                       <button
@@ -1107,10 +1107,7 @@ defmodule CoreWeb.OfficeLive do
                                         class="mt-3 space-y-3 rounded-[1.25rem] border border-[color:var(--hub-border)] bg-[linear-gradient(180deg,rgba(36,30,56,0.97),rgba(23,22,28,0.97))] px-4 pt-4 pb-5 shadow-[0_30px_70px_-28px_rgba(109,40,217,0.62)] ring-2 ring-[color:var(--hub-accent)]/30 transition-all duration-300 ease-out"
                                       >
                                         <div class="flex items-start justify-between gap-3">
-                                          <div>
-                                            <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--hub-secondary)]">Edit event</p>
-                                            <p class="mt-1 text-sm text-[var(--hub-muted)]">Adjust the timeline event without leaving the roadmap.</p>
-                                          </div>
+                                          <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--hub-secondary)]">Edit event</p>
                                           <button
                                             type="button"
                                             phx-click="cancel_timeline_edit"
@@ -1253,19 +1250,19 @@ defmodule CoreWeb.OfficeLive do
                                             phx-click="focus_day_task"
                                             phx-value-id={"work-item:" <> item.record_id}
                                             data-roadmap-open-board-id={item.record_id}
-                                            class="btn btn-secondary btn-xs transition duration-300 hover:-translate-y-0.5"
+                                            aria-label="Open on board"
+                                            title="Open on board"
+                                            class="inline-grid h-8 w-8 place-items-center rounded-lg text-[var(--hub-secondary)] transition hover:bg-[var(--hub-surface)] hover:text-[var(--hub-text)]"
                                           >
-                                            Open on board
+                                            <.icon name="hero-arrow-right" class="h-4 w-4" />
                                           </button>
                                         <% else %>
-                                          <button
-                                            type="button"
+                                          <.icon_button
+                                            icon="hero-pencil-square"
+                                            label={"Edit #{item.title}"}
                                             phx-click="edit_timeline_entry"
                                             phx-value-id={item.record_id}
-                                            class="btn btn-secondary btn-xs transition duration-300 hover:-translate-y-0.5"
-                                          >
-                                            Edit
-                                          </button>
+                                          />
                                         <% end %>
                                       </div>
                                     <% end %>
@@ -1281,11 +1278,6 @@ defmodule CoreWeb.OfficeLive do
                   </div>
 
                   <div class="mt-6">
-                    <div class="mb-4 flex items-end justify-between gap-4 px-1">
-                      <div>
-                        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--hub-muted)]">Stage</p>
-                      </div>
-                    </div>
 
                     <div class="grid gap-4 xl:grid-cols-4">
                     <section
@@ -1389,9 +1381,11 @@ defmodule CoreWeb.OfficeLive do
                                       phx-click="toggle_canvas_item"
                                       phx-value-id={item.id}
                                       data-stage-open-id={item.id}
-                                      class="btn btn-secondary btn-xs transition duration-300 hover:-translate-y-0.5"
+                                      aria-label={"Open #{item.title}"}
+                                      title="Open task"
+                                      class="inline-grid h-8 w-8 place-items-center rounded-lg text-[var(--hub-secondary)] transition hover:bg-[var(--hub-surface)] hover:text-[var(--hub-text)]"
                                     >
-                                      Open task
+                                      <.icon name="hero-arrow-right" class="h-4 w-4" />
                                     </button>
                                   </div>
                                 </div>
@@ -1488,18 +1482,14 @@ defmodule CoreWeb.OfficeLive do
                                         </button>
                                         <button type="button" phx-click="cancel_task_delete" class="btn btn-ghost btn-xs">Cancel</button>
                                       <% else %>
-                                        <button type="button" phx-click="edit_task" phx-value-id={item.record_id} aria-label={"Edit #{item.title}"} class="btn btn-ghost btn-xs">
-                                          Edit
-                                        </button>
-                                        <button
-                                          type="button"
+                                        <.icon_button icon="hero-pencil-square" label={"Edit #{item.title}"} phx-click="edit_task" phx-value-id={item.record_id} />
+                                        <.icon_button
+                                          icon="hero-trash"
+                                          tone="danger"
+                                          label={"Delete #{item.title}"}
                                           phx-click="request_task_delete"
                                           phx-value-id={item.record_id}
-                                          aria-label={"Delete #{item.title}"}
-                                          class="btn btn-ghost btn-xs text-[var(--tone-expense)]"
-                                        >
-                                          Delete
-                                        </button>
+                                        />
                                       <% end %>
                                     </div>
                                   </div>
@@ -1526,13 +1516,12 @@ defmodule CoreWeb.OfficeLive do
                   <section class="rounded-[1.75rem] border border-[color:var(--hub-border)] bg-[linear-gradient(180deg,rgba(36,30,56,0.97),rgba(23,22,28,0.97))] p-5 shadow-sm">
                     <div class="flex items-center justify-between gap-3">
                       <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-[var(--hub-secondary)]">Calendar</p>
-                        <h2 class="mt-1 text-lg font-semibold text-[var(--hub-text)]"><%= calendar_month_label(@calendar_month) %></h2>
+                        <h2 class="text-lg font-semibold text-[var(--hub-text)]"><%= calendar_month_label(@calendar_month) %></h2>
                       </div>
 
                       <div class="flex items-center gap-2">
-                        <button type="button" phx-click="prev_calendar_month" class="btn btn-ghost btn-xs">Prev</button>
-                        <button type="button" phx-click="next_calendar_month" class="btn btn-ghost btn-xs">Next</button>
+                        <.icon_button icon="hero-chevron-left" label="Previous month" phx-click="prev_calendar_month" />
+                        <.icon_button icon="hero-chevron-right" label="Next month" phx-click="next_calendar_month" />
                       </div>
                     </div>
 
@@ -1555,17 +1544,9 @@ defmodule CoreWeb.OfficeLive do
 
                     <div class="mt-4 flex items-center justify-between gap-3 border-t border-[color:var(--hub-border)] pt-4">
                       <div>
-                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--hub-muted)]">Focus</p>
-                        <p class="mt-1 text-sm font-semibold text-[var(--hub-text)]"><%= calendar_focus_label(@selected_date) %></p>
+                        <p class="text-sm font-semibold text-[var(--hub-text)]"><%= calendar_focus_label(@selected_date) %></p>
                       </div>
-                      <button
-                        :if={@selected_date}
-                        type="button"
-                        phx-click="clear_calendar_date"
-                        class="btn btn-secondary btn-xs"
-                      >
-                        All days
-                      </button>
+                      <.icon_button :if={@selected_date} icon="hero-x-mark" label="Show all days" phx-click="clear_calendar_date" />
                     </div>
 
                     <div class="hub-glass mt-4 rounded-2xl p-4">
@@ -1599,10 +1580,6 @@ defmodule CoreWeb.OfficeLive do
                       </div>
 
                       <div class="mt-4 border-t border-[color:var(--hub-border)] pt-4">
-                        <div class="flex items-center justify-between gap-3">
-                          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--hub-muted)]">Tasks for the day</p>
-                          <span class="text-xs font-medium text-[var(--hub-muted)]"><%= length(@selected_day_tasks) %></span>
-                        </div>
 
                         <div :if={@selected_date == nil} class="mt-3 rounded-xl border border-dashed border-[color:var(--hub-accent)]/20 bg-[color:var(--hub-accent)]/5 px-3 py-3 text-sm text-[var(--hub-muted)]">
                           Select a date to inspect and open its tasks.

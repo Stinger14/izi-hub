@@ -1,4 +1,6 @@
 defmodule CoreWeb.ResourcesLive do
+  @moduledoc "`/resources`: a static page of useful links and resources."
+
   use CoreWeb, :live_view
 
   def mount(_params, _session, socket) do

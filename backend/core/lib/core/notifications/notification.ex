@@ -1,4 +1,10 @@
 defmodule Core.Notifications.Notification do
+  @moduledoc """
+  One notification for a user, read or unread.
+
+  Context: managed through `Core.Notifications`.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -36,7 +42,7 @@ defmodule Core.Notifications.Notification do
 
   @priorities ["low", "normal", "high", "urgent"]
 
-  @doc false
+  @doc "Validates title, type, recipient and read state."
   def changeset(notification, attrs) do
     notification
     |> cast(attrs, [

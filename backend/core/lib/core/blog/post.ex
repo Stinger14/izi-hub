@@ -1,4 +1,10 @@
 defmodule Core.Blog.Post do
+  @moduledoc """
+  A blog post, written here or imported from Hacker News (`external_id`).
+
+  Context: managed through `Core.Blog`.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -27,7 +33,7 @@ defmodule Core.Blog.Post do
     timestamps()
   end
 
-  @doc false
+  @doc "Validates title, content, slug, source and publishing fields."
   def changeset(post, attrs) do
     post
     |> cast(attrs, [

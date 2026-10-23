@@ -1,4 +1,11 @@
 defmodule Core.Finance.Debt do
+  @moduledoc """
+  Money owed: balance, interest rate and minimum payment.
+
+  Context: Owned by exactly one user or household (DB check constraint). Payments
+  lower the balance; a debt at zero is marked paid off.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -29,7 +36,7 @@ defmodule Core.Finance.Debt do
   @kinds ["credit_card", "loan", "student_loan", "mortgage", "medical", "personal", "other"]
   @statuses ["active", "paid_off", "archived"]
 
-  @doc false
+  @doc "Validates balances, rate, minimum payment and status."
   def changeset(debt, attrs) do
     debt
     |> cast(attrs, [

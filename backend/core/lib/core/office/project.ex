@@ -1,4 +1,11 @@
 defmodule Core.Office.Project do
+  @moduledoc """
+  A user's project in IziOffice, holding tasks and a timeline.
+
+  Context: each user has a default project that can't be archived or deleted.
+  The slug comes from the name at creation and never changes after.
+  """
+
   use Ecto.Schema
 
   import Ecto.Changeset
@@ -22,9 +29,13 @@ defmodule Core.Office.Project do
     timestamps()
   end
 
+  @doc "Valid statuses: active or archived."
   def statuses, do: @statuses
 
-  @doc false
+  @doc """
+  Validates name, description and status and slugifies the name; renames go through
+  `Core.Office.rename_project/3` so the slug stays.
+  """
   def changeset(project, attrs) do
     project
     |> cast(attrs, [:name, :slug, :description, :status])

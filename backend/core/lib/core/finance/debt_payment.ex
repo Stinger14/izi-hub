@@ -1,4 +1,12 @@
 defmodule Core.Finance.DebtPayment do
+  @moduledoc """
+  A payment recorded against a debt.
+
+  Context: Owned by exactly one user or household (DB check constraint). Created by
+  `Core.Finance.record_debt_payment/3`, optionally linked to the expense transaction
+  it logged.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -21,7 +29,7 @@ defmodule Core.Finance.DebtPayment do
 
   @kinds ["minimum", "extra", "settlement", "adjustment"]
 
-  @doc false
+  @doc "Validates amount and payment date."
   def changeset(payment, attrs) do
     payment
     |> cast(attrs, [

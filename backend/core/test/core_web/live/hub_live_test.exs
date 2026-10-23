@@ -11,12 +11,13 @@ defmodule CoreWeb.HubLiveTest do
     end
 
     test "renders the dashboard widgets inside the hub theme", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/hub")
+      {:ok, view, html} = live(conn, ~p"/hub")
 
       assert html =~ "hub-shell"
       assert html =~ "Dashboard"
-      assert html =~ "Your money, at a glance"
-      assert html =~ "Developer stats"
+      refute html =~ "Your workspace"
+      assert has_element?(view, "a[aria-label='Open Finance'][href='/finance']")
+      assert html =~ "GitHub"
       assert html =~ ~s(id="tasks")
       assert html =~ ~s(id="calendar")
       assert html =~ ~s(id="music")
@@ -37,23 +38,23 @@ defmodule CoreWeb.HubLiveTest do
     end
 
     test "switches the stats card between developer and creator", %{conn: conn} do
-      {:ok, view, html} = live(conn, ~p"/hub")
-      assert html =~ "Developer stats"
+      {:ok, view, _html} = live(conn, ~p"/hub")
+      assert has_element?(view, "h2", "GitHub")
 
       html = render_click(view, "set_stats_variant", %{"variant" => "creator"})
-      assert html =~ "Creator stats"
       assert html =~ "Facebook stats are coming soon"
-      refute html =~ "Developer stats"
+      assert has_element?(view, "h2", "Facebook")
+      refute has_element?(view, "#github-link-form")
 
-      html = render_click(view, "set_stats_variant", %{"variant" => "developer"})
-      assert html =~ "Developer stats"
+      render_click(view, "set_stats_variant", %{"variant" => "developer"})
+      assert has_element?(view, "h2", "GitHub")
     end
 
     test "ignores unknown stats variants", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/hub")
 
-      html = render_click(view, "set_stats_variant", %{"variant" => "admin"})
-      assert html =~ "Developer stats"
+      render_click(view, "set_stats_variant", %{"variant" => "admin"})
+      assert has_element?(view, "h2", "GitHub")
     end
 
     test "navigates calendar months", %{conn: conn} do
@@ -74,6 +75,17 @@ defmodule CoreWeb.HubLiveTest do
 
       assert view |> element("button", "Translate") |> render_click() =~
                ~s(id="translator-popover")
+
+      refute render_click(view, "close_translator") =~ ~s(id="translator-popover")
+    end
+
+    test "puts the hub tools in the workspace bar with Hub highlighted", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/hub")
+
+      assert has_element?(view, "#workspace-nav-hub[aria-current=page]")
+      assert has_element?(view, "#workspace-bar a[href='#tasks']", "Tasks")
+      assert has_element?(view, "#workspace-bar button", "Translate")
+      refute has_element?(view, "#workspace-nav-admin")
     end
   end
 
@@ -117,6 +129,50 @@ defmodule CoreWeb.HubLiveTest do
       [task] = Office.list_work_items_for_project(Office.default_project_for_user(user).id)
       assert task.title == "Plan sprint"
       assert task.scheduled_for == day
+    end
+
+    test "quick add highlights the new task and tells the browser", %{conn: conn} do
+      user = user_fixture()
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/hub")
+
+      html = view |> form("#quick-add-task", task: %{title: "Water plants"}) |> render_submit()
+
+      [task] = Office.list_work_items_for_project(Office.default_project_for_user(user).id)
+      assert_push_event(view, "hub:task-added", %{id: "focus-task-" <> id})
+      assert id == task.id
+      assert has_element?(view, "#focus-task-#{task.id}.hub-task-added")
+      refute html =~ "Task added for"
+    end
+
+    test "quick add shows the new task even when the list is full", %{conn: conn} do
+      user = user_fixture()
+      project = Office.default_project_for_user(user)
+      today = Date.to_iso8601(Date.utc_today())
+
+      for i <- 1..6 do
+        {:ok, _} =
+          Office.create_work_item(user, project, %{
+            "title" => "Busy #{i}",
+            "scheduled_for" => today
+          })
+      end
+
+      {:ok, view, _html} = live(log_in_user(conn, user), ~p"/hub")
+      day = Date.add(Date.utc_today(), 5)
+      render_click(view, "select_calendar_date", %{"date" => Date.to_iso8601(day)})
+      view |> form("#quick-add-task", task: %{title: "Far away"}) |> render_submit()
+
+      assert has_element?(view, ".hub-task-added", "Far away")
+    end
+
+    test "quick add for another day says which day", %{conn: conn} do
+      {:ok, view, _html} = live(log_in_user(conn, user_fixture()), ~p"/hub")
+      day = Date.add(Date.utc_today(), 3)
+
+      render_click(view, "select_calendar_date", %{"date" => Date.to_iso8601(day)})
+      html = view |> form("#quick-add-task", task: %{title: "Dentist"}) |> render_submit()
+
+      assert html =~ "Task added for #{Calendar.strftime(day, "%b %-d")}"
     end
 
     test "advances a task to its next stage", %{conn: conn} do
@@ -249,8 +305,8 @@ defmodule CoreWeb.HubLiveTest do
       {:ok, view, html} = live(conn, ~p"/hub")
       assert html =~ ~s(aria-label="Finance scope")
 
-      html = render_click(view, "set_finance_scope", %{"scope" => "household"})
-      assert html =~ "Finance · Garcia Home"
+      render_click(view, "set_finance_scope", %{"scope" => "household"})
+      assert has_element?(view, "h2", "Garcia Home")
     end
   end
 

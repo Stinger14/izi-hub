@@ -1,4 +1,11 @@
 defmodule Core.Office.TimelineEntry do
+  @moduledoc """
+  A dated point on a project's timeline: milestone, deadline, release or note.
+
+  Context: may link to a task (unlinked, not deleted, if the task goes).
+  Laid out by `TimelineLayout` and counted on the calendar on its start day.
+  """
+
   use Ecto.Schema
 
   import Ecto.Changeset
@@ -22,7 +29,7 @@ defmodule Core.Office.TimelineEntry do
     timestamps()
   end
 
-  @doc false
+  @doc "Validates title, kind, dates and the optional task link."
   def changeset(timeline_entry, attrs) do
     timeline_entry
     |> cast(attrs, [:title, :description, :kind, :starts_at, :ends_at, :work_item_id])

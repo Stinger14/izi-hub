@@ -39,8 +39,8 @@ defmodule CoreWeb.SessionControllerTest do
         |> get(~p"/set-password?token=#{token}")
 
       html = html_response(conn, 200)
-      assert html =~ "Admin"
-      assert html =~ "Logout"
+      assert html =~ ~s(id="workspace-nav-admin")
+      assert html =~ ~s(id="account-menu-sign-out")
     end
   end
 

@@ -1,4 +1,10 @@
 defmodule Core.Office.WorkItemTransition do
+  @moduledoc """
+  A record of a task moving from one stage to another, and who moved it.
+
+  Context: written by `Core.Office.transition_work_item/3`; deleted with the task.
+  """
+
   use Ecto.Schema
 
   import Ecto.Changeset
@@ -18,7 +24,7 @@ defmodule Core.Office.WorkItemTransition do
     timestamps(updated_at: false)
   end
 
-  @doc false
+  @doc "Builds a transition for a task and the user who moved it."
   def create_changeset(transition, attrs, work_item_id, moved_by_id) do
     transition
     |> cast(attrs, [:from_status, :to_status])

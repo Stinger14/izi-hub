@@ -1,13 +1,17 @@
 defmodule CoreWeb.LiveReload do
   @moduledoc """
-  Coalesces bursts of PubSub change notifications into a single reload.
+  Turns a burst of change messages into one reload.
 
-  LiveViews call `drain/1` at the top of their `handle_info` for a change
-  message (e.g. `{:finance_changed, _}`): it discards any more messages with
-  the same tag already waiting in the mailbox, so the reload that follows
-  covers all of them. A burst that arrives while a reload is running queues
-  up and is absorbed by the next one — at most one reload per busy period,
-  with no timer and no added latency.
+  Context: Finance, Office and hub LiveViews call `drain/1` first in their
+  change `handle_info`, dropping queued duplicates so the reload covers them
+  all, with no timer.
+
+  ## Example
+
+      def handle_info({:finance_changed, _}, socket) do
+        LiveReload.drain(:finance_changed)
+        {:noreply, assign_finance_data(socket)}
+      end
   """
 
   @doc "Removes queued `{tag, _}` messages from the current process mailbox."

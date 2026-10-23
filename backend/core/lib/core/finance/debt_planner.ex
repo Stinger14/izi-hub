@@ -1,15 +1,28 @@
 defmodule Core.Finance.DebtPlanner do
   @moduledoc """
-  Builds deterministic debt payoff projections from debt snapshots.
+  Projects how a set of debts gets paid off month by month.
+
+  Context: pure functions over debt snapshots; `Core.Finance` feeds it the
+  scope's debts and the monthly amount available.
+
+  ## Example
+
+      [snowball, avalanche] = DebtPlanner.compare(debts, Decimal.new("500"), ~D[2026-11-01])
+      snowball.payoff_months
   """
 
   @max_months 600
   @strategies [:snowball, :avalanche]
 
+  @doc "Builds a snowball and an avalanche plan for the same debts and budget."
   def compare(debts, monthly_amount, starts_on) do
     Enum.map(@strategies, &build_plan(&1, debts, monthly_amount, starts_on))
   end
 
+  @doc """
+  One plan: monthly schedule, payoff months and date, interest, payoff order,
+  and `feasible?` (false when the amount doesn't cover the minimums).
+  """
   def build_plan(strategy, debts, monthly_amount, starts_on) when strategy in @strategies do
     debts = Enum.map(debts, &debt_state/1)
     monthly_amount = decimal(monthly_amount)

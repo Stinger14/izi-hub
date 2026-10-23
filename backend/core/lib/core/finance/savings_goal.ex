@@ -1,4 +1,11 @@
 defmodule Core.Finance.SavingsGoal do
+  @moduledoc """
+  A target amount being saved toward.
+
+  Context: Owned by exactly one user or household (DB check constraint). Goal bars
+  fill up as money is added (`contribute_to_savings_goal/3`).
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -22,6 +29,7 @@ defmodule Core.Finance.SavingsGoal do
 
   @statuses ["active", "achieved", "archived"]
 
+  @doc "Validates name, target and saved amounts, and status."
   def changeset(goal, attrs) do
     goal
     |> cast(attrs, [

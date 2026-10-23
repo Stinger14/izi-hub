@@ -1,4 +1,9 @@
 defmodule CoreWeb.ProfileLive do
+  @moduledoc """
+  `/profile`: the site owner's public profile and CV (static content, not a
+  per-user page).
+  """
+
   use CoreWeb, :live_view
 
   def mount(_params, _session, socket) do

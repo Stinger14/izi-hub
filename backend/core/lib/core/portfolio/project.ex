@@ -1,4 +1,10 @@
 defmodule Core.Portfolio.Project do
+  @moduledoc """
+  A portfolio project with links, images and its tech stacks.
+
+  Context: managed through `Core.Portfolio`.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -25,7 +31,7 @@ defmodule Core.Portfolio.Project do
     timestamps()
   end
 
-  @doc false
+  @doc "Validates name, slug, description and links."
   def changeset(project, attrs) do
     project
     |> cast(attrs, [

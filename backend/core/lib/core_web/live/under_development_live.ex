@@ -1,4 +1,10 @@
 defmodule CoreWeb.UnderDevelopmentLive do
+  @moduledoc """
+  A generic "under development" page for features that aren't ready.
+
+  Context: not routed at the moment.
+  """
+
   use CoreWeb, :live_view
 
   def mount(_params, _session, socket) do

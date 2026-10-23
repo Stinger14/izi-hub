@@ -1,6 +1,15 @@
 defmodule Core.Notebooks do
   @moduledoc """
-  Fetches and renders notebook previews in Markdown.
+  Books (PDFs), notebook previews (Markdown) and Livebook apps for the library.
+
+  Context: books come from `priv/books`; notebooks come from `priv/notebooks`
+  or GitHub depending on `NOTEBOOKS_SOURCE` (`local`, `github`, `local_first`),
+  with GitHub responses cached.
+
+  ## Example
+
+      {:ok, books} = Notebooks.list_books()
+      {:ok, path} = Notebooks.fetch_book(hd(books).slug)
   """
 
   @github_owner "Stinger14"
@@ -18,6 +27,7 @@ defmodule Core.Notebooks do
   @local_dir Path.join(to_string(:code.priv_dir(:core)), "notebooks")
   @books_dir Path.join(to_string(:code.priv_dir(:core)), "books")
 
+  @doc "Books in `priv/books`. `{:ok, list}`."
   def list_books do
     case File.ls(@books_dir) do
       {:ok, entries} ->
@@ -49,6 +59,7 @@ defmodule Core.Notebooks do
     end
   end
 
+  @doc "The file path for a book slug. `{:ok, path}` or `{:error, :not_found}`."
   def fetch_book(slug) when is_binary(slug) do
     if Regex.match?(~r/\A[\p{L}\p{N}][\p{L}\p{N}-]*\z/u, slug) do
       with {:ok, books} <- list_books(),
@@ -73,6 +84,7 @@ defmodule Core.Notebooks do
     |> String.trim("-")
   end
 
+  @doc "Notebook previews from the configured source. `{:ok, list}`."
   def list_notebooks do
     case source_mode() do
       :local_first ->
@@ -89,6 +101,7 @@ defmodule Core.Notebooks do
     end
   end
 
+  @doc "One notebook preview, rendered. `{:ok, notebook}` or `{:error, reason}`."
   def fetch_notebook(slug) do
     case source_mode() do
       :local_first ->
@@ -105,6 +118,7 @@ defmodule Core.Notebooks do
     end
   end
 
+  @doc "Livebook apps (`.livemd`) in `priv/notebooks`. `{:ok, list}`."
   def list_livebook_apps do
     with {:ok, entries} <- File.ls(@local_dir) do
       apps =

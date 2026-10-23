@@ -1,4 +1,10 @@
 defmodule Core.Blog.Comment do
+  @moduledoc """
+  A comment on a blog post, shown once approved.
+
+  Context: managed through `Core.Blog`.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -18,7 +24,7 @@ defmodule Core.Blog.Comment do
     timestamps()
   end
 
-  @doc false
+  @doc "Validates content, author and post."
   def changeset(comment, attrs) do
     comment
     |> cast(attrs, [

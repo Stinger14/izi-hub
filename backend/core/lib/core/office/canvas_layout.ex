@@ -1,14 +1,19 @@
 defmodule Core.Office.CanvasLayout do
   @moduledoc """
-  Builds deterministic canvas slots for Office projects.
+  Arranges a project's tasks and milestones for the IziOffice board.
+
+  Context: pure and deterministic (same input, same slots), called by
+  `Core.Office.list_workbench_for_project/1`.
   """
 
   alias Core.Office.WorkItem
 
   @stages WorkItem.statuses()
 
+  @doc "The board's lanes, in order."
   def stages, do: @stages
 
+  @doc "`%{milestones: [...], stage_items: %{stage => items}}` with each item's slot."
   def layout(work_items, timeline_entries) do
     %{
       milestones: milestone_items(timeline_entries),

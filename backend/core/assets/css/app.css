@@ -1609,27 +1609,34 @@
     color: #ffffff;
 }
 
-/* Flash toasts (CoreWeb.Layouts.flash_group). Default: centred in the
-   header's middle slot. On phones the header has no free space, so they sit
-   just below it; once the header scrolls away they float at the top centre.
-   --flash-top and .header-offscreen are kept on <body> by syncFlashPosition
-   in app.js (outside the LiveView container, so patches never reset them). */
-@media (max-width: 639px) {
-    #flash-group {
-        position: fixed;
-        top: var(--flash-top, 4rem);
-        bottom: auto;
-        left: 1rem;
-        right: 1rem;
+/* A task just added from the hub's quick-add: a short violet glow that
+   fades out (HubComponents.task_group adds the class to the new row). */
+.hub-shell .hub-task-added {
+    animation: hub-task-added 2.2s ease-out;
+}
+
+@keyframes hub-task-added {
+    0%,
+    35% {
+        background-color: rgba(139, 92, 246, 0.16);
+        box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.7);
+    }
+    100% {
+        background-color: transparent;
+        box-shadow: inset 0 0 0 1px transparent;
     }
 }
 
-.header-offscreen #flash-group {
-    position: fixed;
-    top: 0.75rem;
-    bottom: auto;
-    left: 50%;
-    right: auto;
-    width: min(28rem, calc(100vw - 2rem));
-    transform: translateX(-50%);
+@media (prefers-reduced-motion: reduce) {
+    .hub-shell .hub-task-added {
+        animation-duration: 0.01s;
+        background-color: rgba(139, 92, 246, 0.1);
+    }
 }
+
+/* In-page links (e.g. the hub's #tasks chip) land below the sticky
+   header instead of under it. */
+html {
+    scroll-padding-top: 5.5rem;
+}
+

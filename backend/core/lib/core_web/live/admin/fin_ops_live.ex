@@ -1,4 +1,9 @@
 defmodule CoreWeb.Admin.FinOpsLive do
+  @moduledoc """
+  `/admin/finops`: finance ingestion tools; submit a bank-style email for a
+  user to test parsing and see the result.
+  """
+
   use CoreWeb, :live_view
 
   alias Core.Accounts
@@ -83,7 +88,7 @@ defmodule CoreWeb.Admin.FinOpsLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.app flash={@flash} current_scope={@current_scope} workspace={:admin}>
       <div class="min-h-screen">
         <header class="border-b border-[color:var(--hub-border)]">
           <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">

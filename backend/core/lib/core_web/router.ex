@@ -1,4 +1,12 @@
 defmodule CoreWeb.Router do
+  @moduledoc """
+  Routes: public pages (`/welcome`, `/profile`, `/cv`, auth, `/invites/:token`),
+  the signed-in `:authenticated` scope, admin pages and the JSON APIs.
+
+  Context: any new page is signed-in only unless it's added to the public
+  `:default` live session on purpose.
+  """
+
   use CoreWeb, :router
   import Phoenix.LiveView.Router
 
@@ -107,6 +115,7 @@ defmodule CoreWeb.Router do
     end
 
     get "/books/:slug", BooksController, :download
+    get "/avatars/:user_id", AvatarController, :show
   end
 
   scope "/admin", CoreWeb.Admin do

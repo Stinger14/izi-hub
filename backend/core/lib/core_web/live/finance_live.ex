@@ -1,4 +1,14 @@
 defmodule CoreWeb.FinanceLive do
+  @moduledoc """
+  `/finance`: accounts, transactions, transfers, budgets, debts, goals,
+  insights, review queue and households, for the personal scope or a household.
+
+  Context: sidebar sections are full pages (`show_section`); quick actions
+  open in a focus panel. `assign_finance_data/1` recomputes everything derived
+  after each change, and `{:finance_changed, _}` broadcasts reload it live.
+  `?household=<id>` opens a household.
+  """
+
   use CoreWeb, :live_view
 
   import CoreWeb.FinanceComponents
@@ -923,7 +933,7 @@ defmodule CoreWeb.FinanceLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.app flash={@flash} current_scope={@current_scope} workspace={:finance}>
       <div class="finance-shell min-h-screen">
         <div class="mx-auto grid min-h-screen max-w-[118rem] gap-6 px-4 py-6 sm:px-6 xl:grid-cols-[17rem_minmax(0,1fr)] xl:px-8">
           <aside class="hidden xl:flex xl:flex-col xl:gap-6">
@@ -933,10 +943,7 @@ defmodule CoreWeb.FinanceLive do
                   <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--fin-primary)] text-base font-semibold text-[var(--fin-on-primary)]">
                     IZ
                   </div>
-                  <div>
-                    <p class="font-display text-lg tracking-tight text-[color:var(--fin-text)]">IziHub Finance</p>
-                    <p class="text-xs uppercase tracking-[0.24em] text-[color:var(--fin-muted)]">Dashboard</p>
-                  </div>
+                  <p class="font-display text-lg tracking-tight text-[color:var(--fin-text)]">Finance</p>
                 </div>
 
                 <nav class="mt-8 space-y-1.5 text-sm">
@@ -957,7 +964,7 @@ defmodule CoreWeb.FinanceLive do
                   </div>
                   <div class="min-w-0">
                     <p class="truncate text-sm font-semibold text-[color:var(--fin-text)]"><%= current_scope_name(@current_scope.user) %></p>
-                    <p class="truncate text-xs text-[color:var(--fin-muted)]"><%= if @ownership_scope == "household" and @selected_household, do: @selected_household.name, else: "Personal scope" %></p>
+                    <p class="truncate text-xs text-[color:var(--fin-muted)]"><%= if @ownership_scope == "household" and @selected_household, do: @selected_household.name, else: "Personal" %></p>
                   </div>
                 </div>
               </div>

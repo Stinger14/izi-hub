@@ -1,8 +1,14 @@
 defmodule CoreWeb.Api.Finance.EmailIngestionController do
+  @moduledoc """
+  `POST /api/finance/email-ingestions`: a signed-in user posts a bank email to
+  turn into a pending transaction.
+  """
+
   use CoreWeb, :controller
 
   alias Core.Finance
 
+  @doc "201 with the transaction, 200 `duplicate`, or 422 with the reason."
   def create(conn, params) do
     user = conn.assigns.current_scope.user
     attrs = params |> email_attrs() |> normalize_received_at()

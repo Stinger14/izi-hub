@@ -1,4 +1,12 @@
 defmodule Core.Accounts.Household do
+  @moduledoc """
+  A shared finance scope that several users belong to.
+
+  Context: owns finance records (accounts, budgets, …) the same way a user
+  does. Managed through `Core.Accounts` (create, rename, delete); the slug is
+  set once and never changes.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -18,6 +26,7 @@ defmodule Core.Accounts.Household do
 
   @statuses ["active", "archived"]
 
+  @doc "Validates name, slug and status."
   def changeset(household, attrs) do
     household
     |> cast(attrs, [:name, :slug, :status])

@@ -1,4 +1,12 @@
 defmodule Core.Office.WorkItem do
+  @moduledoc """
+  A task in a project, moving through queue → wip → qa → release.
+
+  Context: QA can send a task back to WIP; release is final. Stage changes go
+  through `Core.Office.transition_work_item/3`, which checks
+  `valid_transition?/2` and records the move.
+  """
+
   use Ecto.Schema
 
   import Ecto.Changeset
@@ -33,9 +41,13 @@ defmodule Core.Office.WorkItem do
     timestamps()
   end
 
+  @doc "Stages in order: queue, wip, qa, release."
   def statuses, do: @statuses
+
+  @doc "Valid priorities."
   def priorities, do: @priorities
 
+  @doc "Whether a task may move from one stage to another."
   def valid_transition?(from_status, to_status) do
     to_status in Map.get(@allowed_transitions, from_status, [])
   end
@@ -53,7 +65,7 @@ defmodule Core.Office.WorkItem do
     |> foreign_key_constraint(:project_id)
   end
 
-  @doc false
+  @doc "Changes a task's stage (used by `transition_work_item/3`)."
   def transition_changeset(work_item, attrs) do
     work_item
     |> cast(attrs, [:status, :sequence])

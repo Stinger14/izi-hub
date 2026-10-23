@@ -1,8 +1,20 @@
 defmodule Core.Office.Planner do
   @moduledoc """
-  Helpers for fast work item capture from the Office planner.
+  Cleans form input before tasks and timeline entries are saved.
+
+  Context: `Core.Office` runs every create/update through it: string keys,
+  trimmed values, and only the fields a form may set.
+
+  ## Example
+
+      Planner.normalize_quick_entry(%{title: "  Ship  ", status: "release"})
+      #=> %{"title" => "Ship"}
   """
 
+  @doc """
+  Keeps a task's editable fields (title, description, priority, scheduled, due),
+  normalised.
+  """
   def normalize_quick_entry(attrs) when is_map(attrs) do
     attrs
     |> Enum.reduce(%{}, fn {key, value}, acc ->
@@ -11,6 +23,7 @@ defmodule Core.Office.Planner do
     |> Map.take(["title", "description", "priority", "scheduled_for", "due_at"])
   end
 
+  @doc "Keeps a timeline entry's editable fields (title, description, kind, dates), normalised."
   def normalize_timeline_entry(attrs) when is_map(attrs) do
     attrs
     |> Enum.reduce(%{}, fn {key, value}, acc ->

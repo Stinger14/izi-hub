@@ -1,4 +1,9 @@
 defmodule CoreWeb.HubLandingLive do
+  @moduledoc """
+  `/welcome`: the public landing page, with sign in/sign up for visitors and a
+  link to the hub for signed-in users.
+  """
+
   use CoreWeb, :live_view
 
   def mount(_params, _session, socket) do

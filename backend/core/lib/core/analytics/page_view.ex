@@ -1,4 +1,10 @@
 defmodule Core.Analytics.PageView do
+  @moduledoc """
+  One anonymous page view: path, session id, device, browser and country.
+
+  Context: written by `Core.Analytics.record_page_view/1`; no user id is stored.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -24,7 +30,7 @@ defmodule Core.Analytics.PageView do
 
   @device_types ~w(desktop mobile tablet bot unknown)
 
-  @doc false
+  @doc "Validates the path and session and the optional device fields."
   def changeset(page_view, attrs) do
     page_view
     |> cast(attrs, [
