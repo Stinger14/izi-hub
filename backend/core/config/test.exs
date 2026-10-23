@@ -45,3 +45,6 @@ config :logger, level: :warning
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
+
+# Polo Studio requests are answered in-process by Req.Test stubs
+config :core, :polo_client_req_options, plug: {Req.Test, Core.Studio.PoloClient}
