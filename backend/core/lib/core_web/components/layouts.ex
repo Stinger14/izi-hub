@@ -218,7 +218,8 @@ defmodule CoreWeb.Layouts do
     apps = [
       {:hub, "Hub", "hero-home", ~p"/hub"},
       {:office, "Office", "hero-calendar-days", ~p"/office"},
-      {:finance, "Finance", "hero-banknotes", ~p"/finance"}
+      {:finance, "Finance", "hero-banknotes", ~p"/finance"},
+      {:studio, "Studio", "hero-camera", ~p"/studio"}
     ]
 
     if current_scope.user.role == "admin",
