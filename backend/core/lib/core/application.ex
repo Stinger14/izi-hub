@@ -7,8 +7,10 @@ defmodule Core.Application do
 
   @impl true
   def start(_type, _args) do
-    # Load/Override config from env/config/defaults
-    Core.Config.preload()
+    # Load/Override config from env/config/defaults. Tests skip this so
+    # config/test.exs wins: env vars from a dev shell (e.g. a sourced .envrc)
+    # would otherwise point the suite at the dev database.
+    if Application.get_env(:core, :preload_env_config, true), do: Core.Config.preload()
     Core.Config.validate()
 
     children = [
