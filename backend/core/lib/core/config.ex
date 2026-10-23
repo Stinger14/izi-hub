@@ -61,4 +61,16 @@ defmodule Core.Config do
     os_env: "GITHUB_TOKEN",
     default: ""
   )
+
+  @envdoc "Polo Studio service base URL"
+  app_env(:polo_studio_url, :core, :polo_studio_url,
+    os_env: "POLO_STUDIO_URL",
+    default: "http://localhost:8100"
+  )
+
+  @envdoc "Bearer token for Polo Studio"
+  app_env(:polo_studio_key, :core, :polo_studio_api_key,
+    os_env: "POLO_STUDIO_API_KEY",
+    default: ""
+  )
 end

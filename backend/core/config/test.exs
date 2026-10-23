@@ -17,6 +17,10 @@ config :core, Core.Repo,
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 
+# Keep the settings above even when the shell exports DATABASE_URL/POSTGRES_*
+# (see Core.Application): env vars would otherwise override them at boot.
+config :core, :preload_env_config, false
+
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
 # config :core, CoreWeb.Endpoint,
@@ -41,3 +45,6 @@ config :logger, level: :warning
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
+
+# Polo Studio requests are answered in-process by Req.Test stubs
+config :core, :polo_client_req_options, plug: {Req.Test, Core.Studio.PoloClient}

@@ -112,6 +112,7 @@ defmodule CoreWeb.Router do
       live "/contributions", ContributionsLive, :index
       live "/notebooks", NotebooksLive, :index
       live "/notebooks/:slug", NotebooksLive, :show
+      live "/studio", StudioLive, :index
     end
 
     get "/books/:slug", BooksController, :download
