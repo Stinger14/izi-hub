@@ -63,7 +63,7 @@ defmodule CoreWeb.StudioLiveTest do
     view = open_piece(conn, piece)
 
     assert view |> element("#generate-caption") |> render_click() =~ "Writing…"
-    html = render_async(view)
+    html = render_async(view, 1_000)
 
     assert html =~ "El mangú perfecto"
     assert html =~ "#RD #comida"
