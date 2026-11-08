@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.11.1 (2026-11-08)
+
+### Fixes
+
+- increase request timeout in studio live test
+- increase request timeout in tests
+
 ## v0.11.0 (2026-11-05)
 
 ### Features
