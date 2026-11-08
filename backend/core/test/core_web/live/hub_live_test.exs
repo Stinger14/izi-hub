@@ -334,7 +334,7 @@ defmodule CoreWeb.HubLiveTest do
       |> form("#github-link-form", github: %{github_username: "@" <> login})
       |> render_submit()
 
-      html = render_async(view)
+      html = render_async(view, 1_000)
 
       assert html =~ "345"
       assert html =~ "12"
@@ -351,7 +351,7 @@ defmodule CoreWeb.HubLiveTest do
       conn = log_in_user(conn, user)
 
       {:ok, view, _html} = live(conn, ~p"/hub")
-      assert render_async(view) =~ "was not found"
+      assert render_async(view, 1_000) =~ "was not found"
     end
 
     test "rejects an invalid username", %{conn: conn} do

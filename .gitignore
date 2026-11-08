@@ -193,9 +193,6 @@ venv.bak/
 # mkdocs documentation
 /site
 
-# uv
-uv.lock
-
 PORTFOLIO_REPO_PLAN.md
 FINANCE_INGESTION_INTEGRATION.md
 
