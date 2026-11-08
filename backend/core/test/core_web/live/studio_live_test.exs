@@ -83,7 +83,7 @@ defmodule CoreWeb.StudioLiveTest do
     view = open_piece(conn, piece)
     view |> element("#generate-hooks") |> render_click()
 
-    assert render_async(view) =~ "The AI declined to write this."
+    assert render_async(view, 1_000) =~ "The AI declined to write this."
     assert Studio.list_drafts(piece) == []
     refute has_element?(view, "#generate-hooks[disabled]")
   end

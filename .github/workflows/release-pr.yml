@@ -1,0 +1,73 @@
+name: Release PR
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-pr
+  cancel-in-progress: false # a second click waits instead of racing on release/next
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/core
+    env:
+      # Same env and cache key as ci.yml, so this reuses CI's build from develop.
+      # The task never starts the app, so no database is needed.
+      MIX_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0 # full history and tags, for git describe and git log tag..HEAD
+
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.18.4"
+          otp-version: "27.3.4.1"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            backend/core/deps
+            backend/core/_build
+          key: ${{ runner.os }}-mix-test-1.18.4-27.3.4.1-${{ hashFiles('backend/core/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-test-1.18.4-27.3.4.1-
+
+      - run: mix deps.get
+      - run: mix version.bump --apply
+
+      - id: version
+        run: |
+          echo "version=$(grep -oE 'version: "[^"]+"' mix.exs | cut -d'"' -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Open release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # --apply writes mix.exs whenever there's a release, so an unchanged
+          # mix.exs means the task found nothing to release.
+          if git diff --quiet -- mix.exs; then
+            echo "Nothing to release."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git switch -C release/next
+          git add mix.exs CHANGELOG.md
+          git commit -m "Chore: bump version to v$VERSION"
+          git push --force origin release/next
+
+          title="Chore: bump version to v$VERSION"
+          gh pr create --base develop --head release/next --title "$title" --body "" \
+            || gh pr edit release/next --title "$title"
