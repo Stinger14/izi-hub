@@ -99,7 +99,7 @@ defmodule Core.Finance do
         offset(query, ^offset)
 
       {:exclude_transfers, true}, query ->
-        where(query, [t], is_nil(t.counterpart_transaction_id))
+        cashflow_only(query)
 
       _, query ->
         query
@@ -256,17 +256,18 @@ defmodule Core.Finance do
   end
 
   @doc """
-  Creates a transaction in a scope and moves its account's balance. Scoped:
+  Creates a transaction in a scope; a confirmed one with an account moves that
+  account's balance. The account must be active and in the same scope. Scoped:
   `{:error, :forbidden}` unless `actor` can access `owner`.
   """
   def create_transaction(%User{} = actor, owner, attrs) do
     with :ok <- ensure_scope_access(actor, owner),
          attrs <- scope_attrs(attrs, owner),
          :ok <- ensure_category_in_scope(attrs, owner),
-         :ok <- ensure_account_in_scope(attrs, owner) do
+         :ok <- ensure_account_in_scope(attrs, owner, nil) do
       %Transaction{}
       |> Transaction.changeset(attrs)
-      |> Repo.insert()
+      |> insert_with_balance()
       |> broadcast_change()
     end
   end
@@ -293,51 +294,67 @@ defmodule Core.Finance do
     |> Repo.all()
   end
 
-  @doc "Edits a transaction; its category must belong to the same scope."
+  @doc """
+  Edits a transaction and moves balances to match (the old amount/account/status
+  is reversed, the new one applied). Its category and account must belong to the
+  same scope. Transfer legs are edited through `update_account_transfer/3`
+  (`{:error, :transfer_leg}` here); for a debt payment's expense the money fields
+  (amount, type, account, status) stay as recorded.
+  """
   def update_transaction(%User{} = user, %Transaction{} = transaction, attrs) do
-    with :ok <- ensure_resource_owner(user, transaction) do
-      with :ok <- ensure_category_in_scope(attrs, resource_owner(transaction)),
-           :ok <- ensure_account_in_scope(attrs, resource_owner(transaction)) do
-        update_transaction(transaction, attrs)
-      end
+    owner = resource_owner(transaction)
+
+    with :ok <- ensure_resource_owner(user, transaction),
+         :ok <- ensure_category_in_scope(attrs, owner),
+         :ok <- ensure_account_in_scope(attrs, owner, transaction.account_id) do
+      update_transaction(transaction, attrs)
     end
   end
 
   @doc "Edits a transaction without an access check (callers check first)."
   def update_transaction(%Transaction{} = transaction, attrs) do
     transaction
-    |> Transaction.changeset(attrs)
-    |> Repo.update()
+    |> update_with_balance(attrs)
     |> broadcast_change()
   end
 
-  @doc "Confirms a reviewed transaction (optionally with edits), so it counts in totals."
+  @doc "Confirms a reviewed transaction (optionally with edits), so it counts in totals and balances."
   def confirm_transaction(%User{} = user, %Transaction{} = transaction, attrs \\ %{}) do
-    with :ok <- ensure_resource_owner(user, transaction) do
+    owner = resource_owner(transaction)
+
+    with :ok <- ensure_resource_owner(user, transaction),
+         :ok <- ensure_category_in_scope(attrs, owner),
+         :ok <- ensure_account_in_scope(attrs, owner, transaction.account_id) do
       transaction
-      |> Transaction.changeset(
-        Map.merge(attrs, %{"status" => "confirmed", "review_reason" => nil})
-      )
-      |> Repo.update()
+      |> update_with_balance(Map.merge(attrs, %{"status" => "confirmed", "review_reason" => nil}))
       |> broadcast_change()
     end
   end
 
-  @doc "Marks a pending transaction as ignored."
+  @doc "Marks a pending transaction as ignored (a confirmed one gives its balance back)."
   def ignore_transaction(%User{} = user, %Transaction{} = transaction) do
     with :ok <- ensure_resource_owner(user, transaction) do
       transaction
-      |> Transaction.changeset(%{"status" => "ignored"})
-      |> Repo.update()
+      |> update_with_balance(%{"status" => "ignored"})
       |> broadcast_change()
     end
   end
 
-  @doc "Deletes a transaction and reverses its balance; a transfer leg deletes both legs."
+  @doc """
+  Deletes a transaction and reverses its balance. A transfer leg deletes both
+  legs; a debt payment's expense undoes the whole payment
+  (`delete_debt_payment/2`), so the debt goes back up too.
+  """
   def delete_transaction(%User{} = user, %Transaction{} = transaction) do
     with :ok <- ensure_resource_owner(user, transaction),
          :ok <- ensure_counterpart_owner(user, transaction) do
-      delete_transaction(transaction)
+      case Repo.get_by(DebtPayment, transaction_id: transaction.id) do
+        %DebtPayment{} = payment ->
+          with {:ok, _payment} <- delete_debt_payment(user, payment), do: {:ok, transaction}
+
+        nil ->
+          delete_transaction(transaction)
+      end
     end
   end
 
@@ -355,17 +372,24 @@ defmodule Core.Finance do
 
   @doc "Deletes a transaction without an access check; a transfer leg deletes both legs."
   def delete_transaction(%Transaction{counterpart_transaction_id: nil} = transaction) do
-    transaction |> Repo.delete() |> broadcast_change()
+    Repo.transaction(fn ->
+      case lock_transaction(transaction.id) do
+        nil -> transaction
+        locked -> delete_with_balance!(locked)
+      end
+    end)
+    |> broadcast_change()
   end
 
   def delete_transaction(%Transaction{} = transaction) do
     counterpart = Repo.get(Transaction, transaction.counterpart_transaction_id)
 
     Repo.transaction(fn ->
-      for leg <- [transaction, counterpart], leg do
-        reverse_transfer_leg_balance(leg)
-        Repo.delete!(leg)
-      end
+      [transaction, counterpart]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(&lock_transaction(&1.id))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.each(&delete_with_balance!/1)
 
       transaction
     end)
@@ -380,18 +404,170 @@ defmodule Core.Finance do
     end
   end
 
-  defp reverse_transfer_leg_balance(%Transaction{account_id: nil}), do: :ok
+  # ------ Balance engine ------
+  #
+  # An account's current_balance is the running sum of its confirmed
+  # transactions (plus the starting balance it was created with). Every write
+  # that creates, changes or removes a transaction goes through these helpers
+  # inside one Repo.transaction: the old row's effect is reversed and the new
+  # row's applied, with an atomic `inc`, so concurrent writes can't overwrite
+  # each other. Income adds and expense subtracts for every account kind; that's
+  # why liabilities (credit cards, loans) hold negative balances.
 
-  defp reverse_transfer_leg_balance(%Transaction{} = leg) do
-    if account = Repo.get(Account, leg.account_id) do
-      delta = if leg.type == "expense", do: leg.amount, else: Decimal.negate(leg.amount)
-
-      account
-      |> Ecto.Changeset.change(current_balance: Decimal.add(account.current_balance, delta))
-      |> Repo.update!()
+  # {account_id, signed delta} a transaction contributes to its account, or nil.
+  defp balance_effect(%Transaction{account_id: account_id, status: "confirmed"} = transaction)
+       when not is_nil(account_id) do
+    case transaction.type do
+      "income" -> {account_id, transaction.amount}
+      "expense" -> {account_id, Decimal.negate(transaction.amount)}
+      _other -> nil
     end
+  end
 
-    :ok
+  defp balance_effect(_transaction), do: nil
+
+  @doc """
+  The signed amount a transaction adds to its account's balance (negative for
+  expenses), or nil when it doesn't move one (no account, not confirmed).
+  """
+  def balance_delta(%Transaction{} = transaction) do
+    case balance_effect(transaction) do
+      {_account_id, delta} -> delta
+      nil -> nil
+    end
+  end
+
+  defp apply_balance!(%Transaction{} = transaction, direction) do
+    case balance_effect(transaction) do
+      nil ->
+        :ok
+
+      {account_id, delta} ->
+        delta = if direction == :reverse, do: Decimal.negate(delta), else: delta
+
+        Account
+        |> where([account], account.id == ^account_id)
+        |> Repo.update_all(inc: [current_balance: delta])
+
+        :ok
+    end
+  end
+
+  defp lock_transaction(id) do
+    Transaction
+    |> where([transaction], transaction.id == ^id)
+    |> lock("FOR UPDATE")
+    |> Repo.one()
+  end
+
+  defp insert_with_balance(%Ecto.Changeset{} = changeset) do
+    Repo.transaction(fn -> insert_with_balance!(changeset) end)
+  end
+
+  defp insert_with_balance!(%Ecto.Changeset{} = changeset) do
+    case Repo.insert(changeset) do
+      {:ok, transaction} ->
+        apply_balance!(transaction, :apply)
+        transaction
+
+      {:error, changeset} ->
+        Repo.rollback(changeset)
+    end
+  end
+
+  # Re-reads (and locks) the row so the reversal uses what's really stored.
+  defp update_with_balance(%Transaction{} = transaction, attrs) do
+    Repo.transaction(fn ->
+      current = lock_transaction(transaction.id) || Repo.rollback(:not_found)
+
+      with :ok <- ensure_plain_transaction(current) do
+        attrs = protect_debt_payment_fields(current, attrs)
+
+        case current |> Transaction.changeset(attrs) |> Repo.update() do
+          {:ok, updated} ->
+            apply_balance!(current, :reverse)
+            apply_balance!(updated, :apply)
+            Repo.preload(updated, [:category, :account], force: true)
+
+          {:error, changeset} ->
+            Repo.rollback(changeset)
+        end
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+  end
+
+  defp delete_with_balance!(%Transaction{} = transaction) do
+    apply_balance!(transaction, :reverse)
+    Repo.delete!(transaction)
+  end
+
+  defp ensure_plain_transaction(%Transaction{counterpart_transaction_id: nil}), do: :ok
+  defp ensure_plain_transaction(%Transaction{}), do: {:error, :transfer_leg}
+
+  @money_fields ~w(amount type account_id status)
+
+  # A debt payment's expense mirrors the payment: changing its amount or account
+  # here would desync the debt, so only descriptive fields can change.
+  defp protect_debt_payment_fields(%Transaction{id: id}, attrs) do
+    if Repo.exists?(from(payment in DebtPayment, where: payment.transaction_id == ^id)) do
+      attrs
+      |> Map.new(fn {key, value} -> {to_string(key), value} end)
+      |> Map.drop(@money_fields)
+    else
+      attrs
+    end
+  end
+
+  @doc """
+  Corrects an account's balance to `target_balance` (signed: negative is owed)
+  by recording the difference as a "Balance adjustment" transaction, so the
+  history explains the change. Adjustments never count as income or spending.
+  `{:ok, transaction}`, `{:ok, :unchanged}` when it already matches, or
+  `{:error, :invalid_balance}`. Options in `attrs`: `"transaction_date"`, `"notes"`.
+  """
+  def adjust_account_balance(%User{} = actor, %Account{} = account, target_balance, attrs \\ %{}) do
+    with :ok <- ensure_resource_owner(actor, account),
+         {:ok, target} <- cast_balance(target_balance),
+         {:ok, date} <- parse_transfer_date(attrs) do
+      Repo.transaction(fn ->
+        current =
+          Account
+          |> where([a], a.id == ^account.id)
+          |> lock("FOR UPDATE")
+          |> Repo.one!()
+
+        delta = Decimal.sub(target, current.current_balance)
+
+        if Decimal.equal?(delta, 0) do
+          :unchanged
+        else
+          attrs = %{
+            "amount" => Decimal.abs(delta),
+            "type" => if(Decimal.positive?(delta), do: "income", else: "expense"),
+            "status" => "confirmed",
+            "source" => "manual",
+            "description" => "Balance adjustment",
+            "transaction_date" => date,
+            "notes" => presence(Map.get(attrs, "notes") || Map.get(attrs, :notes)),
+            "account_id" => account.id
+          }
+
+          %Transaction{balance_adjustment: true}
+          |> Transaction.changeset(scope_attrs(attrs, resource_owner(account)))
+          |> insert_with_balance!()
+        end
+      end)
+      |> broadcast_change()
+    end
+  end
+
+  defp cast_balance(value) do
+    case value |> trimmed_presence() |> then(&(&1 && Decimal.cast(&1))) do
+      {:ok, decimal} -> {:ok, decimal}
+      _ -> {:error, :invalid_balance}
+    end
   end
 
   @doc "Creates an API token for the email ingestion service."
@@ -432,9 +608,14 @@ defmodule Core.Finance do
   end
 
   @doc """
-  Moves money between two accounts (same currency, any of the actor's scopes)
-  as a linked expense/income pair, updating both balances atomically. Transfers
-  never count as income or spending.
+  Moves money between two accounts in any of the actor's scopes as a linked
+  expense/income pair, updating both balances atomically. Transfers never count
+  as income or spending.
+
+  When the accounts use different currencies, `"received_amount"` (in the
+  destination's currency) is required and each leg is stored in its own
+  account's currency; the rate is implied and shown in the descriptions.
+  Optional: `"transaction_date"` (defaults to `today/0`) and `"notes"`.
 
       Finance.create_account_transfer(user, user, %{"from_account_id" => a, "to_account_id" => b, "amount" => "50"})
   """
@@ -445,13 +626,12 @@ defmodule Core.Finance do
          {:ok, to_account} <-
            fetch_transfer_account(attrs, "to_account_id", :to_account_id, actor),
          :ok <- ensure_transfer_accounts_differ(from_account, to_account),
-         :ok <- ensure_transfer_same_currency(from_account, to_account),
-         {:ok, amount} <- parse_transfer_amount(attrs),
+         {:ok, amount} <- parse_transfer_amount(attrs, "amount", :amount),
+         {:ok, received} <- transfer_received_amount(attrs, from_account, to_account, amount),
          {:ok, transfer_date} <- parse_transfer_date(attrs) do
       notes = presence(Map.get(attrs, "notes") || Map.get(attrs, :notes))
 
       base = %{
-        "amount" => amount,
         "status" => "confirmed",
         "source" => "manual",
         "payment_method" => "bank_transfer",
@@ -459,12 +639,16 @@ defmodule Core.Finance do
         "notes" => notes
       }
 
+      {out_description, in_description} =
+        transfer_descriptions(from_account, to_account, amount, received)
+
       Repo.transaction(fn ->
         out_leg =
           insert_transfer_leg!(
             Map.merge(base, %{
+              "amount" => amount,
               "type" => "expense",
-              "description" => "Transfer to #{to_account.name}",
+              "description" => out_description,
               "account_id" => from_account.id
             }),
             resource_owner(from_account)
@@ -473,8 +657,9 @@ defmodule Core.Finance do
         in_leg =
           insert_transfer_leg!(
             Map.merge(base, %{
+              "amount" => received,
               "type" => "income",
-              "description" => "Transfer from #{from_account.name}",
+              "description" => in_description,
               "account_id" => to_account.id
             }),
             resource_owner(to_account)
@@ -483,12 +668,96 @@ defmodule Core.Finance do
         out_leg = link_transfer_counterpart!(out_leg, in_leg)
         in_leg = link_transfer_counterpart!(in_leg, out_leg)
 
-        shift_account_balance!(from_account, Decimal.negate(amount))
-        shift_account_balance!(to_account, amount)
+        apply_balance!(out_leg, :apply)
+        apply_balance!(in_leg, :apply)
 
         {out_leg, in_leg}
       end)
       |> broadcast_change()
+    end
+  end
+
+  @doc """
+  Edits a transfer from either leg: `"amount"` (sent), `"received_amount"`
+  (cross-currency only), `"transaction_date"` and `"notes"` change on both legs
+  and both balances move to match. The accounts can't change (delete the
+  transfer and make a new one). `{:ok, {out_leg, in_leg}}`.
+  """
+  def update_account_transfer(%User{} = actor, %Transaction{} = leg, attrs) do
+    with :ok <- ensure_resource_owner(actor, leg),
+         :ok <- ensure_counterpart_owner(actor, leg),
+         {:ok, out_leg, in_leg} <- transfer_legs(leg),
+         attrs = transfer_edit_attrs(attrs, out_leg, in_leg),
+         from_account = Repo.get!(Account, out_leg.account_id),
+         to_account = Repo.get!(Account, in_leg.account_id),
+         {:ok, amount} <- parse_transfer_amount(attrs, "amount", :amount),
+         {:ok, received} <- transfer_received_amount(attrs, from_account, to_account, amount),
+         {:ok, transfer_date} <- parse_transfer_date(attrs, out_leg.transaction_date) do
+      notes = if Map.has_key?(attrs, "notes"), do: presence(attrs["notes"]), else: out_leg.notes
+
+      {out_description, in_description} =
+        transfer_descriptions(from_account, to_account, amount, received)
+
+      shared = %{"transaction_date" => transfer_date, "notes" => notes}
+
+      Repo.transaction(fn ->
+        out_leg = lock_transaction(out_leg.id) || Repo.rollback(:not_found)
+        in_leg = lock_transaction(in_leg.id) || Repo.rollback(:not_found)
+
+        apply_balance!(out_leg, :reverse)
+        apply_balance!(in_leg, :reverse)
+
+        out_leg =
+          update_transfer_leg!(
+            out_leg,
+            Map.merge(shared, %{"amount" => amount, "description" => out_description})
+          )
+
+        in_leg =
+          update_transfer_leg!(
+            in_leg,
+            Map.merge(shared, %{"amount" => received, "description" => in_description})
+          )
+
+        apply_balance!(out_leg, :apply)
+        apply_balance!(in_leg, :apply)
+
+        {out_leg, in_leg}
+      end)
+      |> broadcast_change()
+    end
+  end
+
+  # String keys, with the legs' current amounts for anything left out.
+  defp transfer_edit_attrs(attrs, out_leg, in_leg) do
+    attrs = Map.new(attrs, fn {key, value} -> {to_string(key), value} end)
+
+    attrs
+    |> Map.put("amount", trimmed_presence(attrs["amount"]) || out_leg.amount)
+    |> Map.put("received_amount", trimmed_presence(attrs["received_amount"]) || in_leg.amount)
+  end
+
+  @doc """
+  Both legs of a transfer from either one: `{:ok, out_leg, in_leg}` (the
+  expense and the income side) or `{:error, :not_a_transfer}`. No access check.
+  """
+  def transfer_legs(%Transaction{counterpart_transaction_id: nil}), do: {:error, :not_a_transfer}
+
+  def transfer_legs(%Transaction{} = leg) do
+    case Repo.get(Transaction, leg.counterpart_transaction_id) do
+      nil -> {:error, :not_a_transfer}
+      %Transaction{type: "expense"} = counterpart -> {:ok, counterpart, leg}
+      counterpart -> {:ok, leg, counterpart}
+    end
+  end
+
+  defp update_transfer_leg!(%Transaction{} = leg, attrs) do
+    leg
+    |> Transaction.changeset(attrs)
+    |> Repo.update()
+    |> case do
+      {:ok, leg} -> leg
+      {:error, changeset} -> Repo.rollback(changeset)
     end
   end
 
@@ -514,29 +783,76 @@ defmodule Core.Finance do
 
   defp ensure_transfer_accounts_differ(_from, _to), do: :ok
 
-  defp ensure_transfer_same_currency(%Account{currency: currency}, %Account{currency: currency}),
-    do: :ok
+  # Same currency: the destination receives exactly what was sent. Different
+  # currencies: the caller says how much arrived (`:currency_mismatch` if not).
+  defp transfer_received_amount(
+         _attrs,
+         %Account{currency: currency},
+         %Account{currency: currency},
+         amount
+       ),
+       do: {:ok, amount}
 
-  defp ensure_transfer_same_currency(_from, _to), do: {:error, :currency_mismatch}
-
-  defp parse_transfer_amount(attrs) do
-    raw = Map.get(attrs, "amount") || Map.get(attrs, :amount)
-
-    case Decimal.cast(raw) do
-      {:ok, amount} ->
-        if Decimal.compare(amount, Decimal.new("0")) == :gt,
-          do: {:ok, amount},
-          else: {:error, :invalid_transfer_amount}
-
-      _ ->
-        {:error, :invalid_transfer_amount}
+  defp transfer_received_amount(attrs, _from, _to, _amount) do
+    case presence(Map.get(attrs, "received_amount") || Map.get(attrs, :received_amount)) do
+      nil -> {:error, :currency_mismatch}
+      _value -> parse_transfer_amount(attrs, "received_amount", :received_amount)
     end
   end
 
-  defp parse_transfer_date(attrs) do
+  defp transfer_descriptions(from_account, to_account, amount, received) do
+    rate =
+      case transfer_rate_label(from_account.currency, to_account.currency, amount, received) do
+        nil -> ""
+        label -> " · " <> label
+      end
+
+    {"Transfer to #{to_account.name}#{rate}", "Transfer from #{from_account.name}#{rate}"}
+  end
+
+  @doc """
+  The implied exchange rate of a cross-currency transfer, written per unit of
+  the stronger currency ("1 USD = 59.10 DOP"); nil for one currency.
+  """
+  def transfer_rate_label(currency, currency, _sent, _received), do: nil
+
+  def transfer_rate_label(from_currency, to_currency, sent, received) do
+    with {:ok, sent} <- Decimal.cast(sent),
+         {:ok, received} <- Decimal.cast(received),
+         true <- Decimal.positive?(sent) and Decimal.positive?(received) do
+      if Decimal.compare(sent, received) == :lt do
+        "1 #{from_currency} = #{format_rate(Decimal.div(received, sent))} #{to_currency}"
+      else
+        "1 #{to_currency} = #{format_rate(Decimal.div(sent, received))} #{from_currency}"
+      end
+    else
+      _ -> nil
+    end
+  end
+
+  defp format_rate(rate), do: rate |> Decimal.round(2) |> Decimal.to_string(:normal)
+
+  defp parse_transfer_amount(attrs, key, atom_key) do
+    raw = Map.get(attrs, key) || Map.get(attrs, atom_key)
+
+    error =
+      if key == "received_amount",
+        do: :invalid_received_amount,
+        else: :invalid_transfer_amount
+
+    case raw |> trimmed_presence() |> then(&(&1 && Decimal.cast(&1))) do
+      {:ok, amount} ->
+        if Decimal.positive?(amount), do: {:ok, amount}, else: {:error, error}
+
+      _ ->
+        {:error, error}
+    end
+  end
+
+  defp parse_transfer_date(attrs, default \\ nil) do
     case presence(Map.get(attrs, "transaction_date") || Map.get(attrs, :transaction_date)) do
       nil ->
-        {:ok, Date.utc_today()}
+        {:ok, default || today()}
 
       %Date{} = date ->
         {:ok, date}
@@ -546,6 +862,9 @@ defmodule Core.Finance do
           {:ok, date} -> {:ok, date}
           _ -> {:error, :invalid_transfer_date}
         end
+
+      _other ->
+        {:error, :invalid_transfer_date}
     end
   end
 
@@ -568,10 +887,20 @@ defmodule Core.Finance do
     |> Repo.update!()
   end
 
-  defp shift_account_balance!(%Account{} = account, delta) do
-    account
-    |> Ecto.Changeset.change(current_balance: Decimal.add(account.current_balance, delta))
-    |> Repo.update!()
+  @doc """
+  Today's date for finance defaults, at a fixed UTC offset
+  (`config :core, :finance_utc_offset_minutes`, default -240: the Dominican
+  Republic, which has no daylight saving). `Date.utc_today/0` would date
+  evening entries tomorrow.
+  """
+  def today, do: local_now() |> NaiveDateTime.to_date()
+
+  @doc "The current wall-clock time at the finance UTC offset (see `today/0`)."
+  def local_now do
+    offset = Application.get_env(:core, :finance_utc_offset_minutes, -240)
+
+    NaiveDateTime.utc_now()
+    |> NaiveDateTime.add(offset * 60, :second)
   end
 
   @doc "Confirmed income between two dates (single currency, legacy)."
@@ -588,7 +917,7 @@ defmodule Core.Finance do
     |> scope_query(owner)
     |> where([t], t.status == "confirmed")
     |> where([t], t.type == "income")
-    |> where([t], is_nil(t.counterpart_transaction_id))
+    |> cashflow_only()
     |> where([t], t.transaction_date >= ^start_date and t.transaction_date <= ^end_date)
     |> select([t], sum(t.amount))
     |> Repo.one() || Decimal.new(0)
@@ -608,7 +937,7 @@ defmodule Core.Finance do
     |> scope_query(owner)
     |> where([t], t.status == "confirmed")
     |> where([t], t.type == "expense")
-    |> where([t], is_nil(t.counterpart_transaction_id))
+    |> cashflow_only()
     |> where([t], t.transaction_date >= ^start_date and t.transaction_date <= ^end_date)
     |> select([t], sum(t.amount))
     |> Repo.one() || Decimal.new(0)
@@ -637,7 +966,7 @@ defmodule Core.Finance do
       |> scope_query(owner)
       |> join(:left, [transaction], account in assoc(transaction, :account))
       |> where([transaction, _account], transaction.status in ^statuses)
-      |> where([transaction, _account], is_nil(transaction.counterpart_transaction_id))
+      |> cashflow_only()
       |> where(
         [transaction, _account],
         transaction.transaction_date >= ^start_date and transaction.transaction_date <= ^end_date
@@ -786,7 +1115,11 @@ defmodule Core.Finance do
     end
   end
 
-  @doc "Edits an account; the currency is locked once it has transactions."
+  @doc """
+  Edits an account's details; the currency is locked once it has transactions.
+  The balance isn't editable here: correct it with `adjust_account_balance/4`,
+  so the change shows up in the account's history.
+  """
   def update_account(%User{} = user, %Account{} = account, attrs) do
     with :ok <- ensure_resource_owner(user, account) do
       account
@@ -794,6 +1127,8 @@ defmodule Core.Finance do
         Map.drop(Map.new(attrs), [
           "status",
           :status,
+          "current_balance",
+          :current_balance,
           "user_id",
           :user_id,
           "household_id",
@@ -912,16 +1247,20 @@ defmodule Core.Finance do
           account_id: transaction.account_id,
           income:
             fragment(
-              "COALESCE(SUM(CASE WHEN ? = 'income' AND ? = 'confirmed' THEN ? ELSE 0 END), 0)",
+              "COALESCE(SUM(CASE WHEN ? = 'income' AND ? = 'confirmed' AND ? IS NULL AND NOT ? THEN ? ELSE 0 END), 0)",
               transaction.type,
               transaction.status,
+              transaction.counterpart_transaction_id,
+              transaction.balance_adjustment,
               transaction.amount
             ),
           expenses:
             fragment(
-              "COALESCE(SUM(CASE WHEN ? = 'expense' AND ? = 'confirmed' THEN ? ELSE 0 END), 0)",
+              "COALESCE(SUM(CASE WHEN ? = 'expense' AND ? = 'confirmed' AND ? IS NULL AND NOT ? THEN ? ELSE 0 END), 0)",
               transaction.type,
               transaction.status,
+              transaction.counterpart_transaction_id,
+              transaction.balance_adjustment,
               transaction.amount
             ),
           transaction_count: count(transaction.id)
@@ -1283,10 +1622,13 @@ defmodule Core.Finance do
 
   @doc """
   Records a payment that lowers the debt (paid off at zero) and, when asked, logs it
-  as an expense, atomically.
+  as an expense, atomically. With `"account_id"` (an active account in the debt's
+  scope and currency) the expense is always logged on that account, so the money
+  leaves its balance. A payment can't exceed the debt's balance.
   """
   def record_debt_payment(%User{} = user, %Debt{} = debt, attrs \\ %{}) do
-    with :ok <- ensure_resource_owner(user, debt) do
+    with :ok <- ensure_resource_owner(user, debt),
+         {:ok, account_id} <- debt_payment_account(debt, attrs) do
       owner = resource_owner(debt)
 
       changeset =
@@ -1296,7 +1638,9 @@ defmodule Core.Finance do
 
       if changeset.valid? do
         Repo.transaction(fn ->
-          transaction = maybe_create_debt_payment_transaction!(user, debt, attrs, changeset)
+          transaction =
+            maybe_create_debt_payment_transaction!(user, debt, attrs, account_id, changeset)
+
           payment = insert_debt_payment!(changeset, transaction)
           update_debt_after_payment!(debt, payment)
           payment
@@ -1313,9 +1657,9 @@ defmodule Core.Finance do
     with :ok <- ensure_resource_owner(user, payment) do
       Repo.transaction(fn ->
         if payment.transaction_id do
-          case Repo.get(Transaction, payment.transaction_id) do
+          case lock_transaction(payment.transaction_id) do
             nil -> :ok
-            transaction -> Repo.delete!(transaction)
+            transaction -> delete_with_balance!(transaction)
           end
         end
 
@@ -1361,7 +1705,7 @@ defmodule Core.Finance do
   (default: this month's free cash flow). Not saved.
   """
   def generate_debt_payoff_comparison(%User{} = user, opts \\ []) do
-    today = Keyword.get(opts, :today, Date.utc_today())
+    today = Keyword.get(opts, :today, today())
     starts_on = Keyword.get(opts, :starts_on, Date.beginning_of_month(today))
     health = get_financial_health(user, today: today)
     monthly_amount = Keyword.get(opts, :monthly_amount, health.current_month.free_cash_flow)
@@ -1377,7 +1721,7 @@ defmodule Core.Finance do
   """
   def generate_debt_payoff_comparison(%User{} = actor, owner, opts) do
     with :ok <- ensure_scope_access(actor, owner) do
-      today = Keyword.get(opts, :today, Date.utc_today())
+      today = Keyword.get(opts, :today, today())
       starts_on = Keyword.get(opts, :starts_on, Date.beginning_of_month(today))
       health = get_financial_health(actor, owner, today: today)
       monthly_amount = Keyword.get(opts, :monthly_amount, health.current_month.free_cash_flow)
@@ -1412,7 +1756,7 @@ defmodule Core.Finance do
       "name" => "#{String.capitalize(plan.strategy)} payoff plan",
       "strategy" => plan.strategy,
       "monthly_amount" => plan.monthly_amount,
-      "starts_on" => Date.beginning_of_month(Date.utc_today()),
+      "starts_on" => Date.beginning_of_month(today()),
       "target_payoff_date" => plan.target_payoff_date,
       "snapshot" => stringify_plan(plan)
     })
@@ -1424,7 +1768,7 @@ defmodule Core.Finance do
       "name" => "#{String.capitalize(plan.strategy)} payoff plan",
       "strategy" => plan.strategy,
       "monthly_amount" => plan.monthly_amount,
-      "starts_on" => Date.beginning_of_month(Date.utc_today()),
+      "starts_on" => Date.beginning_of_month(today()),
       "target_payoff_date" => plan.target_payoff_date,
       "snapshot" => stringify_plan(plan)
     })
@@ -1477,7 +1821,8 @@ defmodule Core.Finance do
   """
   def create_savings_goal(%User{} = actor, owner, attrs) do
     with :ok <- ensure_scope_access(actor, owner),
-         attrs <- scope_attrs(attrs, owner) do
+         attrs <- scope_attrs(attrs, owner),
+         :ok <- ensure_goal_account(attrs, owner, %SavingsGoal{}) do
       %SavingsGoal{}
       |> SavingsGoal.changeset(attrs)
       |> Repo.insert()
@@ -1485,9 +1830,10 @@ defmodule Core.Finance do
     end
   end
 
-  @doc "Edits a savings goal."
+  @doc "Edits a savings goal; a linked account must share its scope and currency."
   def update_savings_goal(%User{} = user, %SavingsGoal{} = goal, attrs) do
-    with :ok <- ensure_resource_owner(user, goal) do
+    with :ok <- ensure_resource_owner(user, goal),
+         :ok <- ensure_goal_account(attrs, resource_owner(goal), goal) do
       goal
       |> SavingsGoal.changeset(attrs)
       |> Repo.update()
@@ -1495,20 +1841,93 @@ defmodule Core.Finance do
     end
   end
 
-  @doc "Adds `amount` to a goal's saved amount."
-  def contribute_to_savings_goal(%User{} = user, %SavingsGoal{} = goal, amount) do
-    with :ok <- ensure_resource_owner(user, goal) do
-      new_saved_amount = Decimal.add(goal.saved_amount || Decimal.new("0"), amount)
+  @doc """
+  Adds `amount` to a goal's saved amount. With `from_account_id:` the money
+  really moves: a transfer from that account into the goal's linked account
+  (`{:error, :goal_has_no_account}` if it has none), in the same transaction.
+  """
+  def contribute_to_savings_goal(%User{} = user, %SavingsGoal{} = goal, amount, opts \\ []) do
+    from_account_id = presence(Keyword.get(opts, :from_account_id))
 
-      status =
-        if Decimal.compare(new_saved_amount, goal.target_amount) != :lt,
-          do: "achieved",
-          else: goal.status
+    with :ok <- ensure_resource_owner(user, goal),
+         :ok <- ensure_goal_can_receive(goal, from_account_id) do
+      Repo.transaction(fn ->
+        transfer_leg =
+          if from_account_id do
+            case create_account_transfer(user, resource_owner(goal), %{
+                   "from_account_id" => from_account_id,
+                   "to_account_id" => goal.account_id,
+                   "amount" => amount,
+                   "notes" => "Savings goal: #{goal.name}"
+                 }) do
+              {:ok, {out_leg, _in_leg}} -> out_leg
+              {:error, reason} -> Repo.rollback(reason)
+            end
+          end
 
-      goal
-      |> SavingsGoal.changeset(%{"saved_amount" => new_saved_amount, "status" => status})
-      |> Repo.update()
-      |> broadcast_change()
+        new_saved_amount = Decimal.add(goal.saved_amount || Decimal.new("0"), amount)
+
+        status =
+          if Decimal.compare(new_saved_amount, goal.target_amount) != :lt,
+            do: "achieved",
+            else: goal.status
+
+        goal
+        |> SavingsGoal.changeset(%{"saved_amount" => new_saved_amount, "status" => status})
+        |> Repo.update()
+        |> case do
+          {:ok, goal} -> {goal, transfer_leg}
+          {:error, changeset} -> Repo.rollback(changeset)
+        end
+      end)
+      |> case do
+        {:ok, {goal, nil}} ->
+          broadcast_change({:ok, goal})
+
+        {:ok, {goal, leg}} ->
+          # the source account may be in another scope (personal -> household goal)
+          broadcast_change({:ok, {goal, leg}})
+          {:ok, goal}
+
+        error ->
+          error
+      end
+    end
+  end
+
+  defp ensure_goal_can_receive(_goal, nil), do: :ok
+
+  defp ensure_goal_can_receive(%SavingsGoal{account_id: nil}, _from),
+    do: {:error, :goal_has_no_account}
+
+  defp ensure_goal_can_receive(_goal, _from), do: :ok
+
+  # A goal's linked account must be active, in the goal's scope and currency.
+  defp ensure_goal_account(attrs, owner, %SavingsGoal{} = goal) do
+    case presence(Map.get(attrs, "account_id") || Map.get(attrs, :account_id)) do
+      nil ->
+        :ok
+
+      account_id when account_id == goal.account_id ->
+        :ok
+
+      account_id ->
+        currency = Map.get(attrs, "currency") || Map.get(attrs, :currency) || goal.currency
+        account = Repo.get(Account, account_id)
+
+        cond do
+          is_nil(account) or not same_scope?(owner, account) ->
+            {:error, :invalid_account_scope}
+
+          account.status != "active" ->
+            {:error, :archived_account}
+
+          normalize_currency(account.currency) != normalize_currency(currency) ->
+            {:error, :currency_mismatch}
+
+          true ->
+            :ok
+        end
     end
   end
 
@@ -1527,7 +1946,7 @@ defmodule Core.Finance do
   `Finance.Health`.
   """
   def get_financial_health(%User{} = user, opts \\ []) do
-    today = Keyword.get(opts, :today, Date.utc_today())
+    today = Keyword.get(opts, :today, today())
 
     current_month =
       month_summary(user, Date.beginning_of_month(today), Date.end_of_month(today))
@@ -1545,7 +1964,7 @@ defmodule Core.Finance do
   @doc "Scope version of `get_financial_health/2`."
   def get_financial_health(%User{} = actor, owner, opts) do
     with :ok <- ensure_scope_access(actor, owner) do
-      today = Keyword.get(opts, :today, Date.utc_today())
+      today = Keyword.get(opts, :today, today())
 
       current_month =
         month_summary(owner, Date.beginning_of_month(today), Date.end_of_month(today))
@@ -1574,6 +1993,7 @@ defmodule Core.Finance do
       |> join(:left, [transaction], account in assoc(transaction, :account))
       |> where([t], t.status == "confirmed")
       |> where([t], t.type == "expense")
+      |> cashflow_only()
       |> where([t], t.transaction_date >= ^budget.start_date)
       |> maybe_filter_by_end_date(budget.end_date)
       |> maybe_filter_by_category(budget.category_id)
@@ -1598,6 +2018,16 @@ defmodule Core.Finance do
       is_over: percentage > 100,
       is_near_limit: percentage >= budget.alert_threshold
     }
+  end
+
+  # Only real income and spending: no transfer legs, no balance adjustments.
+  # Every income/expense aggregate goes through this.
+  defp cashflow_only(query) do
+    where(
+      query,
+      [transaction],
+      is_nil(transaction.counterpart_transaction_id) and not transaction.balance_adjustment
+    )
   end
 
   defp maybe_filter_by_end_date(query, nil), do: query
@@ -1648,6 +2078,7 @@ defmodule Core.Finance do
     |> scope_query(owner)
     |> where([transaction], transaction.status == "confirmed")
     |> where([transaction], transaction.type == ^type)
+    |> cashflow_only()
     |> where(
       [transaction],
       transaction.transaction_date >= ^start_date and transaction.transaction_date <= ^end_date
@@ -1667,6 +2098,7 @@ defmodule Core.Finance do
     |> scope_query(owner)
     |> where([transaction], transaction.status == "confirmed")
     |> where([transaction], transaction.type == "expense")
+    |> cashflow_only()
     |> where(
       [transaction],
       transaction.transaction_date >= ^start_date and transaction.transaction_date <= ^end_date
@@ -1746,20 +2178,46 @@ defmodule Core.Finance do
     )
   end
 
+  # Every kind is capped at the balance: the balance floors at zero, so a bigger
+  # payment couldn't be undone exactly by delete_debt_payment/2.
   defp validate_debt_payment_amount(changeset, debt) do
     amount = Ecto.Changeset.get_field(changeset, :amount)
-    kind = Ecto.Changeset.get_field(changeset, :kind)
 
-    if amount && kind in ["minimum", "extra"] &&
-         Decimal.compare(amount, debt.current_balance) == :gt do
+    if amount && Decimal.compare(amount, debt.current_balance) == :gt do
       Ecto.Changeset.add_error(changeset, :amount, "cannot exceed current balance")
     else
       changeset
     end
   end
 
-  defp maybe_create_debt_payment_transaction!(user, debt, attrs, changeset) do
-    if create_expense_transaction?(attrs) do
+  # {:ok, nil} (no account: the payment isn't tracked against a balance) or
+  # {:ok, account_id} for an active account in the debt's scope and currency.
+  defp debt_payment_account(%Debt{} = debt, attrs) do
+    case presence(Map.get(attrs, "account_id") || Map.get(attrs, :account_id)) do
+      nil ->
+        {:ok, nil}
+
+      account_id ->
+        account = Repo.get(Account, account_id)
+
+        cond do
+          is_nil(account) or not same_scope?(resource_owner(debt), account) ->
+            {:error, :invalid_account_scope}
+
+          account.status != "active" ->
+            {:error, :archived_account}
+
+          normalize_currency(account.currency) != normalize_currency(debt.currency) ->
+            {:error, :currency_mismatch}
+
+          true ->
+            {:ok, account.id}
+        end
+    end
+  end
+
+  defp maybe_create_debt_payment_transaction!(user, debt, attrs, account_id, changeset) do
+    if account_id || create_expense_transaction?(attrs) do
       amount = Ecto.Changeset.get_field(changeset, :amount)
       payment_date = Ecto.Changeset.get_field(changeset, :payment_date)
 
@@ -1768,6 +2226,7 @@ defmodule Core.Finance do
              "type" => "expense",
              "description" => "Debt payment: #{debt.name}",
              "transaction_date" => payment_date,
+             "account_id" => account_id,
              "notes" => Ecto.Changeset.get_field(changeset, :notes)
            }) do
         {:ok, transaction} -> transaction
@@ -1908,7 +2367,9 @@ defmodule Core.Finance do
     end
   end
 
-  defp ensure_account_in_scope(attrs, owner) do
+  # The account must be in the owner's scope and active, unless it's the one the
+  # transaction already uses (editing a row on a since-archived account is fine).
+  defp ensure_account_in_scope(attrs, owner, current_account_id) do
     case Map.get(attrs, "account_id") || Map.get(attrs, :account_id) do
       nil ->
         :ok
@@ -1916,13 +2377,16 @@ defmodule Core.Finance do
       "" ->
         :ok
 
+      ^current_account_id ->
+        :ok
+
       account_id ->
         account = Repo.get(Account, account_id)
 
-        if account && same_scope?(owner, account) do
-          :ok
-        else
-          {:error, :invalid_account_scope}
+        cond do
+          is_nil(account) or not same_scope?(owner, account) -> {:error, :invalid_account_scope}
+          account.status != "active" -> {:error, :archived_account}
+          true -> :ok
         end
     end
   end

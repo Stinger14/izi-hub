@@ -444,7 +444,7 @@ defmodule CoreWeb.HubLive do
     owner = if scope == "household", do: household, else: user
 
     assign(socket,
-      finance: finance_snapshot(user, owner, Date.utc_today()),
+      finance: finance_snapshot(user, owner, Finance.today()),
       finance_scope: scope,
       finance_household: household,
       finance_invitations: length(Accounts.list_pending_invitations_for_user(user))

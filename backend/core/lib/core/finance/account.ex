@@ -2,9 +2,12 @@ defmodule Core.Finance.Account do
   @moduledoc """
   A money account (checking, savings, card, cash…) with a currency and balance.
 
-  Context: Owned by exactly one user or household (DB check constraint). Balances
-  move with transactions and transfers; archived accounts keep their history.
-  Managed through `Core.Finance`.
+  Context: Owned by exactly one user or household (DB check constraint).
+  `current_balance` is signed: credit cards and loans (`liability?/1`) hold a
+  negative balance for what's owed, so income/transfers in always add and
+  expenses/transfers out always subtract. It moves with confirmed transactions,
+  transfers and balance adjustments (`Core.Finance`); archived accounts keep
+  their history.
   """
 
   use Ecto.Schema
@@ -32,7 +35,13 @@ defmodule Core.Finance.Account do
   end
 
   @kinds ["checking", "savings", "cash", "credit_card", "investment", "loan", "other"]
+  @liability_kinds ["credit_card", "loan"]
   @statuses ["active", "archived"]
+
+  @doc "Whether an account kind (or account) is a liability: a negative balance means owed."
+  def liability?(%{kind: kind}), do: liability?(kind)
+  def liability?(kind) when kind in @liability_kinds, do: true
+  def liability?(_kind), do: false
 
   @doc "Validates name, kind, currency and balances, and the single owner."
   def changeset(account, attrs) do

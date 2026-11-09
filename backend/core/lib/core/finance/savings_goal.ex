@@ -3,7 +3,9 @@ defmodule Core.Finance.SavingsGoal do
   A target amount being saved toward.
 
   Context: Owned by exactly one user or household (DB check constraint). Goal bars
-  fill up as money is added (`contribute_to_savings_goal/3`).
+  fill up as money is added (`contribute_to_savings_goal/4`). An optional linked
+  `account` (same scope and currency) is where the money lives: contributing from
+  another account transfers into it.
   """
 
   use Ecto.Schema
@@ -21,6 +23,7 @@ defmodule Core.Finance.SavingsGoal do
     field :status, :string, default: "active"
     field :notes, :string
 
+    belongs_to :account, Core.Finance.Account
     belongs_to :user, Core.Accounts.User
     belongs_to :household, Core.Accounts.Household
 
@@ -40,10 +43,11 @@ defmodule Core.Finance.SavingsGoal do
       :target_date,
       :status,
       :notes,
+      :account_id,
       :user_id,
       :household_id
     ])
-    |> normalize_blank_fields([:target_date, :notes])
+    |> normalize_blank_fields([:target_date, :notes, :account_id])
     |> validate_required([:name, :target_amount, :currency, :status])
     |> validate_length(:name, min: 1, max: 120)
     |> validate_length(:currency, is: 3)
@@ -55,6 +59,7 @@ defmodule Core.Finance.SavingsGoal do
     |> validate_owner_scope()
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:household_id)
+    |> foreign_key_constraint(:account_id)
   end
 
   defp normalize_blank_fields(changeset, fields) do
