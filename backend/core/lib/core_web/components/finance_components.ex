@@ -858,7 +858,7 @@ defmodule CoreWeb.FinanceComponents do
         <div class="flex items-center justify-between gap-4 border-b border-[color:var(--fin-border)] px-5 py-4 sm:px-6">
           <div>
             <h3 class="text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">
-              <%= focus_panel_title(@panel) %>
+              <%= focus_panel_title(@panel, assigns[:editing_transaction_id], assigns[:editing_transfer_id]) %>
             </h3>
           </div>
           <button type="button" phx-click="close_focus_panel" class="btn btn-ghost btn-xs">
@@ -973,9 +973,10 @@ defmodule CoreWeb.FinanceComponents do
 
   def accounts_panel(assigns) do
     ~H"""
-    <section class="space-y-5">
+    <.account_detail_view :if={@account_detail} {assigns} />
+    <section :if={!@account_detail} class="space-y-5">
       <div :if={@accounts != []} class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <.account_card :for={account <- @accounts} account={account} />
+        <.account_card_link :for={account <- @accounts} account={account} />
       </div>
 
       <div class="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
@@ -987,9 +988,9 @@ defmodule CoreWeb.FinanceComponents do
         <.form for={@account_form} id="account-section-form" phx-submit={record_submit(@editing, "account", "create_account")} class="mt-5 space-y-4">
           <input type="hidden" name="origin" value="section" />
           <.edit_marker editing={@editing} type="account" />
-          <.account_form_fields form={@account_form} />
+          <.account_form_fields form={@account_form} editing={editing?(@editing, "account")} />
           <p :if={editing?(@editing, "account")} class="text-xs leading-5 text-[color:var(--fin-muted)]">
-            Changing the current balance corrects it directly; it doesn't create a transaction.
+            To correct the balance, open the account and use Adjust balance.
             The currency can't change once the account has transactions.
           </p>
 
@@ -1002,20 +1003,25 @@ defmodule CoreWeb.FinanceComponents do
           <div>
             <h2 class="text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]">Active</h2>
           </div>
-          <span class="whitespace-nowrap rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1 text-xs font-semibold text-[var(--fin-accent)]">
-            <%= money_totals(@account_total_balance_totals) %>
-          </span>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="whitespace-nowrap rounded-full border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-1 text-xs font-semibold text-[var(--fin-accent)]">
+              <%= money_totals(@account_total_balance_totals) %>
+            </span>
+            <button type="button" phx-click="open_transfer" class="btn btn-secondary btn-xs">Transfer</button>
+          </div>
         </div>
 
         <div class="mt-5 space-y-3">
           <div :for={summary <- @account_summaries} class="rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
             <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="font-semibold text-[color:var(--fin-text)]"><%= summary.account.name %></p>
+              <div class="min-w-0">
+                <button type="button" phx-click="show_account" phx-value-id={summary.account.id} class="truncate text-left font-semibold text-[color:var(--fin-text)] hover:text-[var(--fin-accent)]">
+                  <%= summary.account.name %>
+                </button>
                 <p class="mt-1 text-xs text-[color:var(--fin-muted)]"><%= account_summary_subtitle(summary.account) %></p>
               </div>
               <div class="text-right">
-                <p class="font-semibold text-[color:var(--fin-text)]"><%= money(summary.account.current_balance, summary.account.currency) %></p>
+                <p class="font-semibold text-[color:var(--fin-text)]"><%= account_balance_label(summary.account) %></p>
                 <p class="mt-1 text-xs text-[color:var(--fin-muted)]"><%= signed_decimal(summary.net, summary.account.currency) %> this range</p>
               </div>
             </div>
@@ -1034,6 +1040,7 @@ defmodule CoreWeb.FinanceComponents do
                 confirming_delete={@confirming_delete}
                 delete={!MapSet.member?(@account_ids_with_history, summary.account.id)}
               >
+                <.icon_button icon="hero-arrow-right" label={"Open #{summary.account.name}"} phx-click="show_account" phx-value-id={summary.account.id} />
                 <.icon_button icon="hero-archive-box" label={"Archive #{summary.account.name}"} phx-click="archive_account" phx-value-id={summary.account.id} />
               </.record_actions>
             </div>
@@ -1052,7 +1059,7 @@ defmodule CoreWeb.FinanceComponents do
             <div :for={account <- @archived_accounts} class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-[color:var(--fin-border)] px-4 py-3">
               <div>
                 <p class="text-sm font-semibold text-[color:var(--fin-text)]"><%= account.name %></p>
-                <p class="text-xs text-[color:var(--fin-muted)]"><%= money(account.current_balance, account.currency) %> · archived</p>
+                <p class="text-xs text-[color:var(--fin-muted)]"><%= account_balance_label(account) %> · archived</p>
               </div>
               <.record_actions
                 type="account"
@@ -1062,6 +1069,7 @@ defmodule CoreWeb.FinanceComponents do
                 edit={false}
                 delete={!MapSet.member?(@account_ids_with_history, account.id)}
               >
+                <.icon_button icon="hero-arrow-right" label={"Open #{account.name}"} phx-click="show_account" phx-value-id={account.id} />
                 <.icon_button icon="hero-arrow-uturn-left" label={"Restore #{account.name}"} phx-click="restore_account" phx-value-id={account.id} />
               </.record_actions>
             </div>
@@ -1073,10 +1081,190 @@ defmodule CoreWeb.FinanceComponents do
     """
   end
 
+  @doc """
+  One account's page inside the Accounts section: balance, transfer in/out,
+  Adjust balance, and its history with the balance after each transaction.
+  """
+  def account_detail_view(assigns) do
+    assigns = assign(assigns, :account, assigns.account_detail.account)
+
+    ~H"""
+    <section id="account-detail" class="space-y-5">
+      <.fin_card>
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="min-w-0">
+            <button type="button" phx-click="close_account" class="inline-flex items-center gap-1 text-xs font-semibold text-[var(--fin-accent)]">
+              <.icon name="hero-arrow-left" class="h-3.5 w-3.5" /> All accounts
+            </button>
+            <h2 class="mt-2 truncate text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]"><%= @account.name %></h2>
+            <p class="mt-1 text-xs text-[color:var(--fin-muted)]">
+              <%= account_summary_subtitle(@account) %><%= if @account.status == "archived", do: " · Archived" %>
+            </p>
+          </div>
+          <p id="account-detail-balance" class="font-mono text-2xl font-semibold tracking-tight text-[color:var(--fin-text)] sm:text-3xl">
+            <%= account_balance_label(@account) %>
+          </p>
+        </div>
+
+        <div class="mt-5 flex flex-wrap items-center gap-2">
+          <button :if={@account.status == "active"} type="button" phx-click="open_transfer" phx-value-from={@account.id} class="btn btn-primary btn-sm">
+            Transfer out
+          </button>
+          <button :if={@account.status == "active"} type="button" phx-click="open_transfer" phx-value-to={@account.id} class="btn btn-secondary btn-sm">
+            Transfer in
+          </button>
+          <.icon_button icon="hero-pencil-square" label={"Edit #{@account.name}"} phx-click="edit_record" phx-value-type="account" phx-value-id={@account.id} />
+          <.icon_button :if={@account.status == "active"} icon="hero-archive-box" label={"Archive #{@account.name}"} phx-click="archive_account" phx-value-id={@account.id} />
+          <.icon_button :if={@account.status != "active"} icon="hero-arrow-uturn-left" label={"Restore #{@account.name}"} phx-click="restore_account" phx-value-id={@account.id} />
+        </div>
+      </.fin_card>
+
+      <div class="grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
+        <.fin_card class="min-w-0">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">History</h3>
+            <span class="text-xs text-[color:var(--fin-muted)]">Balance after each</span>
+          </div>
+
+          <div class="mt-3 divide-y divide-[color:var(--fin-border)]">
+            <div :for={{transaction, balance} <- @account_detail.rows} id={"account-txn-#{transaction.id}"} class="flex items-start justify-between gap-3 py-3">
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium text-[color:var(--fin-text)]"><%= transaction.description || review_title(transaction) %></p>
+                <p class="mt-0.5 text-xs text-[color:var(--fin-muted)]">
+                  <%= format_date(transaction.transaction_date) %><%= if transaction.category, do: " · #{transaction.category.name}" %>
+                </p>
+                <div class="mt-1.5"><.transaction_kind_badge transaction={transaction} /></div>
+              </div>
+              <div class="shrink-0 text-right">
+                <p class={["font-mono text-sm font-semibold", tone_class(transaction.type)]}><%= signed_money(transaction) %></p>
+                <p class="mt-0.5 font-mono text-xs text-[color:var(--fin-muted)]">
+                  <%= if balance, do: money(balance, @account.currency), else: "Not counted yet" %>
+                </p>
+                <div class="mt-1"><.transaction_actions transaction={transaction} confirming_delete={@confirming_delete} /></div>
+              </div>
+            </div>
+          </div>
+
+          <div :if={@account_detail.rows == []} class="mt-3 rounded-xl border border-dashed border-[color:var(--fin-border)] p-4 text-sm text-[color:var(--fin-muted)]">
+            No transactions yet. Add one, or move money in with Transfer in.
+          </div>
+
+          <div :if={length(@account_detail.rows) < @account_detail.total} class="mt-3 flex justify-center">
+            <button type="button" phx-click="more_account_transactions" class="btn btn-ghost btn-xs">
+              Show older (<%= @account_detail.total - length(@account_detail.rows) %> more)
+            </button>
+          </div>
+        </.fin_card>
+
+        <div class="space-y-5">
+          <.fin_card>
+            <h3 class="text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">Adjust balance</h3>
+            <p class="mt-1 text-xs leading-5 text-[color:var(--fin-muted)]">
+              Enter what your bank shows. The difference is recorded as an adjustment, which doesn't count as income or spending.
+            </p>
+            <form id="adjust-balance-form" phx-submit="adjust_balance" class="mt-4 space-y-3">
+              <input type="hidden" name="account_id" value={@account.id} />
+              <label class="block">
+                <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">
+                  <%= if Account.liability?(@account), do: "Amount owed now", else: "Actual balance" %> (<%= @account.currency %>)
+                </span>
+                <input type="number" name="adjustment[balance]" step="0.01" required value={balance_input_value(@account)} class={"#{transfer_field_class()} font-mono"} />
+              </label>
+              <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                <label class="block">
+                  <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Date</span>
+                  <input type="date" name="adjustment[transaction_date]" value={Date.to_iso8601(Core.Finance.today())} class={transfer_field_class()} />
+                </label>
+                <label class="block">
+                  <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Note</span>
+                  <input type="text" name="adjustment[notes]" placeholder="Bank statement" class={transfer_field_class()} />
+                </label>
+              </div>
+              <div class="flex justify-end">
+                <button type="submit" class="btn btn-primary btn-sm">Update balance</button>
+              </div>
+            </form>
+          </.fin_card>
+
+          <.fin_card :if={editing?(@editing, "account")}>
+            <h3 class="text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">Edit details</h3>
+            <.form for={@account_form} id="account-detail-form" phx-submit="update_record" class="mt-4 space-y-4">
+              <.edit_marker editing={@editing} type="account" />
+              <.account_form_fields form={@account_form} editing />
+              <.form_submit editing={@editing} type="account" create_label="Save account" />
+            </.form>
+          </.fin_card>
+        </div>
+      </div>
+    </section>
+    """
+  end
+
+  attr :account, :map, required: true
+
+  @doc "An account card that opens the account's detail view."
+  def account_card_link(assigns) do
+    ~H"""
+    <button
+      type="button"
+      phx-click="show_account"
+      phx-value-id={@account.id}
+      aria-label={"Open #{@account.name}"}
+      class="block w-full rounded-2xl text-left transition hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--fin-accent)]"
+    >
+      <.account_card account={@account} />
+    </button>
+    """
+  end
+
+  attr :transaction, :any, required: true
+
+  @doc "Transfer / Adjustment badge, or the status badge for a regular transaction."
+  def transaction_kind_badge(assigns) do
+    ~H"""
+    <.fin_badge :if={@transaction.counterpart_transaction_id} tone="muted">Transfer</.fin_badge>
+    <.fin_badge :if={@transaction.balance_adjustment} tone="muted">Adjustment</.fin_badge>
+    <.fin_badge
+      :if={!@transaction.counterpart_transaction_id and !@transaction.balance_adjustment}
+      tone={transaction_status_tone(@transaction.status)}
+    >
+      <%= transaction_status_label(@transaction.status) %>
+    </.fin_badge>
+    """
+  end
+
+  attr :transaction, :any, required: true
+  attr :confirming_delete, :any, default: nil
+
+  @doc """
+  Edit and Delete for a transaction row. Transfers open the transfer form;
+  adjustments can only be deleted. Delete asks inline first.
+  """
+  def transaction_actions(assigns) do
+    assigns = assign(assigns, :label, assigns.transaction.description || "transaction")
+
+    ~H"""
+    <span class="inline-flex flex-wrap items-center justify-end gap-1">
+      <%= if @confirming_delete == {"transaction", @transaction.id} do %>
+        <span class="text-xs text-[color:var(--fin-text)]">
+          <%= if @transaction.counterpart_transaction_id, do: "Delete both sides?", else: "Delete?" %>
+        </span>
+        <button type="button" phx-click="confirm_delete" phx-value-type="transaction" phx-value-id={@transaction.id} aria-label={"Confirm delete #{@label}"} class="btn btn-danger btn-xs">
+          Delete
+        </button>
+        <button type="button" phx-click="cancel_delete" class="btn btn-ghost btn-xs">Cancel</button>
+      <% else %>
+        <.icon_button :if={!@transaction.balance_adjustment} icon="hero-pencil-square" label={"Edit #{@label}"} phx-click="open_edit_transaction" phx-value-id={@transaction.id} />
+        <.icon_button icon="hero-trash" tone="danger" label={"Delete #{@label}"} phx-click="request_delete" phx-value-type="transaction" phx-value-id={@transaction.id} />
+      <% end %>
+    </span>
+    """
+  end
+
   def transfer_panel(assigns) do
     ~H"""
     <section class="mx-auto max-w-xl">
-      <div :if={transfer_account_count(@transfer_account_groups) < 2} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 text-sm text-[color:var(--fin-muted)]">
+      <div :if={!@transfer_locked and transfer_account_count(@transfer_account_groups) < 2} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-5 text-sm text-[color:var(--fin-muted)]">
         You need at least two accounts — personal or household — to move money between them.
         Add one to <%= if @ownership_scope == "household" and @selected_household, do: @selected_household.name, else: "your personal finances" %>
         or switch scope to add it there.
@@ -1090,16 +1278,23 @@ defmodule CoreWeb.FinanceComponents do
         </button>
       </div>
 
-      <form :if={transfer_account_count(@transfer_account_groups) >= 2} id="transfer-panel-form" phx-submit="create_transfer" class="space-y-4">
-        <.transfer_form_fields groups={@transfer_account_groups} />
-
-        <p class="text-xs leading-5 text-[color:var(--fin-muted)]">
-          Both accounts must use the same currency.
-        </p>
+      <form
+        :if={@transfer_locked || transfer_account_count(@transfer_account_groups) >= 2}
+        id="transfer-panel-form"
+        phx-change="change_transfer"
+        phx-submit={if @editing_transfer_id, do: "update_transfer", else: "create_transfer"}
+        class="space-y-4"
+      >
+        <.transfer_form_fields
+          groups={@transfer_account_groups}
+          params={@transfer_params}
+          locked={@transfer_locked}
+          error={@transfer_error}
+        />
 
         <div class="flex justify-end">
-          <button type="submit" aria-label="Record transfer" class="btn btn-primary btn-sm">
-            Transfer
+          <button type="submit" aria-label={if @editing_transfer_id, do: "Save transfer", else: "Record transfer"} class="btn btn-primary btn-sm">
+            <%= if @editing_transfer_id, do: "Save transfer", else: "Transfer" %>
           </button>
         </div>
       </form>
@@ -1107,70 +1302,154 @@ defmodule CoreWeb.FinanceComponents do
     """
   end
 
-  # Shared From/To account selects + amount input for account-to-account
-  # transfers. Caller owns the surrounding <form phx-submit="create_transfer">
-  # and its own submit/disclaimer content, since the modal and the dashboard's
-  # Quick Send card each want different chrome around the same fields.
+  # Shared transfer fields for the modal and the Overview's quick-send card.
+  # The caller owns the <form phx-change="change_transfer" phx-submit=...>;
+  # `params` (the LiveView's @transfer_params) keeps the typed values so the
+  # "Received amount" field shows as soon as the currencies differ. While
+  # editing, `locked` holds the two accounts, which can't change.
   attr :groups, :list, required: true, doc: "[{label, accounts}] from transfer_account_groups"
+  attr :params, :map, default: %{}
+  attr :locked, :any, default: nil, doc: "{from_account, to_account} while editing"
+  attr :compact, :boolean, default: false, doc: "hide date and notes (quick-send card)"
+  attr :error, :string, default: nil
 
   defp transfer_form_fields(assigns) do
-    assigns = assign(assigns, :default_to_id, default_transfer_to(assigns.groups))
+    accounts = Enum.flat_map(assigns.groups, fn {_label, accounts} -> accounts end)
+    params = assigns.params || %{}
+
+    {from, to} =
+      case assigns.locked do
+        {from, to} ->
+          {from, to}
+
+        nil ->
+          from = find_account(accounts, params["from_account_id"]) || List.first(accounts)
+
+          to =
+            find_account(accounts, params["to_account_id"]) || default_transfer_to(accounts, from)
+
+          {from, to}
+      end
+
+    cross_currency = !!(from && to && from.currency != to.currency)
+
+    assigns =
+      assign(assigns,
+        params: params,
+        from: from,
+        to: to,
+        cross_currency: cross_currency,
+        rate:
+          cross_currency &&
+            Core.Finance.transfer_rate_label(
+              from.currency,
+              to.currency,
+              params["amount"],
+              params["received_amount"]
+            ),
+        field_class: transfer_field_class()
+      )
 
     ~H"""
     <div class="space-y-3">
-      <div class="grid gap-3 sm:grid-cols-2">
+      <div :if={@locked} class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-2.5 text-sm text-[color:var(--fin-text)]">
+        <span class="font-semibold"><%= @from.name %></span>
+        <.icon name="hero-arrow-right" class="mx-1 inline h-3.5 w-3.5 text-[color:var(--fin-muted)]" />
+        <span class="font-semibold"><%= @to.name %></span>
+        <p class="mt-1 text-xs text-[color:var(--fin-muted)]">To use other accounts, delete this transfer and record a new one.</p>
+      </div>
+
+      <div :if={!@locked} class="grid gap-3 sm:grid-cols-2">
         <label class="block">
           <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">From</span>
-          <select name="transfer[from_account_id]" class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-3 py-2.5 text-sm text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--fin-accent)_25%,transparent)]">
+          <select name="transfer[from_account_id]" class={@field_class}>
             <optgroup :for={{label, accounts} <- @groups} label={label}>
-              <option :for={account <- accounts} value={account.id}><%= account.name %> (<%= account.currency %>)</option>
+              <option :for={account <- accounts} value={account.id} selected={@from && account.id == @from.id}><%= account.name %> · <%= account_balance_label(account) %></option>
             </optgroup>
           </select>
         </label>
         <label class="block">
           <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">To</span>
-          <select name="transfer[to_account_id]" class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-3 py-2.5 text-sm text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--fin-accent)_25%,transparent)]">
+          <select name="transfer[to_account_id]" class={@field_class}>
             <optgroup :for={{label, accounts} <- @groups} label={label}>
-              <option :for={account <- accounts} value={account.id} selected={account.id == @default_to_id}><%= account.name %> (<%= account.currency %>)</option>
+              <option :for={account <- accounts} value={account.id} selected={@to && account.id == @to.id}><%= account.name %> · <%= account_balance_label(account) %></option>
             </optgroup>
           </select>
         </label>
       </div>
 
-      <label class="block">
-        <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Amount</span>
-        <input
-          type="number"
-          name="transfer[amount]"
-          step="0.01"
-          min="0.01"
-          required
-          placeholder="500.00"
-          class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-3 py-2.5 text-sm text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--fin-accent)_25%,transparent)]"
-        />
-      </label>
+      <div class={["grid gap-3", @cross_currency && "sm:grid-cols-2"]}>
+        <label class="block">
+          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">
+            <%= if @cross_currency, do: "Amount sent (#{@from.currency})", else: "Amount" %>
+          </span>
+          <input type="number" name="transfer[amount]" step="0.01" min="0.01" required placeholder="500.00" value={@params["amount"]} class={@field_class} />
+        </label>
+        <label :if={@cross_currency} class="block">
+          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">
+            Amount received (<%= @to.currency %>)
+          </span>
+          <input type="number" name="transfer[received_amount]" step="0.01" min="0.01" required placeholder="0.00" value={@params["received_amount"]} class={@field_class} />
+        </label>
+      </div>
+
+      <p :if={@cross_currency} class="text-xs leading-5 text-[color:var(--fin-muted)]">
+        <%= if @rate, do: "Rate: #{@rate}", else: "Different currencies: enter what left #{@from.name} and what arrived in #{@to.name}." %>
+      </p>
+
+      <div :if={!@compact} class="grid gap-3 sm:grid-cols-[11rem_minmax(0,1fr)]">
+        <label class="block">
+          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Date</span>
+          <input type="date" name="transfer[transaction_date]" value={@params["transaction_date"] || Date.to_iso8601(Core.Finance.today())} class={@field_class} />
+        </label>
+        <label class="block">
+          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Note</span>
+          <input type="text" name="transfer[notes]" placeholder="Optional" value={@params["notes"]} class={@field_class} />
+        </label>
+      </div>
+
+      <p :if={@error} role="alert" class={["text-sm font-medium", tone_class("expense")]}><%= @error %></p>
     </div>
     """
   end
 
-  # Orders the "To" options so the default selection (the first option, since
-  # none carry a `selected` attribute) is a same-currency account other than
-  # the default "From" (always the first account) — otherwise the untouched
-  # defaults are a guaranteed-to-fail cross-currency pair. Falls back to the
-  # old "next account in list" order when no same-currency match exists.
   def transfer_account_count(groups),
     do: Enum.reduce(groups, 0, fn {_label, accounts}, acc -> acc + length(accounts) end)
 
-  # "From" defaults to the first account; "To" to the next account with the
-  # same currency (any scope), falling back to any other account.
-  defp default_transfer_to(groups) do
-    case Enum.flat_map(groups, fn {_label, accounts} -> accounts end) do
-      [from | rest] ->
-        (Enum.find(rest, &(&1.currency == from.currency)) || List.first(rest) || %{id: nil}).id
+  defp find_account(_accounts, nil), do: nil
+  defp find_account(_accounts, ""), do: nil
+  defp find_account(accounts, id), do: Enum.find(accounts, &(&1.id == id))
 
-      [] ->
-        nil
-    end
+  # "To" defaults to another account with the same currency as "From" (any
+  # scope), falling back to any other account.
+  defp default_transfer_to(_accounts, nil), do: nil
+
+  defp default_transfer_to(accounts, from) do
+    others = Enum.reject(accounts, &(&1.id == from.id))
+    Enum.find(others, &(&1.currency == from.currency)) || List.first(others)
+  end
+
+  defp transfer_field_class,
+    do:
+      "w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-3 py-2.5 text-sm text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--fin-accent)_25%,transparent)]"
+
+  @doc """
+  An account's balance for display. Credit cards and loans are stored negative
+  while owed and read "Owed RD$5,000.00".
+  """
+  def account_balance_label(%{current_balance: balance, currency: currency} = account) do
+    balance = balance || Decimal.new("0")
+
+    if Account.liability?(account) and Decimal.negative?(balance),
+      do: "Owed " <> money(Decimal.abs(balance), currency),
+      else: money(balance, currency)
+  end
+
+  # The Adjust balance input's starting value: what's owed for a liability.
+  defp balance_input_value(account) do
+    balance = account.current_balance || Decimal.new("0")
+    balance = if Account.liability?(account), do: Decimal.negate(balance), else: balance
+    Decimal.to_string(balance, :normal)
   end
 
   @doc """
@@ -1197,6 +1476,7 @@ defmodule CoreWeb.FinanceComponents do
   # Shared account fields for both the full Accounts section form and the
   # quick-add focus panel.
   attr :form, :any, required: true
+  attr :editing, :boolean, default: false
 
   defp account_form_fields(assigns) do
     ~H"""
@@ -1206,7 +1486,10 @@ defmodule CoreWeb.FinanceComponents do
         <.finance_input form={@form} field={:institution} label="Institution" placeholder="Popular Bank" />
         <.finance_select form={@form} field={:kind} label="Kind" options={account_kind_options()} />
         <.finance_select form={@form} field={:currency} label="Currency" options={currency_options()} />
-        <.finance_input form={@form} field={:current_balance} label="Current balance" type="number" step="0.01" placeholder="2400.00" />
+        <div :if={!@editing}>
+          <.finance_input form={@form} field={:current_balance} label="Starting balance" type="number" step="0.01" placeholder="2400.00" />
+          <p class="mt-1 text-xs text-[color:var(--fin-muted)]">Credit card or loan? Enter the amount you owe.</p>
+        </div>
         <.finance_input form={@form} field={:available_balance} label="Available balance" type="number" step="0.01" placeholder="2200.00" />
       </div>
 
@@ -1376,7 +1659,7 @@ defmodule CoreWeb.FinanceComponents do
             Add debts to compare payoff strategies.
           </div>
 
-          <.debt_card :for={debt <- @debts} debt={debt} payment_form={@payment_form} payment_form_debt_id={@payment_form_debt_id} confirming_delete={@confirming_delete} />
+          <.debt_card :for={debt <- @debts} debt={debt} accounts={@accounts} payment_form={@payment_form} payment_form_debt_id={@payment_form_debt_id} confirming_delete={@confirming_delete} />
         </div>
       </div>
 
@@ -1416,6 +1699,10 @@ defmodule CoreWeb.FinanceComponents do
             <.finance_input form={@goal_form} field={:saved_amount} label="Already saved" type="number" step="0.01" placeholder="0.00" />
             <.finance_input form={@goal_form} field={:target_date} label="Target date" type="date" />
           </div>
+          <div>
+            <.finance_select form={@goal_form} field={:account_id} label="Saved in account" options={[{"No account", ""} | Enum.map(@accounts, &{"#{&1.name} (#{&1.currency})", &1.id})]} />
+            <p class="mt-1 text-xs text-[color:var(--fin-muted)]">Link one to move real money into the goal from your other accounts.</p>
+          </div>
           <.finance_input form={@goal_form} field={:notes} label="Notes" placeholder="Optional note" />
 
           <.form_submit editing={@editing} type="goal" create_label="Save goal" />
@@ -1433,7 +1720,7 @@ defmodule CoreWeb.FinanceComponents do
         </div>
 
         <div class="mt-5 space-y-3">
-          <.savings_goal_card :for={goal <- @savings_goals} goal={goal} contribution_goal_id={@contribution_goal_id} />
+          <.savings_goal_card :for={goal <- @savings_goals} goal={goal} accounts={@accounts} contribution_goal_id={@contribution_goal_id} />
           <div :if={@savings_goals == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] p-4 text-sm text-[color:var(--fin-muted)]">
             Create your first savings goal to start tracking progress.
           </div>
@@ -1444,11 +1731,24 @@ defmodule CoreWeb.FinanceComponents do
   end
 
   attr :goal, :any, required: true
-
+  attr :accounts, :list, default: []
   attr :contribution_goal_id, :string, default: nil
 
   def savings_goal_card(assigns) do
-    assigns = assign(assigns, :pct, savings_goal_percentage(assigns.goal))
+    goal = assigns.goal
+
+    assigns =
+      assign(assigns,
+        pct: savings_goal_percentage(goal),
+        linked_account:
+          goal.account_id && Enum.find(assigns.accounts, &(&1.id == goal.account_id)),
+        source_accounts:
+          Enum.filter(
+            assigns.accounts,
+            &(&1.id != goal.account_id and
+                normalize_currency(&1.currency) == normalize_currency(goal.currency))
+          )
+      )
 
     ~H"""
     <div class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
@@ -1456,7 +1756,7 @@ defmodule CoreWeb.FinanceComponents do
         <div>
           <p class="font-semibold text-[color:var(--fin-text)]"><%= @goal.name %></p>
           <p class="mt-1 text-xs text-[color:var(--fin-muted)]">
-            <%= if @goal.target_date, do: "Target #{format_date(@goal.target_date)}", else: "No target date" %>
+            <%= if @goal.target_date, do: "Target #{format_date(@goal.target_date)}", else: "No target date" %><%= if @linked_account, do: " · In #{@linked_account.name}" %>
           </p>
         </div>
         <span class={["rounded-full px-2.5 py-1 text-xs font-semibold", tone_class(savings_goal_tone(@goal), :soft)]}>
@@ -1501,6 +1801,13 @@ defmodule CoreWeb.FinanceComponents do
             placeholder="100.00"
             class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-2 text-sm text-[color:var(--fin-text)] outline-none focus:border-[var(--fin-accent)]"
           />
+        </label>
+        <label :if={@linked_account} class="min-w-0 flex-1">
+          <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">From</span>
+          <select name="contribution[from_account_id]" class="w-full rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-3 py-2 text-sm text-[color:var(--fin-text)] outline-none focus:border-[var(--fin-accent)]">
+            <option value="">Already in <%= @linked_account.name %></option>
+            <option :for={account <- @source_accounts} value={account.id}><%= account.name %> · <%= account_balance_label(account) %></option>
+          </select>
         </label>
         <button type="button" phx-click="close_contribution" class="btn btn-ghost btn-xs">Cancel</button>
         <button type="submit" class="btn btn-primary btn-xs">Add</button>
@@ -1750,7 +2057,7 @@ defmodule CoreWeb.FinanceComponents do
           </div>
 
           <div class="mt-5 space-y-3.5">
-            <.account_card :for={account <- Enum.take(@accounts, 2)} account={account} />
+            <.account_card_link :for={account <- Enum.take(@accounts, 2)} account={account} />
 
             <div :if={@accounts == []} class="rounded-xl border border-dashed border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-8 text-center text-sm text-[color:var(--fin-muted)]">
               No accounts yet. Add one from the Accounts section.
@@ -1793,11 +2100,13 @@ defmodule CoreWeb.FinanceComponents do
             Add a second account to send money between your own accounts.
           </div>
 
-          <form :if={transfer_account_count(@transfer_account_groups) >= 2} id="quick-send-form" phx-submit="create_transfer" class="mt-4 space-y-3">
-            <.transfer_form_fields groups={@transfer_account_groups} />
-            <p class="text-xs leading-5 text-[color:var(--fin-muted)]">
-              Both accounts must use the same currency.
-            </p>
+          <form :if={transfer_account_count(@transfer_account_groups) >= 2} id="quick-send-form" phx-change="change_transfer" phx-submit="create_transfer" class="mt-4 space-y-3">
+            <.transfer_form_fields
+              groups={@transfer_account_groups}
+              params={if @editing_transfer_id, do: %{}, else: @transfer_params}
+              error={!@focus_panel && @transfer_error}
+              compact
+            />
             <button type="submit" aria-label="Send transfer" class="btn btn-primary btn-sm w-full">
               Send
             </button>
@@ -2020,19 +2329,13 @@ defmodule CoreWeb.FinanceComponents do
                 <td class="hidden px-3 py-3.5 text-[color:var(--fin-muted)] lg:table-cell"><%= category_name(transaction.category) %></td>
                 <td class="hidden px-3 py-3.5 text-[color:var(--fin-muted)] lg:table-cell"><%= (transaction.account && transaction.account.name) || "—" %></td>
                 <td class="px-3 py-3.5">
-                  <.fin_badge :if={transaction.counterpart_transaction_id} tone="muted">Transfer</.fin_badge>
-                  <.fin_badge :if={!transaction.counterpart_transaction_id} tone={transaction_status_tone(transaction.status)}>
-                    <%= transaction_status_label(transaction.status) %>
-                  </.fin_badge>
+                  <.transaction_kind_badge transaction={transaction} />
                 </td>
                 <td class={["whitespace-nowrap px-3 py-3.5 text-right font-mono font-semibold", tone_class(transaction.type)]}>
                   <%= signed_money(transaction) %>
                 </td>
                 <td class="whitespace-nowrap px-3 py-3.5 text-right">
-                  <span class="inline-flex items-center gap-1">
-                    <.icon_button icon="hero-pencil-square" label={"Edit #{transaction.description}"} phx-click="open_edit_transaction" phx-value-id={transaction.id} />
-                    <.icon_button icon="hero-trash" tone="danger" label={"Delete #{transaction.description}"} phx-click="delete_transaction" phx-value-id={transaction.id} />
-                  </span>
+                  <.transaction_actions transaction={transaction} confirming_delete={@confirming_delete} />
                 </td>
               </tr>
             </tbody>
@@ -2208,7 +2511,7 @@ defmodule CoreWeb.FinanceComponents do
             Add debts to compare payoff strategies.
           </div>
 
-          <.debt_card :for={debt <- @debts} debt={debt} payment_form={@payment_form} payment_form_debt_id={@payment_form_debt_id} confirming_delete={@confirming_delete} />
+          <.debt_card :for={debt <- @debts} debt={debt} accounts={@accounts} payment_form={@payment_form} payment_form_debt_id={@payment_form_debt_id} confirming_delete={@confirming_delete} />
         </div>
       </div>
 
@@ -2535,7 +2838,7 @@ defmodule CoreWeb.FinanceComponents do
 
       <p class="mt-7 truncate text-base font-semibold"><%= @account.name %></p>
       <p class="mt-1.5 font-mono text-xl font-semibold tracking-tight">
-        <%= money(@account.current_balance, @account.currency) %>
+        <%= account_balance_label(@account) %>
       </p>
 
       <div class="mt-5 grid grid-cols-3 gap-3 text-[11px]">
@@ -2823,6 +3126,7 @@ defmodule CoreWeb.FinanceComponents do
   end
 
   attr :debt, :any, required: true
+  attr :accounts, :list, default: []
   attr :payment_form, :any, required: true
   attr :payment_form_debt_id, :string, default: nil
   attr :confirming_delete, :any, default: nil
@@ -2867,10 +3171,19 @@ defmodule CoreWeb.FinanceComponents do
           <.finance_input form={@payment_form} field={:amount} label="Payment amount" placeholder="100.00" type="number" step="0.01" />
           <.finance_input form={@payment_form} field={:payment_date} label="Payment date" type="date" />
           <.finance_select form={@payment_form} field={:kind} label="Kind" options={payment_kind_options()} />
-          <label class="flex items-center gap-2 rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-3 text-sm font-semibold text-[color:var(--fin-text)]">
+          <label class="block">
+            <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Pay from</span>
+            <select name="payment[account_id]" class={transfer_field_class()}>
+              <option value="">Not tracked in an account</option>
+              <option :for={account <- debt_payment_accounts(@accounts, @debt)} value={account.id}>
+                <%= account.name %> · <%= account_balance_label(account) %>
+              </option>
+            </select>
+          </label>
+          <label class="flex items-center gap-2 rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] px-4 py-3 text-sm font-semibold text-[color:var(--fin-text)] md:col-span-2">
             <input type="hidden" name="payment[create_expense_transaction]" value="false" />
             <input type="checkbox" name="payment[create_expense_transaction]" value="true" checked class="h-4 w-4 rounded border-[color:var(--fin-border)] text-[color:var(--fin-text)]" />
-            Create expense transaction
+            Log as an expense (always on when paying from an account)
           </label>
           <div class="md:col-span-2">
             <.finance_input form={@payment_form} field={:notes} label="Notes" placeholder="Optional payment note" />
@@ -3177,6 +3490,11 @@ defmodule CoreWeb.FinanceComponents do
 
   def transaction_currency(_transaction), do: @default_currency
 
+  @doc "Accounts a debt can be paid from: same currency as the debt."
+  def debt_payment_accounts(accounts, debt) do
+    Enum.filter(accounts, &(normalize_currency(&1.currency) == normalize_currency(debt.currency)))
+  end
+
   def account_summary_subtitle(account) do
     [account.institution, format_kind(account.kind), account.currency]
     |> Enum.reject(&is_nil_or_empty/1)
@@ -3441,7 +3759,7 @@ defmodule CoreWeb.FinanceComponents do
   def time_scope_title("event"), do: "Event"
 
   def greeting_date do
-    Date.utc_today()
+    Core.Finance.today()
     |> Calendar.strftime("%A, %B %-d")
   end
 
@@ -3450,15 +3768,17 @@ defmodule CoreWeb.FinanceComponents do
   end
 
   defp time_of_day_greeting do
+    hour = Core.Finance.local_now().hour
+
     cond do
-      DateTime.utc_now().hour < 12 -> "Good morning"
-      DateTime.utc_now().hour < 18 -> "Good afternoon"
+      hour < 12 -> "Good morning"
+      hour < 18 -> "Good afternoon"
       true -> "Good evening"
     end
   end
 
   def current_month_range_label do
-    today = Date.utc_today()
+    today = Core.Finance.today()
     start_date = Date.beginning_of_month(today)
     end_date = Date.end_of_month(today)
     "#{Calendar.strftime(start_date, "%b %-d")} – #{Calendar.strftime(end_date, "%b %-d")}"
@@ -3519,6 +3839,14 @@ defmodule CoreWeb.FinanceComponents do
     |> round()
     |> max(12)
   end
+
+  def focus_panel_title("transaction", editing_id, _transfer_id) when not is_nil(editing_id),
+    do: "Edit transaction"
+
+  def focus_panel_title("transfer", _editing_id, transfer_id) when not is_nil(transfer_id),
+    do: "Edit transfer"
+
+  def focus_panel_title(panel, _editing_id, _transfer_id), do: focus_panel_title(panel)
 
   def focus_panel_title("transaction"), do: "Add transaction"
   def focus_panel_title("transfer"), do: "Transfer between accounts"

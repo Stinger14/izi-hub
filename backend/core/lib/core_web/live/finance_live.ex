@@ -6,7 +6,8 @@ defmodule CoreWeb.FinanceLive do
   Context: sidebar sections are full pages (`show_section`); quick actions
   open in a focus panel. `assign_finance_data/1` recomputes everything derived
   after each change, and `{:finance_changed, _}` broadcasts reload it live.
-  `?household=<id>` opens a household.
+  `?household=<id>` opens a household and `?account=<id>` an account's detail
+  view (history with running balance, transfers, balance adjustment).
   """
 
   use CoreWeb, :live_view
@@ -54,7 +55,7 @@ defmodule CoreWeb.FinanceLive do
      |> assign_new(:current_scope, fn -> nil end)
      |> assign(
        page_title: "Finance",
-       active_section: "overview",
+       active_section: if(params["account"], do: "accounts", else: "overview"),
        ownership_scope: if(requested_household, do: "household", else: "personal"),
        time_scope: "month",
        net_worth_filter: "all",
@@ -72,6 +73,12 @@ defmodule CoreWeb.FinanceLive do
        confirming_delete: nil,
        show_archived_accounts: false,
        contribution_goal_id: nil,
+       selected_account_id: params["account"],
+       account_txn_limit: 50,
+       transfer_params: %{},
+       transfer_error: nil,
+       editing_transfer_id: nil,
+       transfer_locked: nil,
        debt_form_open: false,
        payment_form_debt_id: nil,
        comparison: [],
@@ -126,7 +133,7 @@ defmodule CoreWeb.FinanceLive do
     year =
       case Integer.parse(to_string(year)) do
         {parsed, _} -> parsed
-        _ -> Date.utc_today().year
+        _ -> Finance.today().year
       end
 
     {:noreply,
@@ -151,11 +158,17 @@ defmodule CoreWeb.FinanceLive do
      |> open_action_surface("transaction")
      |> assign(editing_transaction_id: nil)
      |> assign_transaction_form(%Transaction{
-       transaction_date: Date.utc_today(),
+       transaction_date: Finance.today(),
        type: "income",
        source: "manual",
        status: "confirmed"
      })}
+  end
+
+  # The transfer form keeps its params so the "Received amount" field can
+  # appear as soon as the two accounts' currencies differ.
+  def handle_event("change_transfer", %{"transfer" => params}, socket) do
+    {:noreply, assign(socket, transfer_params: params, transfer_error: nil)}
   end
 
   def handle_event("create_transfer", %{"transfer" => params}, socket) do
@@ -168,10 +181,131 @@ defmodule CoreWeb.FinanceLive do
          socket
          |> put_flash(:info, "Transfer recorded")
          |> close_action_surface()
+         |> reset_transfer_form()
          |> assign_finance_data()}
 
       {:error, reason} ->
-        {:noreply, put_flash(socket, :error, transfer_error_message(reason))}
+        {:noreply,
+         assign(socket, transfer_params: params, transfer_error: transfer_error_message(reason))}
+    end
+  end
+
+  def handle_event("open_transfer", params, socket) do
+    prefill =
+      %{}
+      |> maybe_put("from_account_id", params["from"])
+      |> maybe_put("to_account_id", params["to"])
+
+    {:noreply,
+     socket
+     |> reset_transfer_form()
+     |> assign(transfer_params: prefill)
+     |> open_action_surface("transfer")}
+  end
+
+  def handle_event("open_edit_transfer", %{"id" => id}, socket) do
+    user = current_actor(socket)
+    leg = Finance.get_transaction!(user, current_finance_owner(socket), id)
+
+    case Finance.transfer_legs(leg) do
+      {:ok, out_leg, in_leg} ->
+        out_leg = Core.Repo.preload(out_leg, :account)
+        in_leg = Core.Repo.preload(in_leg, :account)
+
+        {:noreply,
+         socket
+         |> reset_transfer_form()
+         |> assign(
+           editing_transfer_id: leg.id,
+           transfer_locked: {out_leg.account, in_leg.account},
+           transfer_params: %{
+             "amount" => Decimal.to_string(out_leg.amount, :normal),
+             "received_amount" => Decimal.to_string(in_leg.amount, :normal),
+             "transaction_date" => Date.to_iso8601(out_leg.transaction_date),
+             "notes" => out_leg.notes || ""
+           }
+         )
+         |> open_action_surface("transfer")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "This transfer can't be edited")}
+    end
+  end
+
+  def handle_event("update_transfer", %{"transfer" => params}, socket) do
+    user = current_actor(socket)
+
+    leg =
+      Finance.get_transaction!(
+        user,
+        current_finance_owner(socket),
+        socket.assigns.editing_transfer_id
+      )
+
+    case Finance.update_account_transfer(user, leg, params) do
+      {:ok, _legs} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Transfer updated")
+         |> close_action_surface()
+         |> reset_transfer_form()
+         |> assign_finance_data()}
+
+      {:error, reason} ->
+        {:noreply,
+         assign(socket, transfer_params: params, transfer_error: transfer_error_message(reason))}
+    end
+  end
+
+  # ------ Account detail ------
+
+  def handle_event("show_account", %{"id" => id}, socket) do
+    {:noreply,
+     socket
+     |> reset_record_forms()
+     |> assign(
+       active_section: "accounts",
+       selected_account_id: id,
+       account_txn_limit: 50,
+       confirming_delete: nil
+     )
+     |> assign_finance_data()}
+  end
+
+  def handle_event("close_account", _params, socket) do
+    {:noreply,
+     socket
+     |> reset_record_forms()
+     |> assign(selected_account_id: nil, account_detail: nil)}
+  end
+
+  def handle_event("more_account_transactions", _params, socket) do
+    {:noreply,
+     socket
+     |> update(:account_txn_limit, &(&1 + 50))
+     |> assign_finance_data()}
+  end
+
+  def handle_event("adjust_balance", %{"account_id" => id, "adjustment" => params}, socket) do
+    user = current_actor(socket)
+    account = fetch_record!(socket, "account", id)
+    target = balance_from_input(account.kind, params["balance"])
+
+    case Finance.adjust_account_balance(user, account, target, params) do
+      {:ok, :unchanged} ->
+        {:noreply, put_flash(socket, :info, "#{account.name} already has that balance")}
+
+      {:ok, _adjustment} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "#{account.name} balance updated")
+         |> assign_finance_data()}
+
+      {:error, :invalid_balance} ->
+        {:noreply, put_flash(socket, :error, "Enter the balance as a number")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "The balance could not be updated")}
     end
   end
 
@@ -261,6 +395,7 @@ defmodule CoreWeb.FinanceLive do
     {:noreply,
      socket
      |> close_action_surface()
+     |> reset_transfer_form()
      |> assign_transaction_form()
      |> assign_budget_form()
      |> assign_debt_form()
@@ -279,7 +414,11 @@ defmodule CoreWeb.FinanceLive do
     user = current_actor(socket)
     account_params = Map.get(all_params, "starting_account", %{})
 
-    case Finance.create_household_with_account(user, params, account_params) do
+    case Finance.create_household_with_account(
+           user,
+           params,
+           normalize_balance_params(account_params)
+         ) do
       {:ok, household} ->
         # Start hearing about this household's changes right away.
         if connected?(socket), do: Finance.subscribe_household(household)
@@ -311,7 +450,8 @@ defmodule CoreWeb.FinanceLive do
          |> open_action_surface("household")
          |> assign(
            household_form: to_form(params, as: :household),
-           starting_account_form: to_form(changeset, as: :starting_account)
+           starting_account_form:
+             to_form(%{changeset | params: account_params}, as: :starting_account)
          )}
     end
   end
@@ -471,6 +611,9 @@ defmodule CoreWeb.FinanceLive do
       {:error, :invalid_account_scope} ->
         {:noreply, put_flash(socket, :error, "Choose an account from the active scope")}
 
+      {:error, :archived_account} ->
+        {:noreply, put_flash(socket, :error, "That account is archived; restore it first")}
+
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply,
          socket
@@ -484,11 +627,15 @@ defmodule CoreWeb.FinanceLive do
     owner = current_finance_owner(socket)
     transaction = Finance.get_transaction!(user, owner, id)
 
-    {:noreply,
-     socket
-     |> open_action_surface("transaction")
-     |> assign(editing_transaction_id: transaction.id)
-     |> assign_transaction_form(transaction)}
+    if transaction.counterpart_transaction_id do
+      handle_event("open_edit_transfer", %{"id" => id}, socket)
+    else
+      {:noreply,
+       socket
+       |> open_action_surface("transaction")
+       |> assign(editing_transaction_id: transaction.id)
+       |> assign_transaction_form(transaction)}
+    end
   end
 
   def handle_event("cancel_transaction_edit", _params, socket) do
@@ -538,6 +685,12 @@ defmodule CoreWeb.FinanceLive do
 
       {:error, :invalid_account_scope} ->
         {:noreply, put_flash(socket, :error, "Choose an account from the active scope")}
+
+      {:error, :archived_account} ->
+        {:noreply, put_flash(socket, :error, "That account is archived; restore it first")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Could not save the transaction")}
     end
   end
 
@@ -545,7 +698,7 @@ defmodule CoreWeb.FinanceLive do
     user = current_actor(socket)
     owner = current_finance_owner(socket)
 
-    case Finance.create_account(user, owner, params) do
+    case Finance.create_account(user, owner, normalize_balance_params(params)) do
       {:ok, _account} ->
         {:noreply,
          socket
@@ -555,7 +708,8 @@ defmodule CoreWeb.FinanceLive do
          |> assign_finance_data()}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        changeset = Map.put(changeset, :action, :insert)
+        # show what was typed (an owed amount stays positive), not the signed value
+        changeset = %{changeset | action: :insert, params: params}
 
         # "origin" is a hidden field saying which of the two forms was used.
         if form_params["origin"] == "panel" do
@@ -595,8 +749,12 @@ defmodule CoreWeb.FinanceLive do
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply,
          socket
+         |> open_action_surface("transaction")
          |> assign(editing_transaction_id: transaction.id, active_section: "review")
          |> assign(transaction_form: to_form(changeset, as: :transaction))}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Transaction could not be confirmed")}
     end
   end
 
@@ -665,7 +823,7 @@ defmodule CoreWeb.FinanceLive do
   # into that type's existing form, which then submits "update_record".
 
   @editable_types ~w(account budget category debt goal)
-  @deletable_types ~w(account budget category debt_payment household_member)
+  @deletable_types ~w(account budget category debt_payment household_member transaction)
 
   def handle_event("edit_record", %{"type" => type, "id" => id}, socket)
       when type in @editable_types do
@@ -702,6 +860,10 @@ defmodule CoreWeb.FinanceLive do
 
       {:error, :invalid_category_scope} ->
         {:noreply, put_flash(socket, :error, "Choose a category from the active scope")}
+
+      {:error, reason}
+      when reason in [:invalid_account_scope, :archived_account, :currency_mismatch] ->
+        {:noreply, put_flash(socket, :error, linked_account_error(reason))}
 
       _other ->
         {:noreply, put_flash(socket, :error, "Could not save the changes")}
@@ -773,21 +935,27 @@ defmodule CoreWeb.FinanceLive do
 
   def handle_event(
         "contribute_goal",
-        %{"goal_id" => id, "contribution" => %{"amount" => raw}},
+        %{"goal_id" => id, "contribution" => %{"amount" => raw} = contribution},
         socket
       ) do
     goal = fetch_record!(socket, "goal", id)
+    opts = [from_account_id: contribution["from_account_id"]]
 
     with {:ok, amount} <- Decimal.cast(raw),
          :gt <- Decimal.compare(amount, 0),
-         {:ok, _goal} <- Finance.contribute_to_savings_goal(current_actor(socket), goal, amount) do
+         {:ok, _goal} <-
+           Finance.contribute_to_savings_goal(current_actor(socket), goal, amount, opts) do
       {:noreply,
        socket
        |> put_flash(:info, "Added to #{goal.name}")
        |> assign(contribution_goal_id: nil)
        |> assign_finance_data()}
     else
-      _ -> {:noreply, put_flash(socket, :error, "Enter an amount above zero")}
+      {:error, reason} when is_atom(reason) ->
+        {:noreply, put_flash(socket, :error, transfer_error_message(reason))}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Enter an amount above zero")}
     end
   end
 
@@ -837,8 +1005,11 @@ defmodule CoreWeb.FinanceLive do
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply,
          socket
-         |> open_action_surface("goal")
+         |> assign(active_section: "goals")
          |> assign(goal_form: to_form(changeset, as: :goal))}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, linked_account_error(reason))}
     end
   end
 
@@ -886,6 +1057,9 @@ defmodule CoreWeb.FinanceLive do
          socket
          |> assign(payment_form_debt_id: debt_id)
          |> assign(payment_form: to_form(changeset, as: :payment))}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, linked_account_error(reason))}
     end
   end
 
@@ -1010,7 +1184,7 @@ defmodule CoreWeb.FinanceLive do
 
   defp assign_finance_data(socket) do
     user = current_actor(socket)
-    today = Date.utc_today()
+    today = Finance.today()
     households = Accounts.list_households_for_user(user)
     selected_household = select_household(households, socket.assigns[:selected_household_id])
 
@@ -1114,6 +1288,15 @@ defmodule CoreWeb.FinanceLive do
 
     scope_accounts = scope_account_lists(user, households, owner, accounts)
 
+    account_detail =
+      account_detail(
+        user,
+        owner,
+        socket.assigns[:selected_account_id],
+        accounts ++ archived_accounts,
+        socket.assigns[:account_txn_limit] || 50
+      )
+
     base_assigns = %{
       households: households,
       scope_summaries: scope_summaries(scope_accounts, households, user),
@@ -1138,6 +1321,7 @@ defmodule CoreWeb.FinanceLive do
         account_ids_with_history:
           Finance.account_ids_with_transactions(Enum.map(accounts ++ archived_accounts, & &1.id)),
         transfer_account_groups: transfer_account_groups(scope_accounts),
+        account_detail: account_detail,
         account_summaries: account_summaries,
         account_total_balance: account_total_balance(accounts),
         account_total_balance_totals: account_total_balance_totals,
@@ -1202,7 +1386,7 @@ defmodule CoreWeb.FinanceLive do
   defp assign_transaction_form(
          socket,
          transaction \\ %Transaction{
-           transaction_date: Date.utc_today(),
+           transaction_date: Finance.today(),
            type: "expense",
            source: "manual",
            status: "confirmed"
@@ -1240,6 +1424,7 @@ defmodule CoreWeb.FinanceLive do
       "debt" -> Finance.get_debt!(user, owner, id)
       "goal" -> Finance.get_savings_goal!(user, owner, id)
       "debt_payment" -> Finance.get_debt_payment!(user, owner, id)
+      "transaction" -> Finance.get_transaction!(user, owner, id)
     end
   end
 
@@ -1275,6 +1460,7 @@ defmodule CoreWeb.FinanceLive do
       "budget" -> Finance.delete_budget(user, record)
       "category" -> Finance.delete_category(user, record)
       "debt_payment" -> Finance.delete_debt_payment(user, record)
+      "transaction" -> Finance.delete_transaction(user, record)
     end
   end
 
@@ -1320,6 +1506,7 @@ defmodule CoreWeb.FinanceLive do
   defp record_label("debt"), do: "Debt"
   defp record_label("goal"), do: "Savings goal"
   defp record_label("debt_payment"), do: "Payment"
+  defp record_label("transaction"), do: "Transaction"
   defp record_label("household_member"), do: "Member"
 
   defp deleted_message("household_member"), do: "Member removed"
@@ -1334,7 +1521,7 @@ defmodule CoreWeb.FinanceLive do
     budget = %Budget{
       currency: @default_currency,
       period: "monthly",
-      start_date: Date.beginning_of_month(Date.utc_today()),
+      start_date: Date.beginning_of_month(Finance.today()),
       alert_threshold: 80
     }
 
@@ -1347,7 +1534,7 @@ defmodule CoreWeb.FinanceLive do
   end
 
   defp assign_payment_form(socket) do
-    payment = %DebtPayment{payment_date: Date.utc_today(), kind: "extra"}
+    payment = %DebtPayment{payment_date: Finance.today(), kind: "extra"}
     assign(socket, payment_form: to_form(Finance.change_debt_payment(payment), as: :payment))
   end
 
@@ -1616,11 +1803,10 @@ defmodule CoreWeb.FinanceLive do
   # --- net worth ------------------------------------------------------------
   #
   # Net worth combines two existing schemas (Account and Debt) instead of
-  # introducing a new one. Accounts of kind "credit_card" or "loan" are
-  # treated as liabilities (their balance is stored as a magnitude, not
-  # necessarily signed), everything else is an asset. Debt records are
-  # always liabilities. Every item's `amount` is normalized so assets are
-  # positive and liabilities are negative — that way a single
+  # introducing a new one. Account balances are already signed (credit cards
+  # and loans are negative while owed, see Account.liability?/1), so they're
+  # used as-is; Debt records are always liabilities. Every item's `amount` is
+  # positive for assets and negative for liabilities — that way a single
   # `currency_totals/3` call over the combined list yields the net figure.
 
   defp net_worth_account_category(%{kind: kind}) when kind in ["checking", "savings", "cash"],
@@ -1637,12 +1823,7 @@ defmodule CoreWeb.FinanceLive do
     account_items =
       Enum.map(accounts, fn account ->
         category = net_worth_account_category(account)
-        balance = account.current_balance || Decimal.new("0")
-
-        amount =
-          if category == "liabilities",
-            do: balance |> Decimal.abs() |> Decimal.negate(),
-            else: balance
+        amount = account.current_balance || Decimal.new("0")
 
         %{
           id: "account-#{account.id}",
@@ -1825,12 +2006,78 @@ defmodule CoreWeb.FinanceLive do
   defp transfer_error_message(:same_account), do: "Pick two different accounts"
 
   defp transfer_error_message(:currency_mismatch),
-    do:
-      "Both accounts must use the same currency; transfers between currencies aren't supported yet"
+    do: "These accounts use different currencies: enter the amount received"
 
   defp transfer_error_message(:invalid_transfer_amount), do: "Enter an amount above zero"
+  defp transfer_error_message(:invalid_received_amount), do: "Enter a received amount above zero"
   defp transfer_error_message(:invalid_transfer_date), do: "Enter a valid date"
+
+  defp transfer_error_message(:goal_has_no_account),
+    do: "Link this goal to an account to move money into it"
+
+  defp transfer_error_message(%Ecto.Changeset{}), do: "Check the amounts and date"
   defp transfer_error_message(_reason), do: "Could not record the transfer"
+
+  defp linked_account_error(:invalid_account_scope), do: "Choose an account from the active scope"
+  defp linked_account_error(:archived_account), do: "That account is archived; restore it first"
+  defp linked_account_error(:currency_mismatch), do: "The account must use the same currency"
+  defp linked_account_error(_reason), do: "Could not save the changes"
+
+  defp reset_transfer_form(socket) do
+    assign(socket,
+      transfer_params: %{},
+      transfer_error: nil,
+      editing_transfer_id: nil,
+      transfer_locked: nil
+    )
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, _key, ""), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  # Credit cards and loans are typed as the amount owed (positive) and stored
+  # signed (negative = owed), so every balance follows the same math.
+  defp normalize_balance_params(%{"current_balance" => balance, "kind" => kind} = params) do
+    Map.put(params, "current_balance", balance_from_input(kind, balance))
+  end
+
+  defp normalize_balance_params(params), do: params
+
+  defp balance_from_input(kind, value) do
+    with true <- Account.liability?(kind),
+         {:ok, decimal} <- value |> to_string() |> String.trim() |> Decimal.cast() do
+      decimal |> Decimal.negate() |> Decimal.to_string(:normal)
+    else
+      _ -> value
+    end
+  end
+
+  # The account's latest transactions, each with the balance right after it
+  # (walked back from the current balance; pending rows don't move it).
+  defp account_detail(_user, _owner, nil, _accounts, _limit), do: nil
+
+  defp account_detail(user, owner, account_id, accounts, limit) do
+    case Enum.find(accounts, &(&1.id == account_id)) do
+      nil ->
+        nil
+
+      account ->
+        opts = [account_id: account.id, status: ["confirmed", "pending_review"]]
+        {:ok, total} = Finance.count_transactions(user, owner, opts)
+        {:ok, rows} = Finance.list_transactions(user, owner, opts ++ [limit: limit])
+
+        {rows, _balance} =
+          Enum.map_reduce(rows, account.current_balance, fn transaction, balance ->
+            case Finance.balance_delta(transaction) do
+              nil -> {{transaction, nil}, balance}
+              delta -> {{transaction, balance}, Decimal.sub(balance, delta)}
+            end
+          end)
+
+        %{account: account, rows: rows, total: total}
+    end
+  end
 
   # Builds the filter keyword list for the transactions table from the raw
   # filter form params. Blank selections fall away; when no status is chosen
@@ -1897,7 +2144,7 @@ defmodule CoreWeb.FinanceLive do
   defp month_start(month_iso) do
     case Date.from_iso8601(month_iso <> "-01") do
       {:ok, start} -> start
-      _ -> Date.beginning_of_month(Date.utc_today())
+      _ -> Date.beginning_of_month(Finance.today())
     end
   end
 
@@ -1946,7 +2193,7 @@ defmodule CoreWeb.FinanceLive do
   end
 
   defp hero_month_options do
-    current = Date.beginning_of_month(Date.utc_today())
+    current = Date.beginning_of_month(Finance.today())
 
     for offset <- 0..-11//-1 do
       month = shift_months(current, offset)

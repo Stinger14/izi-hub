@@ -232,7 +232,7 @@ defmodule CoreWeb.FinanceHouseholdsHotfixTest do
              )
     end
 
-    test "different currencies explain why", %{conn: conn} do
+    test "different currencies ask for the amount received", %{conn: conn} do
       user = user_fixture()
       {:ok, household} = Accounts.create_household(user, %{"name" => "Garcia Home"})
       wallet = account!(user, user, "Wallet", "1000.00", "DOP")
@@ -248,7 +248,7 @@ defmodule CoreWeb.FinanceHouseholdsHotfixTest do
         )
         |> render_submit()
 
-      assert html =~ "Both accounts must use the same currency"
+      assert html =~ "enter the amount received"
     end
   end
 end
