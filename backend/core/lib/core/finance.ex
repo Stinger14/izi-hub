@@ -955,11 +955,12 @@ defmodule Core.Finance do
   @doc """
   Income, expenses and balance per currency between two dates, transfers
   excluded. Options: `:statuses` (default confirmed),
-  `:exclude_debt_payment_expenses`.
+  `:exclude_debt_payment_expenses`, `:account_id` (one account only).
   """
   def get_currency_summary(owner, start_date, end_date, opts \\ []) do
     statuses = Keyword.get(opts, :statuses, ["confirmed"])
     exclude_debt_payment_expenses = Keyword.get(opts, :exclude_debt_payment_expenses, false)
+    account_id = Keyword.get(opts, :account_id)
 
     rows =
       Transaction
@@ -972,6 +973,9 @@ defmodule Core.Finance do
         transaction.transaction_date >= ^start_date and transaction.transaction_date <= ^end_date
       )
       |> maybe_exclude_debt_payment_expenses(owner, exclude_debt_payment_expenses)
+      |> then(fn query ->
+        if account_id, do: where(query, [t], t.account_id == ^account_id), else: query
+      end)
       |> group_by([transaction, account], [account.currency, transaction.type])
       |> select([transaction, account], %{
         currency: fragment("COALESCE(?, ?)", account.currency, ^@default_currency),
@@ -1025,11 +1029,12 @@ defmodule Core.Finance do
     do_list_accounts(user)
   end
 
+  # The primary account first, so pickers and "My Cards" default to it.
   defp do_list_accounts(owner) do
     Account
     |> scope_query(owner)
     |> where([account], account.status == "active")
-    |> order_by([account], asc: account.kind, asc: account.name)
+    |> order_by([account], desc: account.is_primary, asc: account.kind, asc: account.name)
     |> Repo.all()
   end
 
@@ -1054,10 +1059,66 @@ defmodule Core.Finance do
   def create_account(%User{} = actor, owner, attrs) do
     with :ok <- ensure_scope_access(actor, owner),
          attrs <- scope_attrs(attrs, owner) do
-      %Account{}
-      |> Account.changeset(attrs)
-      |> Repo.insert()
+      Repo.transaction(fn ->
+        case %Account{} |> Account.changeset(attrs) |> Repo.insert() do
+          {:ok, account} ->
+            # a scope's first account becomes its primary
+            ensure_scope_primary!(owner)
+            account
+
+          {:error, changeset} ->
+            Repo.rollback(changeset)
+        end
+      end)
+      |> case do
+        {:ok, account} -> broadcast_change({:ok, Repo.get!(Account, account.id)})
+        error -> error
+      end
+    end
+  end
+
+  @doc """
+  Makes `account` its scope's primary (the dashboard's default view, the
+  default "From" for transfers and new transactions) and unstars the previous
+  one. Only active accounts can be primary (`{:error, :archived_account}`).
+  """
+  def set_primary_account(%User{} = actor, %Account{} = account) do
+    with :ok <- ensure_resource_owner(actor, account),
+         %Account{status: "active"} = account <-
+           Repo.get(Account, account.id) || {:error, :not_found} do
+      owner = resource_owner(account)
+
+      Repo.transaction(fn ->
+        Account
+        |> scope_query(owner)
+        |> where([a], a.is_primary and a.id != ^account.id)
+        |> Repo.update_all(set: [is_primary: false])
+
+        account |> Ecto.Changeset.change(is_primary: true) |> Repo.update!()
+      end)
       |> broadcast_change()
+    else
+      %Account{} -> {:error, :archived_account}
+      error -> error
+    end
+  end
+
+  # Stars the scope's first active account (primary-less after a create,
+  # archive, restore or delete). Returns nil when a primary already exists
+  # or there's nothing to star.
+  defp ensure_scope_primary!(owner) do
+    has_primary? =
+      Account
+      |> scope_query(owner)
+      |> where([a], a.is_primary and a.status == "active")
+      |> Repo.exists?()
+
+    with false <- has_primary?,
+         %Account{} = account <- owner |> do_list_accounts() |> List.first() do
+      account |> Ecto.Changeset.change(is_primary: true) |> Repo.update!()
+      nil
+    else
+      _ -> nil
     end
   end
 
@@ -1158,7 +1219,12 @@ defmodule Core.Finance do
       if account_has_transactions?(account) do
         {:error, :has_transactions}
       else
-        account |> Repo.delete() |> broadcast_change()
+        Repo.transaction(fn ->
+          account = Repo.delete!(account)
+          ensure_scope_primary!(resource_owner(account))
+          account
+        end)
+        |> broadcast_change()
       end
     end
   end
@@ -1199,11 +1265,18 @@ defmodule Core.Finance do
     end
   end
 
+  # An archived account gives up the star; the next active one takes it (and
+  # a restored account takes it if the scope has none).
   defp set_account_status(user, account, status) do
     with :ok <- ensure_resource_owner(user, account) do
-      account
-      |> Ecto.Changeset.change(status: status)
-      |> Repo.update()
+      Repo.transaction(fn ->
+        changes =
+          if status == "active", do: [status: status], else: [status: status, is_primary: false]
+
+        account = account |> Ecto.Changeset.change(changes) |> Repo.update!()
+        ensure_scope_primary!(resource_owner(account))
+        Repo.get!(Account, account.id)
+      end)
       |> broadcast_change()
     end
   end

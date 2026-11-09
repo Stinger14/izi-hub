@@ -194,11 +194,22 @@ defmodule CoreWeb.FinanceComponents do
     ~H"""
     <.fin_card class="flex h-full flex-col">
       <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 class="text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">Total balance</h2>
+        <div class="min-w-0">
+          <h2 class="truncate text-lg font-semibold tracking-tight text-[color:var(--fin-text)]">
+            <%= if @hero.account, do: @hero.account.name, else: "Total balance" %>
+          </h2>
         </div>
-        <div class="flex items-center gap-1.5">
-          <form phx-change="select_hero_currency">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <form id="dashboard-view-form" phx-change="select_dashboard_view">
+            <label for="dashboard-view" class="sr-only">Show</label>
+            <select id="dashboard-view" name="view" class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-2 py-1 text-[11px] font-semibold text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)] max-w-[11rem]">
+              <option value="all" selected={is_nil(@hero.account)}>All accounts</option>
+              <option :for={account <- @hero.accounts} value={account.id} selected={@hero.account && @hero.account.id == account.id}>
+                <%= account.name %><%= if account.is_primary, do: " ★" %>
+              </option>
+            </select>
+          </form>
+          <form :if={!@hero.account} phx-change="select_hero_currency">
             <select
               name="currency"
               class="rounded-lg border border-[color:var(--fin-border)] bg-[color:var(--fin-card)] px-2 py-1 text-[11px] font-semibold text-[color:var(--fin-text)] outline-none transition focus:border-[var(--fin-accent)]"
@@ -223,7 +234,7 @@ defmodule CoreWeb.FinanceComponents do
 
       <div class="mt-6">
         <p class="font-mono text-[2.1rem] font-semibold leading-none tracking-[-0.03em] text-[color:var(--fin-text)]">
-          <%= money(@hero.balance, @hero.currency) %>
+          <%= if @hero.account, do: account_balance_label(@hero.account), else: money(@hero.balance, @hero.currency) %>
         </p>
         <.delta_line delta={@hero.balance_delta} class="mt-2.5" />
       </div>
@@ -234,9 +245,9 @@ defmodule CoreWeb.FinanceComponents do
 
       <div class="mt-5 flex items-center justify-between gap-2 border-t border-dashed border-[color:var(--fin-border)] pt-4">
         <p class="min-w-0 truncate text-sm text-[color:var(--fin-muted)]">
-          Primary Account:
-          <span :if={@hero.primary_account} class="ml-1 font-mono font-semibold text-[color:var(--fin-text)]">
-            •••• <%= account_card_mask(@hero.primary_account) %>
+          <%= if @hero.account && !@hero.account.is_primary, do: "Account:", else: "Primary account:" %>
+          <span :if={@hero.primary_account} class="ml-1 font-semibold text-[color:var(--fin-text)]">
+            <%= if !@hero.account, do: "#{@hero.primary_account.name} " %><span class="font-mono">•••• <%= account_card_mask(@hero.primary_account) %></span>
           </span>
           <span :if={!@hero.primary_account} class="ml-1 text-[color:var(--fin-muted)]">none yet</span>
         </p>
@@ -1015,9 +1026,12 @@ defmodule CoreWeb.FinanceComponents do
           <div :for={summary <- @account_summaries} class="rounded-xl border border-[color:var(--fin-border)] bg-[color:var(--fin-surface)] p-4">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <button type="button" phx-click="show_account" phx-value-id={summary.account.id} class="truncate text-left font-semibold text-[color:var(--fin-text)] hover:text-[var(--fin-accent)]">
-                  <%= summary.account.name %>
-                </button>
+                <div class="flex flex-wrap items-center gap-2">
+                  <button type="button" phx-click="show_account" phx-value-id={summary.account.id} class="truncate text-left font-semibold text-[color:var(--fin-text)] hover:text-[var(--fin-accent)]">
+                    <%= summary.account.name %>
+                  </button>
+                  <.fin_badge :if={summary.account.is_primary} tone="budget">Primary</.fin_badge>
+                </div>
                 <p class="mt-1 text-xs text-[color:var(--fin-muted)]"><%= account_summary_subtitle(summary.account) %></p>
               </div>
               <div class="text-right">
@@ -1040,6 +1054,7 @@ defmodule CoreWeb.FinanceComponents do
                 confirming_delete={@confirming_delete}
                 delete={!MapSet.member?(@account_ids_with_history, summary.account.id)}
               >
+                <.primary_toggle account={summary.account} />
                 <.icon_button icon="hero-arrow-right" label={"Open #{summary.account.name}"} phx-click="show_account" phx-value-id={summary.account.id} />
                 <.icon_button icon="hero-archive-box" label={"Archive #{summary.account.name}"} phx-click="archive_account" phx-value-id={summary.account.id} />
               </.record_actions>
@@ -1096,7 +1111,10 @@ defmodule CoreWeb.FinanceComponents do
             <button type="button" phx-click="close_account" class="inline-flex items-center gap-1 text-xs font-semibold text-[var(--fin-accent)]">
               <.icon name="hero-arrow-left" class="h-3.5 w-3.5" /> All accounts
             </button>
-            <h2 class="mt-2 truncate text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]"><%= @account.name %></h2>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              <h2 class="truncate text-2xl font-semibold tracking-tight text-[color:var(--fin-text)]"><%= @account.name %></h2>
+              <.fin_badge :if={@account.is_primary} tone="budget">Primary</.fin_badge>
+            </div>
             <p class="mt-1 text-xs text-[color:var(--fin-muted)]">
               <%= account_summary_subtitle(@account) %><%= if @account.status == "archived", do: " · Archived" %>
             </p>
@@ -1113,6 +1131,7 @@ defmodule CoreWeb.FinanceComponents do
           <button :if={@account.status == "active"} type="button" phx-click="open_transfer" phx-value-to={@account.id} class="btn btn-secondary btn-sm">
             Transfer in
           </button>
+          <.primary_toggle :if={@account.status == "active"} account={@account} />
           <.icon_button icon="hero-pencil-square" label={"Edit #{@account.name}"} phx-click="edit_record" phx-value-type="account" phx-value-id={@account.id} />
           <.icon_button :if={@account.status == "active"} icon="hero-archive-box" label={"Archive #{@account.name}"} phx-click="archive_account" phx-value-id={@account.id} />
           <.icon_button :if={@account.status != "active"} icon="hero-arrow-uturn-left" label={"Restore #{@account.name}"} phx-click="restore_account" phx-value-id={@account.id} />
@@ -1197,6 +1216,33 @@ defmodule CoreWeb.FinanceComponents do
         </div>
       </div>
     </section>
+    """
+  end
+
+  attr :account, :map, required: true
+
+  @doc """
+  Star for an account: filled (and inert) on the primary, "Make … primary"
+  on the others. The primary is the Overview's default view and the default
+  "From" for new transfers and transactions.
+  """
+  def primary_toggle(assigns) do
+    ~H"""
+    <span
+      :if={@account.is_primary}
+      title={"#{@account.name} is your primary account"}
+      aria-label={"#{@account.name} is your primary account"}
+      class="inline-grid h-8 w-8 shrink-0 place-items-center text-[var(--fin-accent)]"
+    >
+      <.icon name="hero-star-solid" class="h-4 w-4" />
+    </span>
+    <.icon_button
+      :if={!@account.is_primary}
+      icon="hero-star"
+      label={"Make #{@account.name} primary"}
+      phx-click="set_primary_account"
+      phx-value-id={@account.id}
+    />
     """
   end
 
@@ -3175,7 +3221,7 @@ defmodule CoreWeb.FinanceComponents do
             <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[color:var(--fin-muted)]">Pay from</span>
             <select name="payment[account_id]" class={transfer_field_class()}>
               <option value="">Not tracked in an account</option>
-              <option :for={account <- debt_payment_accounts(@accounts, @debt)} value={account.id}>
+              <option :for={account <- debt_payment_accounts(@accounts, @debt)} value={account.id} selected={account.is_primary}>
                 <%= account.name %> · <%= account_balance_label(account) %>
               </option>
             </select>

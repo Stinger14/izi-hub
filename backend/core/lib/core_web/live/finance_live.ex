@@ -8,6 +8,8 @@ defmodule CoreWeb.FinanceLive do
   after each change, and `{:finance_changed, _}` broadcasts reload it live.
   `?household=<id>` opens a household and `?account=<id>` an account's detail
   view (history with running balance, transfers, balance adjustment).
+  `?view=all|<account id>` picks what the Overview shows; without it the
+  scope's primary account (`Account.is_primary`) is shown, or all accounts.
   """
 
   use CoreWeb, :live_view
@@ -74,6 +76,7 @@ defmodule CoreWeb.FinanceLive do
        show_archived_accounts: false,
        contribution_goal_id: nil,
        selected_account_id: params["account"],
+       dashboard_view: params["view"],
        account_txn_limit: 50,
        transfer_params: %{},
        transfer_error: nil,
@@ -92,6 +95,17 @@ defmodule CoreWeb.FinanceLive do
      )
      |> assign_forms()
      |> assign_finance_data()}
+  end
+
+  # Only `?view=` changes after mount (the dashboard's Show picker patches it).
+  def handle_params(params, _uri, socket) do
+    view = params["view"]
+
+    if view == socket.assigns.dashboard_view do
+      {:noreply, socket}
+    else
+      {:noreply, socket |> assign(dashboard_view: view) |> assign_finance_data()}
+    end
   end
 
   # A finance write elsewhere (another tab, the hub, email ingestion, another
@@ -113,6 +127,33 @@ defmodule CoreWeb.FinanceLive do
 
   def handle_event("filter_net_worth", %{"category" => category}, socket) do
     {:noreply, assign(socket, :net_worth_filter, category)}
+  end
+
+  def handle_event("select_dashboard_view", %{"view" => view}, socket) do
+    query =
+      if socket.assigns.ownership_scope == "household" and socket.assigns.selected_household_id,
+        do: %{"view" => view, "household" => socket.assigns.selected_household_id},
+        else: %{"view" => view}
+
+    {:noreply, push_patch(socket, to: ~p"/finance?#{query}")}
+  end
+
+  def handle_event("set_primary_account", %{"id" => id}, socket) do
+    account = fetch_record!(socket, "account", id)
+
+    case Finance.set_primary_account(current_actor(socket), account) do
+      {:ok, _account} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "#{account.name} is now your primary account")
+         |> assign_finance_data()}
+
+      {:error, :archived_account} ->
+        {:noreply, put_flash(socket, :error, "Restore #{account.name} before making it primary")}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Could not change the primary account")}
+    end
   end
 
   def handle_event("select_hero_currency", %{"currency" => currency}, socket) do
@@ -161,7 +202,8 @@ defmodule CoreWeb.FinanceLive do
        transaction_date: Finance.today(),
        type: "income",
        source: "manual",
-       status: "confirmed"
+       status: "confirmed",
+       account_id: default_account_id(socket)
      })}
   end
 
@@ -360,7 +402,12 @@ defmodule CoreWeb.FinanceLive do
     {:noreply,
      socket
      |> close_action_surface()
-     |> assign(ownership_scope: "personal", hero_currency: nil, last_invite_link: nil)
+     |> assign(
+       ownership_scope: "personal",
+       hero_currency: nil,
+       last_invite_link: nil,
+       dashboard_view: nil
+     )
      |> assign_finance_data()}
   end
 
@@ -378,7 +425,8 @@ defmodule CoreWeb.FinanceLive do
            selected_household_id: household.id,
            selected_household: household,
            hero_currency: nil,
-           last_invite_link: nil
+           last_invite_link: nil,
+           dashboard_view: nil
          )
          |> assign_finance_data()}
     end
@@ -1262,14 +1310,35 @@ defmodule CoreWeb.FinanceLive do
     net_worth_groups = net_worth_groups(net_worth_items)
     net_worth_currencies = currency_codes(net_worth_items, & &1.currency)
 
+    # What the Overview is about: one account (the picked one, else the
+    # primary) or every account in the chosen currency.
+    dashboard_account = resolve_dashboard_account(socket.assigns[:dashboard_view], accounts)
+
+    hero_currency =
+      if dashboard_account,
+        do: dashboard_account.currency,
+        else: resolve_hero_currency(socket.assigns[:hero_currency], accounts)
+
+    dashboard_account_id = dashboard_account && dashboard_account.id
     cashflow_year = socket.assigns[:cashflow_year] || today.year
     cashflow_window = socket.assigns[:cashflow_window] || 6
-    {cashflow_months, cashflow} = build_cashflow(owner, today, cashflow_year, cashflow_window)
-    spending_breakdown = category_spending_breakdown(user, owner, today)
 
-    hero_currency = resolve_hero_currency(socket.assigns[:hero_currency], accounts)
+    {cashflow_months, cashflow} =
+      build_cashflow(
+        owner,
+        today,
+        cashflow_year,
+        cashflow_window,
+        hero_currency,
+        dashboard_account_id
+      )
+
+    spending_breakdown = category_spending_breakdown(user, owner, today, dashboard_account_id)
+
     hero_month = socket.assigns[:hero_month] || month_iso(today)
-    hero = build_hero(owner, accounts, hero_currency, hero_month, cashflow_months)
+
+    hero =
+      build_hero(owner, accounts, hero_currency, hero_month, cashflow_months, dashboard_account)
 
     txn_sort = socket.assigns[:txn_sort] || {:transaction_date, :desc}
     txn_filters = socket.assigns[:txn_filters] || %{}
@@ -1355,6 +1424,7 @@ defmodule CoreWeb.FinanceLive do
         cashflow_window: cashflow_window,
         spending_breakdown: spending_breakdown,
         hero_currency: hero_currency,
+        dashboard_account: dashboard_account,
         hero_month: hero_month,
         hero: hero,
         txn_rows: txn_rows,
@@ -1617,7 +1687,13 @@ defmodule CoreWeb.FinanceLive do
   defp prepare_focus_panel(socket, "transaction") do
     socket
     |> assign(editing_transaction_id: nil)
-    |> assign_transaction_form()
+    |> assign_transaction_form(%Transaction{
+      transaction_date: Finance.today(),
+      type: "expense",
+      source: "manual",
+      status: "confirmed",
+      account_id: default_account_id(socket)
+    })
     |> open_action_surface("transaction")
   end
 
@@ -1647,6 +1723,16 @@ defmodule CoreWeb.FinanceLive do
   end
 
   defp prepare_focus_panel(socket, panel), do: open_action_surface(socket, panel)
+
+  # New transactions land in the account the Overview is showing: the picked
+  # one, else the primary.
+  defp default_account_id(socket) do
+    case socket.assigns[:dashboard_account] ||
+           Enum.find(socket.assigns[:accounts] || [], & &1.is_primary) do
+      nil -> nil
+      account -> account.id
+    end
+  end
 
   defp open_action_surface(socket, panel) when is_binary(panel) do
     socket
@@ -2148,17 +2234,31 @@ defmodule CoreWeb.FinanceLive do
     end
   end
 
-  defp build_hero(owner, accounts, currency, hero_month, cashflow_months) do
+  defp resolve_dashboard_account("all", _accounts), do: nil
+
+  defp resolve_dashboard_account(view, accounts) do
+    Enum.find(accounts, &(&1.id == view)) || Enum.find(accounts, & &1.is_primary)
+  end
+
+  defp build_hero(owner, accounts, currency, hero_month, cashflow_months, dashboard_account) do
     start = month_start(hero_month)
     prev_start = shift_months(start, -1)
+    summary_opts = if dashboard_account, do: [account_id: dashboard_account.id], else: []
 
-    summary = Finance.get_currency_summary(owner, start, Date.end_of_month(start))
+    summary = Finance.get_currency_summary(owner, start, Date.end_of_month(start), summary_opts)
 
     prev_summary =
-      Finance.get_currency_summary(owner, prev_start, Date.end_of_month(prev_start))
+      Finance.get_currency_summary(
+        owner,
+        prev_start,
+        Date.end_of_month(prev_start),
+        summary_opts
+      )
 
     active_in_currency =
-      Enum.filter(accounts, &(&1.currency == currency && &1.status == "active"))
+      if dashboard_account,
+        do: [dashboard_account],
+        else: Enum.filter(accounts, &(&1.currency == currency && &1.status == "active"))
 
     balance =
       Enum.reduce(active_in_currency, Decimal.new("0"), fn account, acc ->
@@ -2188,7 +2288,11 @@ defmodule CoreWeb.FinanceLive do
       saving_rate: saving_rate,
       saving_goal: @saving_rate_goal,
       sparkline: balance_sparkline(balance, cashflow_months),
-      primary_account: List.first(active_in_currency)
+      account: dashboard_account,
+      accounts: accounts,
+      primary_account:
+        dashboard_account || Enum.find(active_in_currency, & &1.is_primary) ||
+          List.first(active_in_currency)
     }
   end
 
@@ -2232,7 +2336,11 @@ defmodule CoreWeb.FinanceLive do
   # Builds `window` months of cashflow ending at the selected year's last
   # month (or the current month when the selected year is the current one),
   # plus the preceding window so Total Revenue gets a comparison delta.
-  defp build_cashflow(owner, today, year, window) do
+  # Income and spending per month in one currency (optionally one account);
+  # never adds DOP and USD together.
+  defp build_cashflow(owner, today, year, window, currency, account_id) do
+    summary_opts = if account_id, do: [account_id: account_id], else: []
+
     end_month =
       if year == today.year,
         do: Date.beginning_of_month(today),
@@ -2243,13 +2351,15 @@ defmodule CoreWeb.FinanceLive do
       |> Enum.map(fn offset ->
         month_start = shift_months(end_month, -offset)
         month_end = Date.end_of_month(month_start)
-        summary = Finance.get_financial_summary(owner, month_start, month_end)
+        summary = Finance.get_currency_summary(owner, month_start, month_end, summary_opts)
+        income = currency_amount(summary.income, currency)
+        expenses = currency_amount(summary.expenses, currency)
 
         %{
           label: Calendar.strftime(month_start, "%b"),
-          income: summary.income,
-          expenses: summary.expenses,
-          balance: summary.balance
+          income: income,
+          expenses: expenses,
+          balance: Decimal.sub(income, expenses)
         }
       end)
 
@@ -2260,7 +2370,7 @@ defmodule CoreWeb.FinanceLive do
       revenue: revenue,
       revenue_delta: pct_delta(revenue, sum_month_incomes(previous_months)),
       year_options: (today.year - 3)..today.year,
-      currency: @default_currency
+      currency: currency
     }
 
     {current_months, cashflow}
@@ -2283,14 +2393,20 @@ defmodule CoreWeb.FinanceLive do
   # across accounts (same simplification `get_financial_summary/3` already
   # makes) since this is a proportion widget, not a currency-exact total.
 
-  defp category_spending_breakdown(user, owner, today) do
+  defp category_spending_breakdown(user, owner, today, account_id) do
+    account_filter = if account_id, do: [account_id: account_id], else: []
+
     {:ok, transactions} =
-      Finance.list_transactions(user, owner,
-        status: ["confirmed"],
-        type: "expense",
-        exclude_transfers: true,
-        start_date: Date.beginning_of_month(today),
-        end_date: Date.end_of_month(today)
+      Finance.list_transactions(
+        user,
+        owner,
+        [
+          status: ["confirmed"],
+          type: "expense",
+          exclude_transfers: true,
+          start_date: Date.beginning_of_month(today),
+          end_date: Date.end_of_month(today)
+        ] ++ account_filter
       )
 
     total = Enum.reduce(transactions, Decimal.new("0"), &Decimal.add(&2, &1.amount))

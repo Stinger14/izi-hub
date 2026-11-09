@@ -26,6 +26,9 @@ defmodule Core.Finance.Account do
     field :status, :string, default: "active"
     field :last_synced_at, :utc_datetime_usec
     field :notes, :string
+    # Set only by Core.Finance (set_primary_account/2 and the archive/create
+    # paths), never cast: one per scope, enforced by partial unique indexes.
+    field :is_primary, :boolean, default: false
 
     belongs_to :user, Core.Accounts.User
     belongs_to :household, Core.Accounts.Household
