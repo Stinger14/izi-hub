@@ -60,25 +60,16 @@ defmodule CoreWeb.FlashTest do
           "current_balance" => "10"
         })
 
-      {:ok, b} =
-        Finance.create_account(user, %{
-          "name" => "Bravo",
-          "kind" => "checking",
-          "current_balance" => "10"
-        })
-
-      {:ok, view, _html} = live(conn, ~p"/finance")
+      {:ok, view, _html} = live(conn, ~p"/finance?account=#{a.id}")
 
       html =
         view
-        |> form("#quick-send-form",
-          transfer: %{"from_account_id" => a.id, "to_account_id" => b.id, "amount" => "-1"}
-        )
+        |> form("#adjust-balance-form", adjustment: %{"balance" => "lots"})
         |> render_submit()
 
       assert html =~ ~s(id="flash-error")
       assert html =~ ~s(role="alert")
-      assert html =~ "Enter an amount above zero"
+      assert html =~ "Enter the balance as a number"
 
       [error_toast] =
         html |> LazyHTML.from_fragment() |> LazyHTML.query("#flash-error") |> Enum.to_list()
