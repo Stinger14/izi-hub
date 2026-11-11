@@ -9,7 +9,10 @@ import Config
 
 # Configure db
 config :core,
-  ecto_repos: [Core.Repo]
+  ecto_repos: [Core.Repo],
+  # Finance's "today" (default dates, month ranges): a fixed UTC offset in
+  # minutes. -240 is the Dominican Republic (no daylight saving).
+  finance_utc_offset_minutes: -240
 
 config :core, CoreWeb.Endpoint,
   pubsub_server: Core.PubSub,

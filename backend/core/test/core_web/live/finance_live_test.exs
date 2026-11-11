@@ -427,7 +427,8 @@ defmodule CoreWeb.FinanceLiveTest do
         "current_balance" => "500.00"
       })
 
-    {:ok, view, _html} = live(conn, ~p"/finance")
+    # the currency picker belongs to the "All accounts" view
+    {:ok, view, _html} = live(conn, ~p"/finance?view=all")
 
     assert has_element?(view, "select[name=\"currency\"] option[value=\"DOP\"][selected]")
 

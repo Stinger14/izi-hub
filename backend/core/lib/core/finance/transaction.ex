@@ -1,10 +1,14 @@
 defmodule Core.Finance.Transaction do
   @moduledoc """
-  One income or expense, possibly a transfer leg or an emailed candidate.
+  One income or expense, possibly a transfer leg, a balance adjustment or an
+  emailed candidate.
 
-  Context: Owned by exactly one user or household (DB check constraint). Transfer
-  legs link through `counterpart_transaction_id` (set in code, never cast) and are
-  excluded from income/expense totals. Emailed ones start as `pending_review`.
+  Context: Owned by exactly one user or household (DB check constraint). A
+  confirmed transaction with an account moves that account's balance (income
+  adds, expense subtracts); `Core.Finance` keeps balances in step on every write.
+  Transfer legs link through `counterpart_transaction_id` and adjustments carry
+  `balance_adjustment` (both set in code, never cast); neither counts as income
+  or spending. Emailed ones start as `pending_review`.
   """
 
   use Ecto.Schema
@@ -29,6 +33,8 @@ defmodule Core.Finance.Transaction do
     field :tags, {:array, :string}, default: []
     field :receipt_url, :string
     field :notes, :string
+    # Set in code by Finance.adjust_account_balance/4, never cast.
+    field :balance_adjustment, :boolean, default: false
 
     belongs_to :account, Core.Finance.Account
     belongs_to :user, Core.Accounts.User
